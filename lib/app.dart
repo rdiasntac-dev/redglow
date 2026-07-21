@@ -2,10 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'screens/auth_screen.dart';
+import 'state/demo_app_state.dart';
 import 'theme/app_theme.dart';
 
-class RedGlowApp extends StatelessWidget {
+class RedGlowApp extends StatefulWidget {
   const RedGlowApp({super.key});
+
+  @override
+  State<RedGlowApp> createState() => _RedGlowAppState();
+}
+
+class _RedGlowAppState extends State<RedGlowApp> {
+  final _demoState = DemoAppState();
+
+  @override
+  void dispose() {
+    _demoState.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,11 +33,14 @@ class RedGlowApp extends StatelessWidget {
       ),
     );
 
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'REDGLOW',
-      theme: AppTheme.dark,
-      home: const AuthScreen(),
+    return DemoAppScope(
+      controller: _demoState,
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'REDGLOW',
+        theme: AppTheme.dark,
+        home: const AuthScreen(),
+      ),
     );
   }
 }

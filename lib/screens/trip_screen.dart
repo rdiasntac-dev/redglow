@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/gps_map.dart';
@@ -16,6 +17,7 @@ class _TripScreenState extends State<TripScreen> {
   String? _sentMessage;
 
   void _send(String message) {
+    DemoAppScope.of(context, listen: false).sendQuickMessage(message);
     setState(() => _sentMessage = message);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Mensagem enviada: “$message”')),
@@ -24,6 +26,14 @@ class _TripScreenState extends State<TripScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final demoState = DemoAppScope.of(context);
+    _sentMessage ??= demoState.lastQuickMessage;
+    final inService = demoState.bookingStatus == DemoBookingStatus.inProgress;
+    final completed = {
+      DemoBookingStatus.completed,
+      DemoBookingStatus.reviewed,
+    }.contains(demoState.bookingStatus);
+
     return Scaffold(
       body: ConstrainedMobileBody(
         child: LayoutBuilder(
@@ -64,26 +74,42 @@ class _TripScreenState extends State<TripScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Row(
+                          Row(
                             children: [
-                              ProfileAvatar(
+                              const ProfileAvatar(
                                 imageUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=180',
                                 size: 47,
                                 borderColor: AppColors.green,
                               ),
-                              SizedBox(width: 10),
+                              const SizedBox(width: 10),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('A prestadora está chegando', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
-                                    Text('Lari (Manicure) · aproximadamente 5 min', style: TextStyle(fontSize: 9, color: AppColors.green)),
+                                    Text(
+                                      inService
+                                          ? 'Atendimento em andamento'
+                                          : completed
+                                              ? 'Atendimento concluído'
+                                              : 'A prestadora está chegando',
+                                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+                                    ),
+                                    Text(
+                                      inService
+                                          ? 'Lari confirmou a chegada'
+                                          : completed
+                                              ? 'Manicure e Pedicure finalizado'
+                                              : 'Lari (Manicure) · aproximadamente 5 min',
+                                      style: const TextStyle(fontSize: 9, color: AppColors.green),
+                                    ),
                                   ],
                                 ),
                               ),
                               RoundIconButton(
                                 icon: Icons.call_outlined,
-                                onPressed: _noop,
+                                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Ligação protegida simulada para Lari.')),
+                                ),
                                 size: 36,
                                 color: AppColors.green,
                               ),
@@ -131,12 +157,25 @@ class _TripScreenState extends State<TripScreen> {
                             onTap: () => _send('Campainha quebrada'),
                           ),
                           const SizedBox(height: 12),
-                          TextButton(
-                            onPressed: () => Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const RatingScreen()),
+                          if (completed)
+                            GradientButton(
+                              key: const Key('trip-review'),
+                              label: 'Avaliar atendimento',
+                              icon: Icons.star_rounded,
+                              onPressed: () => Navigator.of(context).pushReplacement(
+                                MaterialPageRoute(builder: (_) => const RatingScreen()),
+                              ),
+                            )
+                          else
+                            OutlinedButton.icon(
+                              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Central de Segurança pronta para acompanhar este atendimento.'),
+                                ),
+                              ),
+                              icon: const Icon(Icons.shield_outlined),
+                              label: const Text('Central de Segurança'),
                             ),
-                            child: const Center(child: Text('Simular serviço concluído → Avaliar')),
-                          ),
                         ],
                       ),
                     ),
@@ -150,8 +189,6 @@ class _TripScreenState extends State<TripScreen> {
     );
   }
 }
-
-void _noop() {}
 
 class _QuickMessageButton extends StatelessWidget {
   const _QuickMessageButton({

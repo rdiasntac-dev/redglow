@@ -14,12 +14,25 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
-  late final List<Widget> _screens = const [
-    HomeScreen(),
-    ExploreScreen(),
-    BookingsScreen(),
-    ProfileScreen(),
-  ];
+  late final List<Widget> _screens;
+
+  @override
+  void initState() {
+    super.initState();
+    _screens = [
+      HomeScreen(
+        onExplore: () => _selectTab(1),
+        onBookings: () => _selectTab(2),
+      ),
+      const ExploreScreen(),
+      const BookingsScreen(),
+      const ProfileScreen(),
+    ];
+  }
+
+  void _selectTab(int index) {
+    setState(() => _currentIndex = index);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +64,7 @@ class _MainShellState extends State<MainShell> {
           selectedIndex: _currentIndex,
           height: 66,
           labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
-          onDestinationSelected: (index) => setState(() => _currentIndex = index),
+          onDestinationSelected: _selectTab,
           destinations: const [
             NavigationDestination(icon: Icon(Icons.home_rounded), label: 'Início'),
             NavigationDestination(icon: Icon(Icons.search_rounded), label: 'Buscar'),

@@ -13,6 +13,21 @@ domicílio. Esta base implementa a interface aprovada na versão 7 do Figma.
 - Painel da prestadora, agenda, ganhos e central de emergência.
 - Verificação bilateral de identidade.
 - Assinatura profissional com zero comissão por atendimento.
+- Estado demonstrativo compartilhado entre cliente e prestadora.
+- Busca, agenda, perfil, pontos e ações secundárias com retorno funcional.
+
+## Roteiro da demonstração completa
+
+1. Entre como **Cliente**, escolha Lari e confirme o pedido.
+2. Volte à entrada e acesse como **Prestadora**.
+3. Aceite o pedido, inicie o trajeto, confirme a chegada e conclua o serviço.
+4. Avalie a cliente e volte à entrada.
+5. Entre novamente como **Cliente**, abra **Meus atendimentos** e avalie Lari.
+6. Confira os 60 pontos creditados na home do cliente.
+
+As áreas são separadas por papel: pontos, busca e agendamentos pertencem à
+cliente; ganhos, assinatura, agenda profissional e emergência pertencem à
+prestadora. Apenas o estado do atendimento é compartilhado entre as duas.
 
 ## Executar
 

@@ -1,17 +1,163 @@
 import 'package:flutter/material.dart';
 
+import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import 'identity_verification_screen.dart';
+import 'order_confirmation_screen.dart';
+import 'rating_screen.dart';
+import 'trip_screen.dart';
 
-class ExploreScreen extends StatelessWidget {
+class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
 
   @override
+  State<ExploreScreen> createState() => _ExploreScreenState();
+}
+
+class _ExploreScreenState extends State<ExploreScreen> {
+  final _searchController = TextEditingController();
+  String _category = 'Todos';
+
+  static const _professionals = [
+    (
+      name: 'Lari (Manicure)',
+      specialty: 'Unhas',
+      price: 'R\$ 60,00',
+      image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=240',
+    ),
+    (
+      name: 'Fernanda Lima',
+      specialty: 'Sobrancelha',
+      price: 'R\$ 65,00',
+      image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=240',
+    ),
+    (
+      name: 'Juliana Melo',
+      specialty: 'Cabelo',
+      price: 'R\$ 120,00',
+      image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=240',
+    ),
+  ];
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return const _PlaceholderScreen(
-      icon: Icons.search_rounded,
-      title: 'Encontre seu serviço',
-      subtitle: 'A busca por profissionais será conectada à API nesta etapa.',
+    final query = _searchController.text.trim().toLowerCase();
+    final results = _professionals.where((professional) {
+      final matchesCategory = _category == 'Todos' || professional.specialty == _category;
+      final matchesQuery = query.isEmpty ||
+          professional.name.toLowerCase().contains(query) ||
+          professional.specialty.toLowerCase().contains(query);
+      return matchesCategory && matchesQuery;
+    }).toList();
+
+    return ConstrainedMobileBody(
+      child: SafeArea(
+        bottom: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
+          children: [
+            Text('Explorar serviços', style: Theme.of(context).textTheme.headlineMedium),
+            const SizedBox(height: 5),
+            const Text(
+              'Encontre profissionais verificadas perto de você.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              key: const Key('explore-search'),
+              controller: _searchController,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                hintText: 'Buscar serviço ou profissional',
+                prefixIcon: Icon(Icons.search_rounded),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final category in const ['Todos', 'Unhas', 'Sobrancelha', 'Cabelo']) ...[
+                    ChoiceChip(
+                      label: Text(category),
+                      selected: _category == category,
+                      onSelected: (_) => setState(() => _category = category),
+                    ),
+                    const SizedBox(width: 7),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            SectionTitle(title: '${results.length} profissionais encontradas'),
+            const SizedBox(height: 8),
+            if (results.isEmpty)
+              const GlowCard(
+                child: Text(
+                  'Nenhum resultado para essa busca.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+              )
+            else
+              for (final professional in results)
+                GlowCard(
+                  key: Key('explore-${professional.specialty.toLowerCase()}'),
+                  margin: const EdgeInsets.only(bottom: 9),
+                  padding: const EdgeInsets.all(10),
+                  onTap: () => _openProfessional(context, professional),
+                  child: Row(
+                    children: [
+                      ProfileAvatar(imageUrl: professional.image, size: 52),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(professional.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
+                            Text(professional.specialty, style: const TextStyle(fontSize: 9, color: AppColors.textSecondary)),
+                            const Text('★ 4.9 · Identidade verificada', style: TextStyle(fontSize: 8, color: AppColors.yellow)),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(professional.price, style: const TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w900)),
+                          const SizedBox(height: 5),
+                          const StatusPill(label: 'Disponível', color: AppColors.green),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openProfessional(
+    BuildContext context,
+    ({String name, String specialty, String price, String image}) professional,
+  ) {
+    if (professional.name == 'Lari (Manicure)') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const OrderConfirmationScreen()),
+      );
+      return;
+    }
+    _showInfoSheet(
+      context,
+      professional.name,
+      '${professional.specialty} · ${professional.price}. Esta agenda será conectada ao backend; o ciclo completo da demonstração está disponível com Lari.',
     );
   }
 }
@@ -21,10 +167,205 @@ class BookingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _PlaceholderScreen(
-      icon: Icons.calendar_month_rounded,
-      title: 'Seus agendamentos',
-      subtitle: 'Os próximos atendimentos aparecerão aqui.',
+    final state = DemoAppScope.of(context);
+    final status = state.bookingStatus;
+    final isTracking = {
+      DemoBookingStatus.onTheWay,
+      DemoBookingStatus.inProgress,
+    }.contains(status);
+
+    return ConstrainedMobileBody(
+      child: SafeArea(
+        bottom: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
+          children: [
+            Text('Meus atendimentos', style: Theme.of(context).textTheme.headlineMedium),
+            const SizedBox(height: 5),
+            const Text(
+              'Acompanhe o pedido e conclua as etapas do ciclo.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+            ),
+            const SizedBox(height: 16),
+            GlowCard(
+              borderColor: status == DemoBookingStatus.completed
+                  ? AppColors.green.withValues(alpha: .5)
+                  : AppColors.primary.withValues(alpha: .45),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const ProfileAvatar(
+                        imageUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=180',
+                        size: 48,
+                      ),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Lari (Manicure)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
+                            Text('Manicure e Pedicure · R\$ 60,00', style: TextStyle(fontSize: 9, color: AppColors.textSecondary)),
+                          ],
+                        ),
+                      ),
+                      StatusPill(
+                        label: _shortStatus(status),
+                        color: _statusColor(status),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 22),
+                  _StatusTimeline(current: status),
+                  const SizedBox(height: 14),
+                  Text(
+                    _statusGuidance(status),
+                    style: const TextStyle(fontSize: 9, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 14),
+                  if ({DemoBookingStatus.idle, DemoBookingStatus.cancelled}.contains(status))
+                    GradientButton(
+                      key: const Key('booking-start'),
+                      label: 'Agendar com Lari',
+                      icon: Icons.calendar_month_rounded,
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const OrderConfirmationScreen()),
+                      ),
+                    )
+                  else if (status == DemoBookingStatus.requested)
+                    OutlinedButton.icon(
+                      onPressed: () => state.cancelBooking(),
+                      icon: const Icon(Icons.close_rounded),
+                      label: const Text('Cancelar solicitação'),
+                    )
+                  else if (status == DemoBookingStatus.accepted)
+                    OutlinedButton.icon(
+                      onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Pedido aceito. Aguardando Lari iniciar o trajeto.')),
+                      ),
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Atualizar status'),
+                    )
+                  else if (isTracking)
+                    GradientButton(
+                      key: const Key('booking-track'),
+                      label: 'Acompanhar atendimento',
+                      icon: Icons.route_rounded,
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const TripScreen()),
+                      ),
+                    )
+                  else if (status == DemoBookingStatus.completed)
+                    GradientButton(
+                      key: const Key('booking-review'),
+                      label: 'Avaliar atendimento',
+                      icon: Icons.star_rounded,
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const RatingScreen()),
+                      ),
+                    )
+                  else
+                    OutlinedButton.icon(
+                      onPressed: state.resetBooking,
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Iniciar novo atendimento'),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            const GlowCard(
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline_rounded, color: AppColors.purple),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Para continuar após solicitar, volte à entrada, abra a demonstração da prestadora e aceite o pedido.',
+                      style: TextStyle(fontSize: 9, color: AppColors.textSecondary),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _shortStatus(DemoBookingStatus status) => switch (status) {
+        DemoBookingStatus.idle => 'SEM PEDIDO',
+        DemoBookingStatus.requested => 'SOLICITADO',
+        DemoBookingStatus.accepted => 'ACEITO',
+        DemoBookingStatus.onTheWay => 'A CAMINHO',
+        DemoBookingStatus.inProgress => 'EM SERVIÇO',
+        DemoBookingStatus.completed => 'CONCLUÍDO',
+        DemoBookingStatus.reviewed => 'AVALIADO',
+        DemoBookingStatus.cancelled => 'CANCELADO',
+      };
+
+  static Color _statusColor(DemoBookingStatus status) => switch (status) {
+        DemoBookingStatus.completed || DemoBookingStatus.reviewed => AppColors.green,
+        DemoBookingStatus.cancelled => Colors.redAccent,
+        DemoBookingStatus.accepted || DemoBookingStatus.onTheWay || DemoBookingStatus.inProgress => AppColors.route,
+        _ => AppColors.primary,
+      };
+
+  static String _statusGuidance(DemoBookingStatus status) => switch (status) {
+        DemoBookingStatus.idle => 'Você ainda não iniciou o atendimento demonstrativo.',
+        DemoBookingStatus.requested => 'Solicitação enviada. Agora a prestadora precisa aceitar.',
+        DemoBookingStatus.accepted => 'Lari aceitou seu pedido e está preparando o deslocamento.',
+        DemoBookingStatus.onTheWay => 'Acompanhe a rota e envie apenas mensagens rápidas e seguras.',
+        DemoBookingStatus.inProgress => 'O atendimento foi iniciado pela prestadora.',
+        DemoBookingStatus.completed => 'Serviço concluído. Sua avaliação libera 60 pontos.',
+        DemoBookingStatus.reviewed => 'Avaliação registrada e pontos creditados.',
+        DemoBookingStatus.cancelled => 'Esta solicitação foi cancelada.',
+      };
+}
+
+class _StatusTimeline extends StatelessWidget {
+  const _StatusTimeline({required this.current});
+
+  final DemoBookingStatus current;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentIndex = switch (current) {
+      DemoBookingStatus.idle || DemoBookingStatus.cancelled => 0,
+      DemoBookingStatus.requested => 1,
+      DemoBookingStatus.accepted => 2,
+      DemoBookingStatus.onTheWay => 3,
+      DemoBookingStatus.inProgress => 4,
+      DemoBookingStatus.completed || DemoBookingStatus.reviewed => 5,
+    };
+    const labels = ['Pedido', 'Aceite', 'Trajeto', 'Serviço', 'Fim'];
+
+    return Row(
+      children: [
+        for (var index = 0; index < labels.length; index++) ...[
+          Expanded(
+            child: Column(
+              children: [
+                Icon(
+                  index < currentIndex ? Icons.check_circle_rounded : Icons.circle_outlined,
+                  size: 17,
+                  color: index < currentIndex ? AppColors.green : AppColors.textMuted,
+                ),
+                const SizedBox(height: 4),
+                Text(labels[index], style: const TextStyle(fontSize: 7, color: AppColors.textMuted)),
+              ],
+            ),
+          ),
+          if (index < labels.length - 1)
+            Container(
+              width: 12,
+              height: 1,
+              color: index + 1 < currentIndex ? AppColors.green : AppColors.border,
+            ),
+        ],
+      ],
     );
   }
 }
@@ -34,6 +375,7 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final state = DemoAppScope.of(context);
     return ConstrainedMobileBody(
       child: SafeArea(
         child: ListView(
@@ -42,20 +384,26 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: 12),
             Text('Meu perfil', style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 20),
-            const GlowCard(
+            GlowCard(
               child: Row(
                 children: [
-                  ProfileAvatar(
+                  const ProfileAvatar(
                     imageUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=180',
                     size: 64,
                   ),
-                  SizedBox(width: 14),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Cliente REDGLOW', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
-                        Text('Identidade pendente', style: TextStyle(color: AppColors.primary, fontSize: 10)),
+                        const Text('Cliente REDGLOW', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                        Text(
+                          state.identityVerified ? 'Identidade verificada' : 'Identidade pendente',
+                          style: TextStyle(
+                            color: state.identityVerified ? AppColors.green : AppColors.primary,
+                            fontSize: 10,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -63,24 +411,36 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            for (final item in const [
-              (Icons.location_on_outlined, 'Endereços'),
-              (Icons.payments_outlined, 'Formas de pagamento'),
-              (Icons.shield_outlined, 'Segurança e privacidade'),
-              (Icons.help_outline_rounded, 'Ajuda'),
-            ])
-              GlowCard(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                child: Row(
-                  children: [
-                    Icon(item.$1, color: AppColors.primary),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text(item.$2)),
-                    const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
-                  ],
-                ),
+            _ProfileOption(
+              icon: Icons.location_on_outlined,
+              label: 'Endereços',
+              onTap: () => _showInfoSheet(
+                context,
+                'Endereço principal',
+                'R. Izabel A Redentora, 1000 — Centro, São José dos Pinhais, PR.',
               ),
+            ),
+            _ProfileOption(
+              icon: Icons.payments_outlined,
+              label: 'Formas de pagamento',
+              onTap: () => _showInfoSheet(context, 'Pagamento', 'Pix selecionado · Pagamento protegido pela REDGLOW.'),
+            ),
+            _ProfileOption(
+              icon: Icons.shield_outlined,
+              label: 'Segurança e privacidade',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const IdentityVerificationScreen()),
+              ),
+            ),
+            _ProfileOption(
+              icon: Icons.help_outline_rounded,
+              label: 'Ajuda',
+              onTap: () => _showInfoSheet(
+                context,
+                'Central de ajuda',
+                'Demonstração: suporte por atendimento, segurança e cancelamento serão conectados ao backend.',
+              ),
+            ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () => Navigator.of(context).pop(),
@@ -88,15 +448,10 @@ class ProfileScreen extends StatelessWidget {
                 foregroundColor: AppColors.primary,
                 side: BorderSide(color: AppColors.primary.withValues(alpha: .5)),
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
               ),
               icon: const Icon(Icons.logout_rounded, size: 18),
-              label: const Text(
-                'Sair da conta demonstrativa',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
-              ),
+              label: const Text('Sair da conta demonstrativa', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
             ),
           ],
         ),
@@ -105,46 +460,57 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-class _PlaceholderScreen extends StatelessWidget {
-  const _PlaceholderScreen({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
+class _ProfileOption extends StatelessWidget {
+  const _ProfileOption({required this.icon, required this.label, required this.onTap});
 
   final IconData icon;
-  final String title;
-  final String subtitle;
+  final String label;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return ConstrainedMobileBody(
-      child: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 76,
-                  height: 76,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: .12),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.primary.withValues(alpha: .5)),
-                  ),
-                  child: Icon(icon, size: 34, color: AppColors.primary),
-                ),
-                const SizedBox(height: 18),
-                Text(title, style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 6),
-                Text(subtitle, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
-              ],
-            ),
-          ),
-        ),
+    return GlowCard(
+      onTap: onTap,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.primary),
+          const SizedBox(width: 12),
+          Expanded(child: Text(label)),
+          const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+        ],
       ),
     );
   }
+}
+
+void _showInfoSheet(BuildContext context, String title, String message) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: AppColors.surface,
+    showDragHandle: true,
+    builder: (context) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Text(message, style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Fechar'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }

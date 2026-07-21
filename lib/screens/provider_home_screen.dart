@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../models/app_models.dart';
+import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import 'identity_verification_screen.dart';
+import 'rating_screen.dart';
+import 'subscription_screen.dart';
 
 class ProviderHomeScreen extends StatefulWidget {
   const ProviderHomeScreen({super.key});
@@ -47,6 +51,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final demoState = DemoAppScope.of(context);
     return Scaffold(
       body: ConstrainedMobileBody(
         child: SafeArea(
@@ -61,9 +66,60 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                 onChanged: (value) => setState(() => _isOnline = value),
               ),
               const SizedBox(height: 12),
+              _ProviderRequestCard(
+                state: demoState,
+                isOnline: _isOnline,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ProviderShortcut(
+                      icon: Icons.verified_user_outlined,
+                      title: 'ID profissional',
+                      status: demoState.identityVerified ? 'Verificado' : 'Pendente',
+                      color: demoState.identityVerified ? AppColors.green : AppColors.primary,
+                      onTap: () {
+                        if (demoState.identityVerified) {
+                          _showProviderInfo(
+                            context,
+                            'ID profissional verificado',
+                            'Sua identidade está aprovada para receber atendimentos.',
+                          );
+                          return;
+                        }
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const IdentityVerificationScreen()),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _ProviderShortcut(
+                      icon: Icons.workspace_premium_outlined,
+                      title: 'Plano profissional',
+                      status: demoState.professionalPlanActive ? 'Ativo' : 'Conhecer plano',
+                      color: demoState.professionalPlanActive ? AppColors.green : AppColors.purple,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const SubscriptionScreen()),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
               const _EarningsCard(),
               const SizedBox(height: 14),
-              const SectionTitle(title: 'Próximos Atendimentos', action: 'Ver agenda  ›'),
+              SectionTitle(
+                title: 'Próximos Atendimentos',
+                action: 'Ver agenda  ›',
+                onAction: () => _showProviderInfo(
+                  context,
+                  'Agenda da semana',
+                  '3 atendimentos hoje · 8 nesta semana · horários livres amanhã.',
+                ),
+              ),
               const SizedBox(height: 7),
               for (var i = 0; i < appointments.length; i++)
                 Padding(
@@ -71,10 +127,21 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                   child: _AppointmentCard(
                     appointment: appointments[i],
                     next: i == 0,
+                    onTap: () => _showProviderInfo(
+                      context,
+                      appointments[i].client,
+                      '${appointments[i].service} · ${appointments[i].time} · ${appointments[i].address} · ${appointments[i].price}',
+                    ),
                   ),
                 ),
               const SizedBox(height: 4),
-              const _MonthlyPerformanceCard(),
+              _MonthlyPerformanceCard(
+                onTap: () => _showProviderInfo(
+                  context,
+                  'Desempenho de julho',
+                  'R\$ 1.840,00 recebidos · 28 atendimentos · nota média 4,9.',
+                ),
+              ),
             ],
           ),
         ),
@@ -108,6 +175,256 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
       ),
     );
   }
+}
+
+class _ProviderRequestCard extends StatelessWidget {
+  const _ProviderRequestCard({required this.state, required this.isOnline});
+
+  final DemoAppState state;
+  final bool isOnline;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = state.bookingStatus;
+    final hasRequest = status == DemoBookingStatus.requested;
+    final isActive = {
+      DemoBookingStatus.accepted,
+      DemoBookingStatus.onTheWay,
+      DemoBookingStatus.inProgress,
+    }.contains(status);
+
+    return GlowCard(
+      key: const Key('provider-request-card'),
+      borderColor: hasRequest || isActive
+          ? AppColors.primary.withValues(alpha: .65)
+          : AppColors.border,
+      gradient: hasRequest
+          ? const LinearGradient(colors: [Color(0xFF341229), Color(0xFF251027)])
+          : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                hasRequest ? Icons.notifications_active_outlined : Icons.assignment_outlined,
+                color: hasRequest ? AppColors.primary : AppColors.textSecondary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _title(status),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+                ),
+              ),
+              StatusPill(label: _pill(status), color: _color(status)),
+            ],
+          ),
+          const SizedBox(height: 7),
+          Text(
+            _description(status),
+            style: const TextStyle(fontSize: 9, color: AppColors.textSecondary),
+          ),
+          if (hasRequest) ...[
+            const Divider(height: 18),
+            const Text(
+              'Amanda Souza · Manicure e Pedicure · R\$ 60,00\nR. Izabel A Redentora, 1000 — Centro, SJP',
+              style: TextStyle(fontSize: 9, height: 1.5),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    key: const Key('provider-decline-booking'),
+                    onPressed: () => _update(
+                      context,
+                      state.cancelBooking,
+                      'Solicitação recusada.',
+                    ),
+                    child: const Text('Recusar'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: GradientButton(
+                    key: const Key('provider-accept-booking'),
+                    label: 'Aceitar',
+                    icon: Icons.check_rounded,
+                    height: 46,
+                    enabled: isOnline,
+                    onPressed: () => _update(
+                      context,
+                      state.acceptBooking,
+                      'Pedido aceito. Prepare-se para iniciar o trajeto.',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (!isOnline)
+              const Padding(
+                padding: EdgeInsets.only(top: 7),
+                child: Text(
+                  'Fique online para aceitar a solicitação.',
+                  style: TextStyle(fontSize: 8, color: AppColors.yellow),
+                ),
+              ),
+          ] else if (status == DemoBookingStatus.accepted) ...[
+            const SizedBox(height: 12),
+            GradientButton(
+              key: const Key('provider-start-trip'),
+              label: 'Iniciar trajeto',
+              icon: Icons.route_rounded,
+              onPressed: () => _update(context, state.startTrip, 'Trajeto iniciado. A cliente foi avisada.'),
+            ),
+          ] else if (status == DemoBookingStatus.onTheWay) ...[
+            const SizedBox(height: 12),
+            GradientButton(
+              key: const Key('provider-start-service'),
+              label: 'Confirmar chegada e iniciar',
+              icon: Icons.play_arrow_rounded,
+              onPressed: () => _update(context, state.startService, 'Atendimento iniciado.'),
+            ),
+          ] else if (status == DemoBookingStatus.inProgress) ...[
+            const SizedBox(height: 12),
+            GradientButton(
+              key: const Key('provider-complete-service'),
+              label: 'Concluir atendimento',
+              icon: Icons.check_circle_outline_rounded,
+              gradient: const LinearGradient(colors: [Color(0xFF0FBF8B), Color(0xFF0E9F75)]),
+              onPressed: () => _update(context, state.completeService, 'Serviço concluído. A avaliação foi liberada.'),
+            ),
+          ] else if ({DemoBookingStatus.completed, DemoBookingStatus.reviewed}.contains(status) &&
+              state.providerToClientRating == 0) ...[
+            const SizedBox(height: 12),
+            GradientButton(
+              key: const Key('provider-review-client'),
+              label: 'Avaliar cliente',
+              icon: Icons.star_outline_rounded,
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const RatingScreen(reviewingClient: true),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static String _title(DemoBookingStatus status) => switch (status) {
+        DemoBookingStatus.requested => 'Nova solicitação recebida',
+        DemoBookingStatus.accepted => 'Atendimento aceito',
+        DemoBookingStatus.onTheWay => 'Trajeto em andamento',
+        DemoBookingStatus.inProgress => 'Atendimento em andamento',
+        DemoBookingStatus.completed => 'Serviço concluído',
+        DemoBookingStatus.reviewed => 'Avaliação recebida',
+        DemoBookingStatus.cancelled => 'Última solicitação cancelada',
+        DemoBookingStatus.idle => 'Aguardando solicitações',
+      };
+
+  String _description(DemoBookingStatus status) => switch (status) {
+        DemoBookingStatus.requested => 'Revise o serviço e decida se deseja aceitar.',
+        DemoBookingStatus.accepted => 'A cliente foi avisada. Inicie o trajeto quando estiver pronta.',
+        DemoBookingStatus.onTheWay => 'Sua localização está sendo compartilhada com segurança.',
+        DemoBookingStatus.inProgress => 'Conclua somente quando o serviço tiver terminado.',
+        DemoBookingStatus.completed => state.providerToClientRating == 0
+            ? 'Serviço finalizado. Avalie a cliente e aguarde a avaliação dela.'
+            : 'Cliente avaliada. Agora aguarde a avaliação dela.',
+        DemoBookingStatus.reviewed => state.providerToClientRating == 0
+            ? 'A cliente avaliou com ${state.clientToProviderRating} estrelas. Falta sua avaliação.'
+            : 'Avaliações concluídas · ${state.clientToProviderRating} estrelas recebidas.',
+        DemoBookingStatus.cancelled => 'Nenhum atendimento ativo no momento.',
+        DemoBookingStatus.idle => 'Quando uma cliente solicitar, o pedido aparecerá aqui.',
+      };
+
+  static String _pill(DemoBookingStatus status) => switch (status) {
+        DemoBookingStatus.requested => 'NOVO',
+        DemoBookingStatus.accepted => 'ACEITO',
+        DemoBookingStatus.onTheWay => 'A CAMINHO',
+        DemoBookingStatus.inProgress => 'EM SERVIÇO',
+        DemoBookingStatus.completed => 'CONCLUÍDO',
+        DemoBookingStatus.reviewed => 'AVALIADO',
+        DemoBookingStatus.cancelled => 'CANCELADO',
+        DemoBookingStatus.idle => 'LIVRE',
+      };
+
+  static Color _color(DemoBookingStatus status) => switch (status) {
+        DemoBookingStatus.completed || DemoBookingStatus.reviewed => AppColors.green,
+        DemoBookingStatus.onTheWay || DemoBookingStatus.inProgress => AppColors.route,
+        DemoBookingStatus.cancelled => Colors.redAccent,
+        _ => AppColors.primary,
+      };
+
+  static void _update(BuildContext context, VoidCallback action, String message) {
+    action();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _ProviderShortcut extends StatelessWidget {
+  const _ProviderShortcut({
+    required this.icon,
+    required this.title,
+    required this.status,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String status;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlowCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 21),
+          const SizedBox(height: 7),
+          Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900)),
+          Text(status, style: TextStyle(fontSize: 8, color: color)),
+        ],
+      ),
+    );
+  }
+}
+
+void _showProviderInfo(BuildContext context, String title, String message) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: AppColors.surface,
+    showDragHandle: true,
+    builder: (context) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Text(message, style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Fechar'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _ProviderHeader extends StatelessWidget {
@@ -327,14 +644,16 @@ class _WeekChart extends StatelessWidget {
 }
 
 class _AppointmentCard extends StatelessWidget {
-  const _AppointmentCard({required this.appointment, required this.next});
+  const _AppointmentCard({required this.appointment, required this.next, required this.onTap});
 
   final Appointment appointment;
   final bool next;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return GlowCard(
+      onTap: onTap,
       padding: const EdgeInsets.all(10),
       borderColor: next ? AppColors.primary.withValues(alpha: .65) : AppColors.border,
       child: Column(
@@ -388,13 +707,16 @@ class _AppointmentCard extends StatelessWidget {
 }
 
 class _MonthlyPerformanceCard extends StatelessWidget {
-  const _MonthlyPerformanceCard();
+  const _MonthlyPerformanceCard({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return const GlowCard(
-      padding: EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-      child: Row(
+    return GlowCard(
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+      child: const Row(
         children: [
           Icon(Icons.bar_chart_rounded, color: AppColors.primary),
           SizedBox(width: 10),

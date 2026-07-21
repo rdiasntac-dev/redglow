@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 
@@ -16,6 +17,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final planActive = _subscribed || DemoAppScope.of(context).professionalPlanActive;
     return Scaffold(
       body: ConstrainedMobileBody(
         child: SafeArea(
@@ -88,12 +90,17 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
             child: GradientButton(
               key: const Key('subscribe-button'),
-              label: _subscribed ? 'Perfil profissional ativado!' : 'Assinar e Ativar Perfil',
-              icon: _subscribed ? Icons.check_circle_rounded : Icons.workspace_premium_rounded,
-              gradient: _subscribed
+              label: planActive ? 'Perfil profissional ativado!' : 'Assinar e Ativar Perfil',
+              icon: planActive ? Icons.check_circle_rounded : Icons.workspace_premium_rounded,
+              gradient: planActive
                   ? const LinearGradient(colors: [Color(0xFF0FBF8B), Color(0xFF0E9F75)])
                   : pinkGradient,
               onPressed: () {
+                if (planActive) {
+                  Navigator.of(context).pop();
+                  return;
+                }
+                DemoAppScope.of(context, listen: false).activateProfessionalPlan();
                 setState(() => _subscribed = true);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Plano profissional ativado com sucesso.')),

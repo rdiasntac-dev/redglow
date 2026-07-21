@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
 
 import '../models/app_models.dart';
+import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import 'identity_verification_screen.dart';
 import 'order_confirmation_screen.dart';
-import 'provider_home_screen.dart';
 import 'rating_screen.dart';
-import 'subscription_screen.dart';
 import 'trip_screen.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({
+    super.key,
+    this.onExplore,
+    this.onBookings,
+  });
+
+  final VoidCallback? onExplore;
+  final VoidCallback? onBookings;
 
   static const _lariImage =
       'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=240';
@@ -48,6 +54,13 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final demoState = DemoAppScope.of(context);
+    final canTrack = {
+      DemoBookingStatus.onTheWay,
+      DemoBookingStatus.inProgress,
+    }.contains(demoState.bookingStatus);
+    final canReview = demoState.bookingStatus == DemoBookingStatus.completed;
+
     return ConstrainedMobileBody(
       child: SafeArea(
         bottom: false,
@@ -57,78 +70,93 @@ class HomeScreen extends StatelessWidget {
           children: [
             const _LocationHeader(),
             const SizedBox(height: 12),
-            const _PointsCard(),
+            _PointsCard(points: demoState.points),
             const SizedBox(height: 18),
-            const SectionTitle(title: 'Serviços', action: 'Ver todos  ›'),
+            SectionTitle(
+              title: 'Serviços',
+              action: 'Ver todos  ›',
+              onAction: onExplore,
+            ),
             const SizedBox(height: 8),
-            const _ServicesGrid(),
+            _ServicesGrid(onSelected: onExplore),
             const SizedBox(height: 18),
-            const SectionTitle(title: 'Parceiros Perto de Você', action: 'Ver todos  ›'),
+            SectionTitle(
+              title: 'Parceiros Perto de Você',
+              action: 'Ver todos  ›',
+              onAction: () => _showInfo(
+                context,
+                'Parceiros próximos',
+                '2 estabelecimentos parceiros encontrados em São José dos Pinhais.',
+              ),
+            ),
             const SizedBox(height: 8),
             const _PartnersRow(),
             const SizedBox(height: 14),
             const SectionTitle(title: 'Acessos Rápidos'),
             const SizedBox(height: 8),
-            _FeatureBanner(
-              icon: Icons.route_rounded,
-              iconColor: AppColors.primary,
-              title: 'Trajeto e Mensagens Rápidas',
-              subtitle: 'Mapa, chegada e ações por toque',
-              trailing: const StatusPill(label: 'CLIENTE'),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const TripScreen()),
+            if (canTrack) ...[
+              _FeatureBanner(
+                icon: Icons.route_rounded,
+                iconColor: AppColors.primary,
+                title: 'Acompanhar Atendimento',
+                subtitle: demoState.bookingStatus.label,
+                trailing: const StatusPill(label: 'EM ANDAMENTO'),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const TripScreen()),
+                ),
               ),
-            ),
-            const SizedBox(height: 10),
-            _FeatureBanner(
-              icon: Icons.star_outline_rounded,
-              iconColor: AppColors.purple,
-              title: 'Avaliação Mútua',
-              subtitle: 'Nota, destaques e relato da experiência',
-              trailing: const StatusPill(label: 'PÓS-SERVIÇO', color: AppColors.purple),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const RatingScreen()),
+              const SizedBox(height: 10),
+            ] else
+              _FeatureBanner(
+                icon: Icons.calendar_month_outlined,
+                iconColor: AppColors.purple,
+                title: 'Meus Atendimentos',
+                subtitle: demoState.bookingStatus.label,
+                trailing: const StatusPill(label: 'CLIENTE', color: AppColors.purple),
+                onTap: onBookings ?? () {},
               ),
-            ),
-            const SizedBox(height: 10),
-            _FeatureBanner(
-              icon: Icons.workspace_premium_outlined,
-              iconColor: AppColors.green,
-              title: 'Plano Profissional',
-              subtitle: 'Assinatura sem comissão por atendimento',
-              trailing: const StatusPill(label: 'PRESTADORA', color: AppColors.green),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const SubscriptionScreen()),
+            if (canReview) ...[
+              const SizedBox(height: 10),
+              _FeatureBanner(
+                icon: Icons.star_outline_rounded,
+                iconColor: AppColors.purple,
+                title: 'Avaliar Atendimento',
+                subtitle: 'Nota, destaques e relato da experiência',
+                trailing: const StatusPill(label: 'PÓS-SERVIÇO', color: AppColors.purple),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const RatingScreen()),
+                ),
               ),
-            ),
+            ],
             const SizedBox(height: 10),
             _FeatureBanner(
               icon: Icons.verified_user_outlined,
               iconColor: AppColors.primary,
               title: 'Verificar Identidade',
               subtitle: 'ID Check · Segurança',
-              trailing: const StatusPill(label: 'PENDENTE'),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const IdentityVerificationScreen()),
+              trailing: StatusPill(
+                label: demoState.identityVerified ? 'VERIFICADO' : 'PENDENTE',
+                color: demoState.identityVerified ? AppColors.green : AppColors.primary,
               ),
-            ),
-            const SizedBox(height: 10),
-            _FeatureBanner(
-              icon: Icons.business_center_outlined,
-              iconColor: AppColors.primary,
-              title: 'Área da Prestadora',
-              subtitle: 'Ganhos, agenda e segurança',
-              gradient: const LinearGradient(
-                colors: [Color(0xFF32103B), Color(0xFF52116B)],
-              ),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ProviderHomeScreen()),
-              ),
+              onTap: () {
+                if (demoState.identityVerified) {
+                  _showInfo(
+                    context,
+                    'Identidade verificada',
+                    'Seu ID Check está concluído e protegido pela REDGLOW.',
+                  );
+                  return;
+                }
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const IdentityVerificationScreen()),
+                );
+              },
             ),
             const SizedBox(height: 18),
-            const SectionTitle(
+            SectionTitle(
               title: 'Profissionais em Destaque',
               action: 'Ver todos  ›',
+              onAction: onExplore,
             ),
             const SizedBox(height: 8),
             ...professionals.map(
@@ -136,23 +164,61 @@ class HomeScreen extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 9),
                 child: _ProfessionalTile(
                   professional: professional,
-                  onTap: professional.name == 'Lari (Manicure)'
-                      ? () => Navigator.of(context).push(
+                  onTap: () {
+                    if (professional.name == 'Lari (Manicure)') {
+                      Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => const OrderConfirmationScreen(),
                             ),
-                          )
-                      : null,
+                          );
+                      return;
+                    }
+                    _showInfo(
+                      context,
+                      professional.name,
+                      '${professional.specialty} · ${professional.rating} estrelas · ${professional.price}. Agenda demonstrativa disponível em breve.',
+                    );
+                  },
                 ),
               ),
             ),
             const SizedBox(height: 4),
-            const _OfferCard(),
+            _OfferCard(onTap: onExplore),
           ],
         ),
       ),
     );
   }
+}
+
+void _showInfo(BuildContext context, String title, String message) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: AppColors.surface,
+    showDragHandle: true,
+    builder: (context) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Text(message, style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Entendi'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _LocationHeader extends StatelessWidget {
@@ -165,36 +231,59 @@ class _LocationHeader extends StatelessWidget {
         const Icon(Icons.location_on_rounded, size: 18, color: AppColors.primary),
         const SizedBox(width: 7),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('SUA LOCALIZAÇÃO', style: Theme.of(context).textTheme.labelSmall),
-              const SizedBox(height: 2),
-              const Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      'R. Izabel A Redentora, 1000',
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+          child: InkWell(
+            onTap: () => _showInfo(
+              context,
+              'Localização de atendimento',
+              'R. Izabel A Redentora, 1000 — Centro, São José dos Pinhais, PR.',
+            ),
+            borderRadius: BorderRadius.circular(8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('SUA LOCALIZAÇÃO', style: Theme.of(context).textTheme.labelSmall),
+                const SizedBox(height: 2),
+                const Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        'R. Izabel A Redentora, 1000',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+                      ),
                     ),
-                  ),
-                  Icon(Icons.keyboard_arrow_down_rounded, size: 17),
-                ],
-              ),
-              const Text(
-                'Centro — São José dos Pinhais, PR',
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 9),
-              ),
-            ],
+                    Icon(Icons.keyboard_arrow_down_rounded, size: 17),
+                  ],
+                ),
+                const Text(
+                  'Centro — São José dos Pinhais, PR',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 9),
+                ),
+              ],
+            ),
           ),
         ),
-        const _HeaderAction(icon: Icons.notifications_none_rounded),
+        _HeaderAction(
+          icon: Icons.notifications_none_rounded,
+          onPressed: () => _showInfo(
+            context,
+            'Notificações',
+            'Nenhuma nova notificação. As atualizações do atendimento aparecerão aqui.',
+          ),
+        ),
         const SizedBox(width: 8),
-        const ProfileAvatar(
-          imageUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=180',
-          size: 38,
+        InkWell(
+          onTap: () => _showInfo(
+            context,
+            'Perfil da cliente',
+            'Use a aba Perfil no menu inferior para acessar seus dados e configurações.',
+          ),
+          customBorder: const CircleBorder(),
+          child: const ProfileAvatar(
+            imageUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=180',
+            size: 38,
+          ),
         ),
       ],
     );
@@ -202,27 +291,35 @@ class _LocationHeader extends StatelessWidget {
 }
 
 class _HeaderAction extends StatelessWidget {
-  const _HeaderAction({required this.icon});
+  const _HeaderAction({required this.icon, required this.onPressed});
 
   final IconData icon;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
+    return IconButton(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 18),
+      color: AppColors.textSecondary,
+      style: IconButton.styleFrom(
+        fixedSize: const Size(36, 36),
+        backgroundColor: AppColors.surface,
+        side: const BorderSide(color: AppColors.border),
       ),
-      child: Icon(icon, size: 18, color: AppColors.textSecondary),
     );
   }
 }
 
 class _PointsCard extends StatelessWidget {
-  const _PointsCard();
+  const _PointsCard({required this.points});
+
+  final int points;
+
+  String get formattedPoints => points.toString().replaceAllMapped(
+        RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+        (match) => '${match[1]}.',
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -261,7 +358,7 @@ class _PointsCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 5),
-                    Text('2.480', style: Theme.of(context).textTheme.headlineMedium),
+                    Text(formattedPoints, style: Theme.of(context).textTheme.headlineMedium),
                     const Text(
                       'pontos acumulados',
                       style: TextStyle(color: Colors.white70, fontSize: 9),
@@ -276,28 +373,34 @@ class _PointsCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: Colors.white24),
                 ),
-                child: const Column(
+                child: Column(
                   children: [
-                    Text('Próximo', style: TextStyle(fontSize: 8, color: Colors.white70)),
-                    Text('R\$ 25', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-                    Text('em 520 pts', style: TextStyle(fontSize: 7, color: Colors.white70)),
+                    const Text('Próximo', style: TextStyle(fontSize: 8, color: Colors.white70)),
+                    const Text('R\$ 25', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                    Text(
+                      'em ${(3000 - points).clamp(0, 3000)} pts',
+                      style: const TextStyle(fontSize: 7, color: Colors.white70),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          const Row(
+          Row(
             children: [
-              Expanded(child: Text('Meta: 3.000 pts', style: TextStyle(fontSize: 8))),
-              Text('82,6%', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800)),
+              const Expanded(child: Text('Meta: 3.000 pts', style: TextStyle(fontSize: 8))),
+              Text(
+                '${((points / 3000).clamp(0, 1) * 100).toStringAsFixed(1).replaceAll('.', ',')}%',
+                style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w800),
+              ),
             ],
           ),
           const SizedBox(height: 5),
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
-              value: .826,
+              value: (points / 3000).clamp(0, 1).toDouble(),
               minHeight: 6,
               backgroundColor: Colors.white24,
               valueColor: const AlwaysStoppedAnimation(AppColors.yellow),
@@ -311,14 +414,33 @@ class _PointsCard extends StatelessWidget {
                   label: 'Resgatar',
                   background: Colors.white.withValues(alpha: .2),
                   foreground: Colors.white,
+                  onTap: () {
+                    final state = DemoAppScope.of(context, listen: false);
+                    final success = state.redeemPoints();
+                    final missing = (2500 - state.points).clamp(0, 2500);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          success
+                              ? 'Cupom de R\$ 25 resgatado. Confira no histórico.'
+                              : 'Você precisa de mais $missing pontos para resgatar.',
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: _PointsButton(
                   label: 'Ver Histórico',
                   background: Colors.white,
                   foreground: Color(0xFF6C2ED0),
+                  onTap: () => _showInfo(
+                    context,
+                    'Histórico de pontos',
+                    '+60 pontos · Avaliação do atendimento\n+25 pontos · Campanha de fim de semana\n+120 pontos · Serviços anteriores',
+                  ),
                 ),
               ),
             ],
@@ -339,31 +461,40 @@ class _PointsButton extends StatelessWidget {
     required this.label,
     required this.background,
     required this.foreground,
+    required this.onTap,
   });
 
   final String label;
   final Color background;
   final Color foreground;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 34,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: background,
+    return Material(
+      color: background,
+      borderRadius: BorderRadius.circular(99),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(99),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(color: foreground, fontSize: 10, fontWeight: FontWeight.w800),
+        child: SizedBox(
+          height: 34,
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(color: foreground, fontSize: 10, fontWeight: FontWeight.w800),
+            ),
+          ),
+        ),
       ),
     );
   }
 }
 
 class _ServicesGrid extends StatelessWidget {
-  const _ServicesGrid();
+  const _ServicesGrid({this.onSelected});
+
+  final VoidCallback? onSelected;
 
   static const items = [
     (Icons.back_hand_rounded, 'Unhas'),
@@ -388,27 +519,31 @@ class _ServicesGrid extends StatelessWidget {
               .map(
                 (item) => SizedBox(
                   width: itemWidth,
-                  child: Column(
-                    children: [
-                      Container(
-                        height: 58,
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(15),
-                          border: Border.all(color: AppColors.border),
+                  child: InkWell(
+                    onTap: onSelected,
+                    borderRadius: BorderRadius.circular(15),
+                    child: Column(
+                      children: [
+                        Container(
+                          height: 58,
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(15),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Center(
+                            child: Icon(item.$1, color: AppColors.primary, size: 24),
+                          ),
                         ),
-                        child: Center(
-                          child: Icon(item.$1, color: AppColors.primary, size: 24),
+                        const SizedBox(height: 5),
+                        Text(
+                          item.$2,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700),
                         ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        item.$2,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               )
@@ -467,17 +602,19 @@ class _PartnerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: 220,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: GlowCard(
+        onTap: () => _showInfo(
+          context,
+          title,
+          '$category · $distance de distância · Oferta de $discount disponível.',
+        ),
+        padding: EdgeInsets.zero,
+        radius: AppRadius.md,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           Expanded(
             child: Stack(
               fit: StackFit.expand,
@@ -504,10 +641,16 @@ class _PartnerCard extends StatelessWidget {
                   left: 8,
                   child: StatusPill(label: discount, color: AppColors.primary),
                 ),
-                const Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Icon(Icons.favorite_border_rounded, color: Colors.white, size: 20),
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: IconButton(
+                    tooltip: 'Favoritar parceiro',
+                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('$title foi adicionado aos favoritos.')),
+                    ),
+                    icon: const Icon(Icons.favorite_border_rounded, color: Colors.white, size: 20),
+                  ),
                 ),
                 Positioned(
                   left: 8,
@@ -540,7 +683,8 @@ class _PartnerCard extends StatelessWidget {
               ],
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -659,40 +803,46 @@ class _ProfessionalTile extends StatelessWidget {
 }
 
 class _OfferCard extends StatelessWidget {
-  const _OfferCard();
+  const _OfferCard({this.onTap});
+
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 112),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        gradient: const LinearGradient(
-          colors: [Color(0xFFC22A9F), Color(0xFF6428A3)],
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text('OFERTA ESPECIAL', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800)),
-                const Text('Primeira sessão', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-                const Text('50% OFF', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 5),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(99)),
-                  child: const Text('Aproveitar agora  →', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800)),
-                ),
-              ],
-            ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 112),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          gradient: const LinearGradient(
+            colors: [Color(0xFFC22A9F), Color(0xFF6428A3)],
           ),
-          Icon(Icons.spa_rounded, size: 74, color: Colors.white.withValues(alpha: .12)),
-        ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('OFERTA ESPECIAL', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800)),
+                  const Text('Primeira sessão', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                  const Text('50% OFF', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 5),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(99)),
+                    child: const Text('Aproveitar agora  →', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800)),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.spa_rounded, size: 74, color: Colors.white.withValues(alpha: .12)),
+          ],
+        ),
       ),
     );
   }

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/gps_map.dart';
-import 'trip_screen.dart';
 
 class OrderConfirmationScreen extends StatefulWidget {
   const OrderConfirmationScreen({super.key});
@@ -14,18 +14,58 @@ class OrderConfirmationScreen extends StatefulWidget {
 
 class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
   bool _confirmed = false;
+  String _paymentMethod = 'Pix';
 
   void _handleConfirm() {
     if (_confirmed) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const TripScreen()),
-      );
+      Navigator.of(context).pop();
       return;
     }
 
+    final demoState = DemoAppScope.of(context, listen: false);
+    if (demoState.hasActiveBooking) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Você já possui um atendimento ativo.')),
+      );
+      return;
+    }
+    demoState.requestBooking();
     setState(() => _confirmed = true);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Lari recebeu o chamado e está a caminho.')),
+      const SnackBar(content: Text('Solicitação enviada. Agora aguarde o aceite de Lari.')),
+    );
+  }
+
+  void _selectPayment() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 4, 18, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Forma de pagamento', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 10),
+              for (final payment in const ['Pix', 'Cartão', 'Dinheiro'])
+                RadioListTile<String>(
+                  value: payment,
+                  groupValue: _paymentMethod,
+                  activeColor: AppColors.primary,
+                  title: Text(payment),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _paymentMethod = value);
+                    Navigator.of(sheetContext).pop();
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -57,7 +97,12 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                   bottom: 0,
                   child: _OrderSheet(
                     confirmed: _confirmed,
+                    paymentMethod: _paymentMethod,
                     onConfirm: _handleConfirm,
+                    onSelectPayment: _selectPayment,
+                    onCall: () => ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Ligação protegida simulada para Lari.')),
+                    ),
                   ),
                 ),
               ],
@@ -70,10 +115,19 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
 }
 
 class _OrderSheet extends StatelessWidget {
-  const _OrderSheet({required this.confirmed, required this.onConfirm});
+  const _OrderSheet({
+    required this.confirmed,
+    required this.paymentMethod,
+    required this.onConfirm,
+    required this.onSelectPayment,
+    required this.onCall,
+  });
 
   final bool confirmed;
+  final String paymentMethod;
   final VoidCallback onConfirm;
+  final VoidCallback onSelectPayment;
+  final VoidCallback onCall;
 
   @override
   Widget build(BuildContext context) {
@@ -120,30 +174,30 @@ class _OrderSheet extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            const GlowCard(
-              padding: EdgeInsets.all(9),
+            GlowCard(
+              padding: const EdgeInsets.all(9),
               radius: 14,
               child: Row(
                 children: [
-                  ProfileAvatar(
+                  const ProfileAvatar(
                     imageUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=180',
                     size: 46,
                     borderColor: AppColors.purple,
                   ),
-                  SizedBox(width: 9),
-                  Expanded(
+                  const SizedBox(width: 9),
+                  const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Lari (Manicure)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
                         Text('★ 4.9  ·  834 serviços', style: TextStyle(fontSize: 8, color: AppColors.textSecondary)),
-                        Text('●  A caminho · ~8 min', style: TextStyle(fontSize: 8, color: AppColors.green)),
+                        Text('●  Disponível para o chamado', style: TextStyle(fontSize: 8, color: AppColors.green)),
                       ],
                     ),
                   ),
                   RoundIconButton(
                     icon: Icons.call_outlined,
-                    onPressed: _noop,
+                    onPressed: onCall,
                     size: 34,
                     color: AppColors.purple,
                   ),
@@ -153,11 +207,15 @@ class _OrderSheet extends StatelessWidget {
             const SizedBox(height: 9),
             const _SummaryCard(),
             const SizedBox(height: 9),
-            const _PaymentCard(),
+            _PaymentCard(
+              paymentMethod: paymentMethod,
+              onSelectPayment: onSelectPayment,
+            ),
             const SizedBox(height: 10),
             GradientButton(
-              label: confirmed ? 'Acompanhar trajeto' : 'Confirmar e Chamar Prestadora',
-              icon: confirmed ? Icons.route_rounded : Icons.send_rounded,
+              key: const Key('confirm-order'),
+              label: confirmed ? 'Fechar e Aguardar Aceite' : 'Confirmar e Chamar Prestadora',
+              icon: confirmed ? Icons.schedule_rounded : Icons.send_rounded,
               onPressed: onConfirm,
               gradient: confirmed
                   ? const LinearGradient(colors: [Color(0xFF0FBF8B), Color(0xFF0E9F75)])
@@ -178,8 +236,6 @@ class _OrderSheet extends StatelessWidget {
     );
   }
 }
-
-void _noop() {}
 
 class _SummaryCard extends StatelessWidget {
   const _SummaryCard();
@@ -231,7 +287,10 @@ class _SummaryCard extends StatelessWidget {
 }
 
 class _PaymentCard extends StatelessWidget {
-  const _PaymentCard();
+  const _PaymentCard({required this.paymentMethod, required this.onSelectPayment});
+
+  final String paymentMethod;
+  final VoidCallback onSelectPayment;
 
   @override
   Widget build(BuildContext context) {
@@ -244,31 +303,39 @@ class _PaymentCard extends StatelessWidget {
           Row(
             children: [
               Expanded(child: Text('FORMA DE PAGAMENTO', style: Theme.of(context).textTheme.labelSmall)),
-              const Text('Trocar  ›', style: TextStyle(fontSize: 8, color: AppColors.primary, fontWeight: FontWeight.w800)),
+              TextButton(
+                onPressed: onSelectPayment,
+                style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                child: const Text('Trocar  ›', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800)),
+              ),
             ],
           ),
           const SizedBox(height: 7),
-          const Row(
+          Row(
             children: [
-              Icon(Icons.pix_rounded, size: 24, color: AppColors.green),
-              SizedBox(width: 8),
+              Icon(
+                paymentMethod == 'Pix' ? Icons.pix_rounded : Icons.payments_outlined,
+                size: 24,
+                color: AppColors.green,
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Pix', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
-                    Text('Pagamento instantâneo', style: TextStyle(fontSize: 8, color: AppColors.textSecondary)),
+                    Text(paymentMethod, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
+                    const Text('Pagamento protegido', style: TextStyle(fontSize: 8, color: AppColors.textSecondary)),
                   ],
                 ),
               ),
-              StatusPill(label: 'Seguro', color: AppColors.green, icon: Icons.shield_outlined),
+              const StatusPill(label: 'Seguro', color: AppColors.green, icon: Icons.shield_outlined),
             ],
           ),
           const Divider(height: 14),
-          const Row(
+          Row(
             children: [
-              Expanded(child: Text('Total a pagar via Pix', style: TextStyle(fontSize: 9, color: AppColors.textSecondary))),
-              Text('R\$ 60,00', style: TextStyle(fontSize: 13, color: AppColors.green, fontWeight: FontWeight.w900)),
+              Expanded(child: Text('Total a pagar via $paymentMethod', style: const TextStyle(fontSize: 9, color: AppColors.textSecondary))),
+              const Text('R\$ 60,00', style: TextStyle(fontSize: 13, color: AppColors.green, fontWeight: FontWeight.w900)),
             ],
           ),
         ],

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 
 class RatingScreen extends StatefulWidget {
-  const RatingScreen({super.key});
+  const RatingScreen({super.key, this.reviewingClient = false});
+
+  final bool reviewingClient;
 
   @override
   State<RatingScreen> createState() => _RatingScreenState();
@@ -16,13 +19,22 @@ class _RatingScreenState extends State<RatingScreen> {
   final _commentController = TextEditingController();
   bool _sent = false;
 
-  static const tags = [
+  static const providerTags = [
     'Pontual',
     'Caprichosa',
     'Ótima Profissional',
     'Ambiente Limpo',
     'Voltaria sempre',
     'Discreta',
+  ];
+
+  static const clientTags = [
+    'Pontual',
+    'Respeitosa',
+    'Ambiente Limpo',
+    'Comunicação Clara',
+    'Endereço Fácil',
+    'Recomendo',
   ];
 
   @override
@@ -38,6 +50,10 @@ class _RatingScreenState extends State<RatingScreen> {
       );
       return;
     }
+    DemoAppScope.of(context, listen: false).submitRating(
+      _rating,
+      asProvider: widget.reviewingClient,
+    );
     setState(() => _sent = true);
   }
 
@@ -67,16 +83,18 @@ class _RatingScreenState extends State<RatingScreen> {
                     const SizedBox(height: 20),
                     Text('Avaliação enviada!', style: Theme.of(context).textTheme.headlineMedium),
                     const SizedBox(height: 7),
-                    const Text(
-                      'Seu relato ajuda a manter a comunidade REDGLOW segura e confiável.',
+                    Text(
+                      widget.reviewingClient
+                          ? 'Seu relato ajuda a manter os atendimentos seguros para profissionais.'
+                          : 'Seu relato ajuda a comunidade REDGLOW e rendeu 60 pontos.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.textSecondary),
+                      style: const TextStyle(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 24),
                     GradientButton(
-                      label: 'Voltar ao início',
-                      icon: Icons.home_rounded,
-                      onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+                      label: widget.reviewingClient ? 'Voltar ao painel' : 'Voltar ao app',
+                      icon: widget.reviewingClient ? Icons.dashboard_outlined : Icons.home_rounded,
+                      onPressed: () => Navigator.of(context).pop(),
                       gradient: const LinearGradient(colors: [Color(0xFF0FBF8B), Color(0xFF0E9F75)]),
                     ),
                   ],
@@ -103,7 +121,7 @@ class _RatingScreenState extends State<RatingScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              const _ProfessionalReviewCard(),
+              _ReviewTargetCard(reviewingClient: widget.reviewingClient),
               const SizedBox(height: 18),
               const Center(
                 child: Text('Dê uma nota', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
@@ -136,7 +154,7 @@ class _RatingScreenState extends State<RatingScreen> {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: tags.map((tag) {
+                children: (widget.reviewingClient ? clientTags : providerTags).map((tag) {
                   final selected = _selectedTags.contains(tag);
                   return FilterChip(
                     selected: selected,
@@ -210,28 +228,41 @@ String _ratingLabel(int rating) {
   };
 }
 
-class _ProfessionalReviewCard extends StatelessWidget {
-  const _ProfessionalReviewCard();
+class _ReviewTargetCard extends StatelessWidget {
+  const _ReviewTargetCard({required this.reviewingClient});
+
+  final bool reviewingClient;
 
   @override
   Widget build(BuildContext context) {
     return GlowCard(
       gradient: const LinearGradient(colors: [Color(0xFF32122F), Color(0xFF221129)]),
       borderColor: AppColors.primary.withValues(alpha: .45),
-      child: const Column(
+      child: Column(
         children: [
-          Text('COMO FOI O ATENDIMENTO?', style: TextStyle(fontSize: 8, color: AppColors.textSecondary, letterSpacing: .4)),
-          SizedBox(height: 10),
+          Text(
+            reviewingClient ? 'COMO FOI ATENDER ESTA CLIENTE?' : 'COMO FOI O ATENDIMENTO?',
+            style: const TextStyle(fontSize: 8, color: AppColors.textSecondary, letterSpacing: .4),
+          ),
+          const SizedBox(height: 10),
           ProfileAvatar(
-            imageUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=180',
+            imageUrl: reviewingClient
+                ? 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=180'
+                : 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=180',
             size: 74,
             borderColor: AppColors.primary,
           ),
-          SizedBox(height: 9),
-          Text('Lari (Manicure)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
-          Text('Manicure Profissional', style: TextStyle(fontSize: 8, color: AppColors.textSecondary)),
-          SizedBox(height: 9),
-          StatusPill(label: 'Serviço concluído · Manicure e Pedicure', icon: Icons.check_circle_outline_rounded),
+          const SizedBox(height: 9),
+          Text(
+            reviewingClient ? 'Amanda Souza' : 'Lari (Manicure)',
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+          ),
+          Text(
+            reviewingClient ? 'Cliente verificada' : 'Manicure Profissional',
+            style: const TextStyle(fontSize: 8, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 9),
+          const StatusPill(label: 'Serviço concluído · Manicure e Pedicure', icon: Icons.check_circle_outline_rounded),
         ],
       ),
     );

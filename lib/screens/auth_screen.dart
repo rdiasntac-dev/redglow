@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/user_role.dart';
+import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import 'main_shell.dart';
@@ -34,6 +35,7 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _openSelectedArea() {
+    DemoAppScope.of(context, listen: false).selectRole(_role);
     final destination = _role == UserRole.client
         ? const MainShell()
         : const ProviderHomeScreen();

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:redglow/app.dart';
+import 'package:redglow/models/user_role.dart';
+import 'package:redglow/state/demo_app_state.dart';
 
 Future<void> _openClientDemo(WidgetTester tester) async {
   await tester.pumpWidget(const RedGlowApp());
@@ -28,6 +30,8 @@ void main() {
     expect(find.text('R. Izabel A Redentora, 1000'), findsOneWidget);
     expect(find.text('Lari (Manicure)'), findsOneWidget);
     expect(find.text('R\$ 60,00'), findsOneWidget);
+    expect(find.text('Área da Prestadora'), findsNothing);
+    expect(find.text('Plano Profissional'), findsNothing);
   });
 
   testWidgets('Lari opens the order confirmation flow', (tester) async {
@@ -40,6 +44,11 @@ void main() {
 
     expect(find.text('Tudo certo para agendar!'), findsOneWidget);
     expect(find.text('Confirmar e Chamar Prestadora'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('confirm-order')));
+    await tester.pump();
+
+    expect(find.text('Fechar e Aguardar Aceite'), findsOneWidget);
   });
 
   testWidgets('identity verification starts from its CTA', (tester) async {
@@ -69,5 +78,45 @@ void main() {
 
     expect(find.text('MODO PRESTADORA'), findsOneWidget);
     expect(find.text('GANHOS DE HOJE'), findsOneWidget);
+    expect(find.text('Plano profissional'), findsOneWidget);
+    expect(find.text('REDGLOW PONTOS'), findsNothing);
+  });
+
+  test('shared demo state follows the bilateral service lifecycle', () {
+    final state = DemoAppState();
+
+    state.selectRole(UserRole.client);
+    state.requestBooking();
+    expect(state.bookingStatus, DemoBookingStatus.requested);
+
+    state.selectRole(UserRole.provider);
+    state.acceptBooking();
+    state.startTrip();
+    state.startService();
+    state.completeService();
+    state.submitRating(5, asProvider: true);
+    expect(state.providerToClientRating, 5);
+    expect(state.bookingStatus, DemoBookingStatus.completed);
+
+    state.selectRole(UserRole.client);
+    state.submitRating(5);
+    expect(state.clientToProviderRating, 5);
+    expect(state.bookingStatus, DemoBookingStatus.reviewed);
+    expect(state.points, 2540);
+
+    state.dispose();
+  });
+
+  test('identity checks remain separate between client and provider', () {
+    final state = DemoAppState();
+
+    state.selectRole(UserRole.client);
+    state.markIdentityVerified();
+    expect(state.identityVerified, isTrue);
+
+    state.selectRole(UserRole.provider);
+    expect(state.identityVerified, isFalse);
+
+    state.dispose();
   });
 }

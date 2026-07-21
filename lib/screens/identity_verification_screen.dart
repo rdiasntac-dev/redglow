@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 
@@ -62,6 +63,10 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
       return;
     }
 
+    DemoAppScope.of(context, listen: false).markIdentityVerified();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Identidade verificada com sucesso.')),
+    );
     Navigator.of(context).pop();
   }
 
