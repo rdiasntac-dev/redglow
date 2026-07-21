@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import '../models/app_models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
-import 'flows_hub_screen.dart';
 import 'identity_verification_screen.dart';
 import 'order_confirmation_screen.dart';
 import 'provider_home_screen.dart';
+import 'rating_screen.dart';
+import 'subscription_screen.dart';
+import 'trip_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -65,14 +67,38 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 8),
             const _PartnersRow(),
             const SizedBox(height: 14),
+            const SectionTitle(title: 'Acessos Rápidos'),
+            const SizedBox(height: 8),
             _FeatureBanner(
-              icon: Icons.auto_awesome_rounded,
-              iconColor: AppColors.purple,
-              title: 'Novas Telas — Ver Todas',
-              subtitle: 'Trajeto · Avaliação · Assinatura',
-              trailing: const StatusPill(label: '3 TELAS', color: AppColors.purple),
+              icon: Icons.route_rounded,
+              iconColor: AppColors.primary,
+              title: 'Trajeto e Mensagens Rápidas',
+              subtitle: 'Mapa, chegada e ações por toque',
+              trailing: const StatusPill(label: 'CLIENTE'),
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const FlowsHubScreen()),
+                MaterialPageRoute(builder: (_) => const TripScreen()),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _FeatureBanner(
+              icon: Icons.star_outline_rounded,
+              iconColor: AppColors.purple,
+              title: 'Avaliação Mútua',
+              subtitle: 'Nota, destaques e relato da experiência',
+              trailing: const StatusPill(label: 'PÓS-SERVIÇO', color: AppColors.purple),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const RatingScreen()),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _FeatureBanner(
+              icon: Icons.workspace_premium_outlined,
+              iconColor: AppColors.green,
+              title: 'Plano Profissional',
+              subtitle: 'Assinatura sem comissão por atendimento',
+              trailing: const StatusPill(label: 'PRESTADORA', color: AppColors.green),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SubscriptionScreen()),
               ),
             ),
             const SizedBox(height: 10),
