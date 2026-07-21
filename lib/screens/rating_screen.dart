@@ -57,10 +57,10 @@ class _RatingScreenState extends State<RatingScreen> {
                       width: 92,
                       height: 92,
                       decoration: BoxDecoration(
-                        color: AppColors.green.withOpacity(.12),
+                        color: AppColors.green.withValues(alpha: .12),
                         shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.green.withOpacity(.55)),
-                        boxShadow: [BoxShadow(color: AppColors.green.withOpacity(.24), blurRadius: 28)],
+                        border: Border.all(color: AppColors.green.withValues(alpha: .55)),
+                        boxShadow: [BoxShadow(color: AppColors.green.withValues(alpha: .24), blurRadius: 28)],
                       ),
                       child: const Icon(Icons.check_rounded, size: 46, color: AppColors.green),
                     ),
@@ -142,7 +142,7 @@ class _RatingScreenState extends State<RatingScreen> {
                     selected: selected,
                     showCheckmark: false,
                     label: Text(tag),
-                    selectedColor: AppColors.primary.withOpacity(.17),
+                    selectedColor: AppColors.primary.withValues(alpha: .17),
                     backgroundColor: AppColors.surface,
                     side: BorderSide(color: selected ? AppColors.primary : AppColors.border),
                     labelStyle: TextStyle(
@@ -217,7 +217,7 @@ class _ProfessionalReviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GlowCard(
       gradient: const LinearGradient(colors: [Color(0xFF32122F), Color(0xFF221129)]),
-      borderColor: AppColors.primary.withOpacity(.45),
+      borderColor: AppColors.primary.withValues(alpha: .45),
       child: const Column(
         children: [
           Text('COMO FOI O ATENDIMENTO?', style: TextStyle(fontSize: 8, color: AppColors.textSecondary, letterSpacing: .4)),

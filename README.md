@@ -5,6 +5,7 @@ domicílio. Esta base implementa a interface aprovada na versão 7 do Figma.
 
 ## Fluxos implementados
 
+- Login e cadastro demonstrativos com escolha entre Cliente e Prestadora.
 - Home do cliente com pontos, serviços, parceiros e profissionais.
 - Confirmação do pedido com mapa urbano em modo escuro.
 - Trajeto da prestadora e mensagens rápidas sem chat livre.
@@ -30,3 +31,6 @@ flutter test
 O mapa da demonstração é vetorial e não depende de uma API externa. Antes da
 publicação, ele deve ser substituído pelo provedor de mapas e localização
 definido para produção.
+
+O login atual é demonstrativo e não envia nem persiste dados. A autenticação e
+o banco de dados reais serão conectados na próxima etapa do MVP.

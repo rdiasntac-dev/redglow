@@ -161,9 +161,9 @@ class _OnlineCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GlowCard(
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
-      borderColor: isOnline ? AppColors.green.withOpacity(.55) : AppColors.border,
+      borderColor: isOnline ? AppColors.green.withValues(alpha: .55) : AppColors.border,
       boxShadow: isOnline
-          ? [BoxShadow(color: AppColors.green.withOpacity(.1), blurRadius: 16)]
+          ? [BoxShadow(color: AppColors.green.withValues(alpha: .1), blurRadius: 16)]
           : null,
       child: Row(
         children: [
@@ -207,7 +207,7 @@ class _EarningsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GlowCard(
       padding: const EdgeInsets.all(13),
-      borderColor: AppColors.purple.withOpacity(.45),
+      borderColor: AppColors.purple.withValues(alpha: .45),
       gradient: const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
@@ -270,9 +270,9 @@ class _EarningStat extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(.035),
+        color: Colors.white.withValues(alpha: .035),
         borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: Colors.white.withOpacity(.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: .06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -310,7 +310,7 @@ class _WeekChart extends StatelessWidget {
                       height: 30 * values[i],
                       decoration: BoxDecoration(
                         gradient: i == values.length - 1 ? pinkGradient : null,
-                        color: i == values.length - 1 ? null : AppColors.purple.withOpacity(.25),
+                        color: i == values.length - 1 ? null : AppColors.purple.withValues(alpha: .25),
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
                       ),
                     ),
@@ -336,7 +336,7 @@ class _AppointmentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GlowCard(
       padding: const EdgeInsets.all(10),
-      borderColor: next ? AppColors.primary.withOpacity(.65) : AppColors.border,
+      borderColor: next ? AppColors.primary.withValues(alpha: .65) : AppColors.border,
       child: Column(
         children: [
           Row(

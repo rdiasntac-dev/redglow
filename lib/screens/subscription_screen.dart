@@ -120,7 +120,7 @@ class _PlanHero extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
             gradient: const LinearGradient(colors: [Color(0xFFE94AA4), Color(0xFF8A2AC5)]),
-            boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(.3), blurRadius: 26)],
+            boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: .3), blurRadius: 26)],
           ),
           child: const Icon(Icons.workspace_premium_rounded, size: 45, color: Colors.white),
         ),
@@ -220,8 +220,8 @@ class _PriceCard extends StatelessWidget {
         end: Alignment.bottomRight,
         colors: [Color(0xFF5B1A82), Color(0xFF2B1247)],
       ),
-      borderColor: AppColors.primary.withOpacity(.6),
-      boxShadow: [BoxShadow(color: AppColors.purple.withOpacity(.18), blurRadius: 24)],
+      borderColor: AppColors.primary.withValues(alpha: .6),
+      boxShadow: [BoxShadow(color: AppColors.purple.withValues(alpha: .18), blurRadius: 24)],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -251,9 +251,9 @@ class _PriceCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppColors.green.withOpacity(.1),
+              color: AppColors.green.withValues(alpha: .1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.green.withOpacity(.3)),
+              border: Border.all(color: AppColors.green.withValues(alpha: .3)),
             ),
             child: const Row(
               children: [
@@ -300,7 +300,7 @@ class _BenefitTile extends StatelessWidget {
           Container(
             width: 38,
             height: 38,
-            decoration: BoxDecoration(color: color.withOpacity(.12), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: color.withValues(alpha: .12), shape: BoxShape.circle),
             child: Icon(icon, color: color, size: 19),
           ),
           const SizedBox(width: 10),

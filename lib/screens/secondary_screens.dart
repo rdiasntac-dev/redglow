@@ -81,6 +81,23 @@ class ProfileScreen extends StatelessWidget {
                   ],
                 ),
               ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).pop(),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: BorderSide(color: AppColors.primary.withValues(alpha: .5)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+              ),
+              icon: const Icon(Icons.logout_rounded, size: 18),
+              label: const Text(
+                'Sair da conta demonstrativa',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+              ),
+            ),
           ],
         ),
       ),
@@ -113,9 +130,9 @@ class _PlaceholderScreen extends StatelessWidget {
                   width: 76,
                   height: 76,
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(.12),
+                    color: AppColors.primary.withValues(alpha: .12),
                     shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.primary.withOpacity(.5)),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: .5)),
                   ),
                   child: Icon(icon, size: 34, color: AppColors.primary),
                 ),

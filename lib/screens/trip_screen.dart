@@ -175,13 +175,13 @@ class _QuickMessageButton extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       radius: AppRadius.md,
       borderColor: sent ? color : AppColors.border,
-      color: sent ? color.withOpacity(.1) : AppColors.surface,
+      color: sent ? color.withValues(alpha: .1) : AppColors.surface,
       child: Row(
         children: [
           Container(
             width: 36,
             height: 36,
-            decoration: BoxDecoration(color: color.withOpacity(.13), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: color.withValues(alpha: .13), shape: BoxShape.circle),
             child: Icon(sent ? Icons.check_rounded : icon, color: color, size: 18),
           ),
           const SizedBox(width: 10),

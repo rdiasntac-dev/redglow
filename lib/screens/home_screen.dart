@@ -236,7 +236,7 @@ class _PointsCard extends StatelessWidget {
       ),
       boxShadow: [
         BoxShadow(
-          color: AppColors.purple.withOpacity(.2),
+          color: AppColors.purple.withValues(alpha: .2),
           blurRadius: 24,
           offset: const Offset(0, 10),
         ),
@@ -272,7 +272,7 @@ class _PointsCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(.16),
+                  color: Colors.white.withValues(alpha: .16),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: Colors.white24),
                 ),
@@ -309,7 +309,7 @@ class _PointsCard extends StatelessWidget {
               Expanded(
                 child: _PointsButton(
                   label: 'Resgatar',
-                  background: Colors.white.withOpacity(.2),
+                  background: Colors.white.withValues(alpha: .2),
                   foreground: Colors.white,
                 ),
               ),
@@ -571,16 +571,16 @@ class _FeatureBanner extends StatelessWidget {
       onTap: onTap,
       gradient: gradient,
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
-      borderColor: AppColors.primary.withOpacity(.4),
+      borderColor: AppColors.primary.withValues(alpha: .4),
       child: Row(
         children: [
           Container(
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(.12),
+              color: iconColor.withValues(alpha: .12),
               shape: BoxShape.circle,
-              border: Border.all(color: iconColor.withOpacity(.55)),
+              border: Border.all(color: iconColor.withValues(alpha: .55)),
             ),
             child: Icon(icon, color: iconColor, size: 20),
           ),
@@ -691,7 +691,7 @@ class _OfferCard extends StatelessWidget {
               ],
             ),
           ),
-          Icon(Icons.spa_rounded, size: 74, color: Colors.white.withOpacity(.12)),
+          Icon(Icons.spa_rounded, size: 74, color: Colors.white.withValues(alpha: .12)),
         ],
       ),
     );

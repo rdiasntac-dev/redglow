@@ -57,7 +57,7 @@ class UrbanGpsMap extends StatelessWidget {
               color: AppColors.purple,
               border: Border.all(color: Colors.white, width: 2),
               boxShadow: [
-                BoxShadow(color: AppColors.purple.withOpacity(.5), blurRadius: 12),
+                BoxShadow(color: AppColors.purple.withValues(alpha: .5), blurRadius: 12),
               ],
             ),
           ),
@@ -94,7 +94,7 @@ class _ProviderMapChip extends StatelessWidget {
     return GlowCard(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
       radius: 12,
-      borderColor: AppColors.green.withOpacity(.45),
+      borderColor: AppColors.green.withValues(alpha: .45),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -150,7 +150,7 @@ class _DestinationMarker extends StatelessWidget {
                 height: 70 * value,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.primary.withOpacity(.1),
+                  color: AppColors.primary.withValues(alpha: .1),
                 ),
               ),
               Container(
@@ -158,7 +158,7 @@ class _DestinationMarker extends StatelessWidget {
                 height: 42 * value,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.primary.withOpacity(.24),
+                  color: AppColors.primary.withValues(alpha: .24),
                 ),
               ),
               Container(
@@ -169,7 +169,7 @@ class _DestinationMarker extends StatelessWidget {
                   color: AppColors.primary,
                   border: Border.all(color: Colors.white, width: 2),
                   boxShadow: [
-                    BoxShadow(color: AppColors.primary.withOpacity(.7), blurRadius: 14),
+                    BoxShadow(color: AppColors.primary.withValues(alpha: .7), blurRadius: 14),
                   ],
                 ),
                 child: const Icon(Icons.location_on_rounded, size: 12, color: Colors.white),
@@ -260,7 +260,7 @@ class _UrbanMapPainter extends CustomPainter {
     canvas.drawLine(Offset(0, size.height * .42), Offset(size.width, size.height * .42), avenueEdge);
 
     final routeGlow = Paint()
-      ..color = AppColors.route.withOpacity(.18)
+      ..color = AppColors.route.withValues(alpha: .18)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 12
       ..strokeCap = StrokeCap.round

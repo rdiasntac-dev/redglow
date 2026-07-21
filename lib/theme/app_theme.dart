@@ -53,7 +53,7 @@ abstract final class AppTheme {
       brightness: Brightness.dark,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.background,
-      splashColor: AppColors.primary.withOpacity(.08),
+      splashColor: AppColors.primary.withValues(alpha: .08),
       highlightColor: Colors.transparent,
       dividerColor: AppColors.border,
       textTheme: const TextTheme(

@@ -82,7 +82,7 @@ class GradientButton extends StatelessWidget {
           boxShadow: enabled
               ? [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(.28),
+                    color: AppColors.primary.withValues(alpha: .28),
                     blurRadius: 18,
                     offset: const Offset(0, 8),
                   ),
@@ -174,9 +174,9 @@ class StatusPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(.12),
+        color: color.withValues(alpha: .12),
         borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: color.withOpacity(.5)),
+        border: Border.all(color: color.withValues(alpha: .5)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -223,7 +223,7 @@ class ProfileAvatar extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: borderColor, width: 1.5),
         gradient: LinearGradient(
-          colors: [borderColor.withOpacity(.45), AppColors.surfaceRaised],
+          colors: [borderColor.withValues(alpha: .45), AppColors.surfaceRaised],
         ),
       ),
       child: ClipOval(
@@ -263,7 +263,7 @@ class RoundIconButton extends StatelessWidget {
       child: IconButton.filled(
         onPressed: onPressed,
         style: IconButton.styleFrom(
-          backgroundColor: backgroundColor.withOpacity(.9),
+          backgroundColor: backgroundColor.withValues(alpha: .9),
           foregroundColor: color,
           side: const BorderSide(color: AppColors.border),
           padding: EdgeInsets.zero,

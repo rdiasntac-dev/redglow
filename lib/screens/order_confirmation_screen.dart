@@ -111,9 +111,9 @@ class _OrderSheet extends StatelessWidget {
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(.1),
+                    color: AppColors.primary.withValues(alpha: .1),
                     shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.primary.withOpacity(.5)),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: .5)),
                   ),
                   child: const Icon(Icons.check_circle_outline_rounded, color: AppColors.primary, size: 20),
                 ),

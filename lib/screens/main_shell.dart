@@ -28,7 +28,7 @@ class _MainShellState extends State<MainShell> {
       bottomNavigationBar: NavigationBarTheme(
         data: NavigationBarThemeData(
           backgroundColor: AppColors.surface,
-          indicatorColor: AppColors.primary.withOpacity(.15),
+          indicatorColor: AppColors.primary.withValues(alpha: .15),
           iconTheme: WidgetStateProperty.resolveWith((states) {
             return IconThemeData(
               color: states.contains(WidgetState.selected)

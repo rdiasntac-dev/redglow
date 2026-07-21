@@ -150,7 +150,7 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
                         style: FilledButton.styleFrom(
                           backgroundColor: _cpfDone ? AppColors.green : AppColors.surfaceRaised,
                           disabledBackgroundColor: _cpfDone
-                              ? AppColors.green.withOpacity(.35)
+                              ? AppColors.green.withValues(alpha: .35)
                               : AppColors.surfaceRaised,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
@@ -183,10 +183,10 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
                   child: Container(
                     height: 142,
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceRaised.withOpacity(.38),
+                      color: AppColors.surfaceRaised.withValues(alpha: .38),
                       borderRadius: BorderRadius.circular(AppRadius.md),
                       border: Border.all(
-                        color: _documentDone ? AppColors.green : AppColors.purple.withOpacity(.55),
+                        color: _documentDone ? AppColors.green : AppColors.purple.withValues(alpha: .55),
                       ),
                     ),
                     child: Column(
@@ -224,9 +224,9 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
                       height: 108,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppColors.surfaceRaised.withOpacity(.4),
+                        color: AppColors.surfaceRaised.withValues(alpha: .4),
                         border: Border.all(
-                          color: _selfieDone ? AppColors.green : AppColors.route.withOpacity(.7),
+                          color: _selfieDone ? AppColors.green : AppColors.route.withValues(alpha: .7),
                         ),
                       ),
                       child: Column(
@@ -321,9 +321,9 @@ class _SecurityHero extends StatelessWidget {
           height: 78,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppColors.primary.withOpacity(.12),
-            border: Border.all(color: AppColors.primary.withOpacity(.55)),
-            boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(.3), blurRadius: 28)],
+            color: AppColors.primary.withValues(alpha: .12),
+            border: Border.all(color: AppColors.primary.withValues(alpha: .55)),
+            boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: .3), blurRadius: 28)],
           ),
           child: const Icon(Icons.verified_user_outlined, size: 37, color: AppColors.primary),
         ),
@@ -365,7 +365,7 @@ class _StepCard extends StatelessWidget {
     return Opacity(
       opacity: active || completed ? 1 : .42,
       child: GlowCard(
-        borderColor: completed ? AppColors.green.withOpacity(.45) : AppColors.border,
+        borderColor: completed ? AppColors.green.withValues(alpha: .45) : AppColors.border,
         padding: const EdgeInsets.all(12),
         child: Column(
           children: [
@@ -376,8 +376,8 @@ class _StepCard extends StatelessWidget {
                   height: 34,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: accent.withOpacity(.12),
-                    border: Border.all(color: accent.withOpacity(.5)),
+                    color: accent.withValues(alpha: .12),
+                    border: Border.all(color: accent.withValues(alpha: .5)),
                   ),
                   child: Icon(completed ? Icons.check_rounded : icon, size: 17, color: accent),
                 ),
