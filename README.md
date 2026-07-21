@@ -1,17 +1,32 @@
-# redglow
+# REDGLOW
 
-A new Flutter project.
+Aplicativo Flutter para contratação segura de profissionais de beleza em
+domicílio. Esta base implementa a interface aprovada na versão 7 do Figma.
 
-## Getting Started
+## Fluxos implementados
 
-This project is a starting point for a Flutter application.
+- Home do cliente com pontos, serviços, parceiros e profissionais.
+- Confirmação do pedido com mapa urbano em modo escuro.
+- Trajeto da prestadora e mensagens rápidas sem chat livre.
+- Avaliação mútua e relato pós-atendimento.
+- Painel da prestadora, agenda, ganhos e central de emergência.
+- Verificação bilateral de identidade.
+- Assinatura profissional com zero comissão por atendimento.
 
-A few resources to get you started if this is your first Flutter project:
+## Executar
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```bash
+flutter pub get
+flutter run
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Verificar
+
+```bash
+flutter analyze
+flutter test
+```
+
+O mapa da demonstração é vetorial e não depende de uma API externa. Antes da
+publicação, ele deve ser substituído pelo provedor de mapas e localização
+definido para produção.

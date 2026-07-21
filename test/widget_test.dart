@@ -1,30 +1,45 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:redglow/main.dart';
+import 'package:redglow/app.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
-
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+  testWidgets('home shows the approved REDGLOW V7 content', (tester) async {
+    await tester.pumpWidget(const RedGlowApp());
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('REDGLOW PONTOS'), findsOneWidget);
+    expect(find.text('R. Izabel A Redentora, 1000'), findsOneWidget);
+    expect(find.text('Lari (Manicure)'), findsOneWidget);
+    expect(find.text('R\$ 60,00'), findsOneWidget);
+  });
+
+  testWidgets('Lari opens the order confirmation flow', (tester) async {
+    await tester.pumpWidget(const RedGlowApp());
+    await tester.pump();
+
+    await tester.drag(find.byKey(const Key('home-scroll')), const Offset(0, -1500));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Lari (Manicure)').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tudo certo para agendar!'), findsOneWidget);
+    expect(find.text('Confirmar e Chamar Prestadora'), findsOneWidget);
+  });
+
+  testWidgets('identity verification starts from its CTA', (tester) async {
+    await tester.pumpWidget(const RedGlowApp());
+    await tester.pump();
+
+    await tester.drag(find.byKey(const Key('home-scroll')), const Offset(0, -950));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Verificar Identidade'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('start-verification')));
+    await tester.pump();
+
+    expect(find.text('Segurança REDGLOW'), findsOneWidget);
+    expect(find.byKey(const Key('cpf-field')), findsOneWidget);
+    expect(find.byKey(const Key('phone-field')), findsOneWidget);
   });
 }
