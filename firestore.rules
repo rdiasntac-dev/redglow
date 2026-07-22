@@ -1,0 +1,123 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function currentUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function hasRole(role) {
+      return signedIn()
+        && currentUser().data.role == role;
+    }
+
+    function isBookingParticipant(data) {
+      return signedIn()
+        && request.auth.uid in [data.clientId, data.providerId];
+    }
+
+    match /users/{uid} {
+      allow create: if isSelf(uid)
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'name',
+          'email',
+          'phone',
+          'role',
+          'identityStatus',
+          'points',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.uid == uid
+        && request.resource.data.role in ['client', 'provider']
+        && request.resource.data.identityStatus == 'pending'
+        && (
+          request.resource.data.role == 'client'
+            && request.resource.data.points == 0
+          || request.resource.data.role == 'provider'
+            && request.resource.data.points == null
+        );
+      allow read: if isSelf(uid);
+      allow update: if isSelf(uid)
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name', 'phone', 'photoUrl', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /professionals/{uid} {
+      allow read: if signedIn();
+      allow create, update: if isSelf(uid)
+        && hasRole('provider')
+        && request.resource.data.uid == uid;
+      allow delete: if false;
+    }
+
+    match /bookings/{bookingId} {
+      allow create: if hasRole('client')
+        && request.resource.data.clientId == request.auth.uid
+        && request.resource.data.providerId is string;
+      allow read: if isBookingParticipant(resource.data);
+      allow update: if isBookingParticipant(resource.data)
+        && request.resource.data.clientId == resource.data.clientId
+        && request.resource.data.providerId == resource.data.providerId
+        && request.resource.data.priceCents == resource.data.priceCents;
+      allow delete: if false;
+
+      match /quickMessages/{messageId} {
+        function booking() {
+          return get(/databases/$(database)/documents/bookings/$(bookingId));
+        }
+
+        allow read: if isBookingParticipant(booking().data);
+        allow create: if isBookingParticipant(booking().data)
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.body in [
+            'Pode subir/entrar',
+            'Estou descendo',
+            'Campainha quebrada'
+          ];
+        allow update, delete: if false;
+      }
+    }
+
+    match /ratings/{ratingId} {
+      function relatedBooking() {
+        return get(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        );
+      }
+
+      allow create: if signedIn()
+        && request.resource.data.fromUid == request.auth.uid
+        && isBookingParticipant(relatedBooking().data)
+        && request.resource.data.toUid
+          in [relatedBooking().data.clientId, relatedBooking().data.providerId]
+        && request.resource.data.toUid != request.resource.data.fromUid
+        && request.resource.data.score is int
+        && request.resource.data.score >= 1
+        && request.resource.data.score <= 5;
+      allow read: if signedIn()
+        && request.auth.uid in [resource.data.fromUid, resource.data.toUid];
+      allow update, delete: if false;
+    }
+
+    match /subscriptions/{uid} {
+      allow read: if isSelf(uid);
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

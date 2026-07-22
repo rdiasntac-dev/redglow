@@ -43,9 +43,37 @@ flutter analyze
 flutter test
 ```
 
+## Preparar o Firebase
+
+O repositório está associado ao projeto Firebase `redglow-54a5f` e usa o
+identificador definitivo `br.com.redglow.app`. A base inclui Firebase Core,
+Authentication, Firestore e regras iniciais de acesso por papel.
+
+Na primeira configuração de uma máquina, execute na raiz do projeto:
+
+```bash
+npm install -g firebase-tools
+firebase login
+dart pub global activate flutterfire_cli
+flutterfire configure --project=redglow-54a5f
+```
+
+No `flutterfire configure`, selecione Android, iOS e Web. O comando gera
+`lib/firebase_options.dart` e associa as plataformas ao projeto existente.
+Depois, habilite **E-mail/senha** em Firebase Console > Authentication >
+Método de login.
+
+As regras podem ser publicadas somente depois de revisar o projeto selecionado:
+
+```bash
+firebase use redglow-54a5f
+firebase deploy --only firestore:rules,firestore:indexes
+```
+
 O mapa da demonstração é vetorial e não depende de uma API externa. Antes da
 publicação, ele deve ser substituído pelo provedor de mapas e localização
 definido para produção.
 
-O login atual é demonstrativo e não envia nem persiste dados. A autenticação e
-o banco de dados reais serão conectados na próxima etapa do MVP.
+Enquanto `firebase_options.dart` ainda não tiver sido gerado, o login permanece
+demonstrativo e não envia nem persiste dados. Isso preserva o roteiro completo
+da versão 7 durante a migração para o backend real.
