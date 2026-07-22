@@ -142,6 +142,24 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                   'R\$ 1.840,00 recebidos · 28 atendimentos · nota média 4,9.',
                 ),
               ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                key: const Key('provider-logout'),
+                onPressed: () => Navigator.of(context).pop(),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: BorderSide(color: AppColors.primary.withValues(alpha: .5)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                ),
+                icon: const Icon(Icons.logout_rounded, size: 18),
+                label: const Text(
+                  'Sair da conta demonstrativa',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+                ),
+              ),
             ],
           ),
         ),

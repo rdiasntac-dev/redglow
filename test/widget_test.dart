@@ -82,6 +82,22 @@ void main() {
     expect(find.text('REDGLOW PONTOS'), findsNothing);
   });
 
+  testWidgets('provider can log out of the demonstrative account', (tester) async {
+    await tester.pumpWidget(const RedGlowApp());
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('provider-role')));
+    await tester.ensureVisible(find.byKey(const Key('demo-access')));
+    await tester.tap(find.byKey(const Key('demo-access')));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(const Key('provider-logout')));
+    await tester.tap(find.byKey(const Key('provider-logout')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Acessar demonstração como Prestadora'), findsOneWidget);
+  });
+
   test('shared demo state follows the bilateral service lifecycle', () {
     final state = DemoAppState();
 
