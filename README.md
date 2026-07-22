@@ -5,7 +5,7 @@ domicílio. Esta base implementa a interface aprovada na versão 7 do Figma.
 
 ## Fluxos implementados
 
-- Login e cadastro demonstrativos com escolha entre Cliente e Prestadora.
+- Cadastro, login, recuperação de senha, sessão persistente e logout com Firebase.
 - Home do cliente com pontos, serviços, parceiros e profissionais.
 - Confirmação do pedido com mapa urbano em modo escuro.
 - Trajeto da prestadora e mensagens rápidas sem chat livre.
@@ -13,7 +13,8 @@ domicílio. Esta base implementa a interface aprovada na versão 7 do Figma.
 - Painel da prestadora, agenda, ganhos e central de emergência.
 - Verificação bilateral de identidade.
 - Assinatura profissional com zero comissão por atendimento.
-- Estado demonstrativo compartilhado entre cliente e prestadora.
+- Ciclo de atendimento real sincronizado entre cliente e prestadora pelo Firestore.
+- Modo demonstrativo independente, sem gravação no Firebase.
 - Busca, agenda, perfil, pontos e ações secundárias com retorno funcional.
 
 ## Roteiro da demonstração completa
@@ -29,11 +30,25 @@ As áreas são separadas por papel: pontos, busca e agendamentos pertencem à
 cliente; ganhos, assinatura, agenda profissional e emergência pertencem à
 prestadora. Apenas o estado do atendimento é compartilhado entre as duas.
 
+## Roteiro com contas reais
+
+1. Crie uma conta do tipo **Prestadora** usando um e-mail diferente da cliente.
+2. Deixe a prestadora online e saia da conta.
+3. Entre na conta **Cliente**, escolha a primeira profissional e confirme o pedido.
+4. Saia da cliente e entre novamente como **Prestadora**.
+5. Aceite o pedido, inicie o trajeto, confirme a chegada e conclua o serviço.
+6. Avalie a cliente, saia e volte à conta **Cliente**.
+7. Abra **Meus atendimentos**, acompanhe o status e avalie a prestadora.
+
+Perfil, disponibilidade, pedido, etapas, mensagens rápidas e avaliações ficam
+salvos no Firestore e são restaurados ao entrar novamente. A mesma conta não
+pode ser cliente e prestadora; cada papel precisa de um e-mail próprio.
+
 ## Executar
 
 ```bash
 flutter pub get
-flutter run
+flutter run -d chrome
 ```
 
 ## Verificar
@@ -49,19 +64,17 @@ O repositório está associado ao projeto Firebase `redglow-54a5f` e usa o
 identificador definitivo `br.com.redglow.app`. A base inclui Firebase Core,
 Authentication, Firestore e regras iniciais de acesso por papel.
 
-Na primeira configuração de uma máquina, execute na raiz do projeto:
+Os arquivos de configuração das plataformas já estão versionados. Em uma nova
+máquina, basta autenticar a CLI antes de publicar regras:
 
 ```bash
 npm install -g firebase-tools
 firebase login
-dart pub global activate flutterfire_cli
-flutterfire configure --project=redglow-54a5f
 ```
 
-No `flutterfire configure`, selecione Android, iOS e Web. O comando gera
-`lib/firebase_options.dart` e associa as plataformas ao projeto existente.
-Depois, habilite **E-mail/senha** em Firebase Console > Authentication >
-Método de login.
+No Windows/PowerShell, use `npm.cmd` e `firebase.cmd` caso a execução de scripts
+`.ps1` esteja bloqueada. O método **E-mail/senha** deve permanecer habilitado em
+Firebase Console > Authentication > Método de login.
 
 As regras podem ser publicadas somente depois de revisar o projeto selecionado:
 
@@ -70,14 +83,15 @@ firebase use redglow-54a5f
 firebase deploy --only firestore:rules,firestore:indexes
 ```
 
-O mapa da demonstração é vetorial e não depende de uma API externa. Antes da
-publicação, ele deve ser substituído pelo provedor de mapas e localização
-definido para produção.
+## Limites atuais do MVP
 
-O Firebase já é inicializado por `lib/main.dart`. Os botões principais de
-entrar, criar conta, recuperar senha e sair usam Authentication e Firestore;
-o acesso **Acessar demonstração** continua sem enviar dados e preserva o roteiro
-completo da versão 7.
+- Pontos de contas reais são somente leitura. O crédito automático continuará
+  bloqueado até existir uma função confiável no servidor.
+- Pix, cartão, assinatura, verificação de identidade, ligação protegida,
+  emergência e GPS ainda são simulações de produto, não integrações finais.
+- O mapa é vetorial e não depende de API externa; deverá ser substituído por um
+  provedor real de mapas e localização antes da publicação comercial.
+- Agenda e ganhos exibem dados de demonstração; o pedido ativo já é real.
 
-Antes de testar contas reais, habilite **E-mail/senha** no Firebase Console e
-publique as regras com o comando indicado acima.
+O Firebase é inicializado por `lib/main.dart`. O acesso **Acessar demonstração**
+continua sem enviar dados e preserva o roteiro completo da versão 7.
