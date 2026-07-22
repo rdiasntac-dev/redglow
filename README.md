@@ -87,6 +87,9 @@ firebase deploy --only firestore:rules,firestore:indexes
 
 - Pontos de contas reais são somente leitura. O crédito automático continuará
   bloqueado até existir uma função confiável no servidor.
+- Na demonstração, o atendimento de R$ 60 concluído e avaliado credita 60
+  pontos; o resgate de R$ 25 exige 3.000 pontos. Contas reais não fazem resgate
+  local para evitar alteração de saldo pelo aplicativo.
 - Pix, cartão, assinatura, verificação de identidade e GPS ainda são simulações
   de produto, não integrações finais.
 - Cliente e prestadora não possuem ligação direta ou chat livre; durante o

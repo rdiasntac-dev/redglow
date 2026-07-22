@@ -32,6 +32,8 @@ extension DemoBookingStatusLabel on DemoBookingStatus {
 }
 
 class DemoAppState extends ChangeNotifier {
+  static const pointsRedemptionCost = 3000;
+
   FirebaseMarketplaceService? _marketplaceService;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _profileSubscription;
   StreamSubscription<List<MarketplaceProfessional>>? _professionalsSubscription;
@@ -263,8 +265,8 @@ class DemoAppState extends ChangeNotifier {
   }
 
   bool redeemPoints() {
-    if (points < 2500) return false;
-    points -= 2500;
+    if (!isDemoSession || points < pointsRedemptionCost) return false;
+    points -= pointsRedemptionCost;
     notifyListeners();
     return true;
   }

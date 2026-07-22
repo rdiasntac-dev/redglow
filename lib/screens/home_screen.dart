@@ -367,6 +367,7 @@ class _PointsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const rewardTarget = DemoAppState.pointsRedemptionCost;
     return GlowCard(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       borderColor: Colors.transparent,
@@ -422,7 +423,7 @@ class _PointsCard extends StatelessWidget {
                     const Text('Próximo', style: TextStyle(fontSize: 8, color: Colors.white70)),
                     const Text('R\$ 25', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                     Text(
-                      'em ${(3000 - points).clamp(0, 3000)} pts',
+                      'em ${(rewardTarget - points).clamp(0, rewardTarget)} pts',
                       style: const TextStyle(fontSize: 7, color: Colors.white70),
                     ),
                   ],
@@ -435,7 +436,7 @@ class _PointsCard extends StatelessWidget {
             children: [
               const Expanded(child: Text('Meta: 3.000 pts', style: TextStyle(fontSize: 8))),
               Text(
-                '${((points / 3000).clamp(0, 1) * 100).toStringAsFixed(1).replaceAll('.', ',')}%',
+                '${((points / rewardTarget).clamp(0, 1) * 100).toStringAsFixed(1).replaceAll('.', ',')}%',
                 style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w800),
               ),
             ],
@@ -444,7 +445,7 @@ class _PointsCard extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
-              value: (points / 3000).clamp(0, 1).toDouble(),
+              value: (points / rewardTarget).clamp(0, 1).toDouble(),
               minHeight: 6,
               backgroundColor: Colors.white24,
               valueColor: const AlwaysStoppedAnimation(AppColors.yellow),
@@ -460,8 +461,18 @@ class _PointsCard extends StatelessWidget {
                   foreground: Colors.white,
                   onTap: () {
                     final state = DemoAppScope.of(context, listen: false);
+                    if (!state.isDemoSession) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'O resgate real será liberado após a carteira segura entrar em operação.',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
                     final success = state.redeemPoints();
-                    final missing = (2500 - state.points).clamp(0, 2500);
+                    final missing = (rewardTarget - state.points).clamp(0, rewardTarget);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
@@ -483,7 +494,7 @@ class _PointsCard extends StatelessWidget {
                   onTap: () => _showInfo(
                     context,
                     'Histórico de pontos',
-                    '+60 pontos · Avaliação do atendimento\n+25 pontos · Campanha de fim de semana\n+120 pontos · Serviços anteriores',
+                    '+60 pontos · Serviço concluído e avaliado\n+25 pontos · Campanha de fim de semana\n+120 pontos · Serviços anteriores',
                   ),
                 ),
               ),

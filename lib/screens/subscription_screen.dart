@@ -48,7 +48,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 icon: Icons.percent_rounded,
                 color: AppColors.yellow,
                 title: 'Zero comissão por atendimento',
-                subtitle: '100% do valor vai para você',
+                subtitle: 'A REDGLOW não desconta comissão do serviço',
               ),
               const SizedBox(height: 8),
               const _BenefitTile(
@@ -131,7 +131,7 @@ class _PlanHero extends StatelessWidget {
         Text('Plano Profissional\nIlimitado', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 6),
         const Text(
-          'Parceria justa — você recebe\n100% de cada atendimento.',
+          'Parceria justa — sem comissão\nREDGLOW por atendimento.',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
         ),
@@ -265,7 +265,7 @@ class _PriceCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Atendimentos ilimitados', style: TextStyle(fontSize: 10, color: AppColors.green, fontWeight: FontWeight.w900)),
-                      Text('Sem taxas, sem comissão. Zero.', style: TextStyle(fontSize: 8, color: AppColors.textSecondary)),
+                      Text('Taxa de pagamento informada antes da cobrança.', style: TextStyle(fontSize: 8, color: AppColors.textSecondary)),
                     ],
                   ),
                 ),

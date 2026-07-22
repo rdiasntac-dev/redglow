@@ -200,6 +200,24 @@ void main() {
     state.dispose();
   });
 
+  test('points require 3000 credits and real accounts cannot redeem locally', () {
+    final state = DemoAppState();
+
+    state.points = DemoAppState.pointsRedemptionCost - 1;
+    expect(state.redeemPoints(), isFalse);
+
+    state.points = DemoAppState.pointsRedemptionCost;
+    expect(state.redeemPoints(), isTrue);
+    expect(state.points, 0);
+
+    state.isDemoSession = false;
+    state.points = DemoAppState.pointsRedemptionCost;
+    expect(state.redeemPoints(), isFalse);
+    expect(state.points, DemoAppState.pointsRedemptionCost);
+
+    state.dispose();
+  });
+
   test('identity checks remain separate between client and provider', () {
     final state = DemoAppState();
 
