@@ -68,7 +68,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
           ];
     final query = _searchController.text.trim().toLowerCase();
     final results = professionals.where((professional) {
-      final matchesCategory = _category == 'Todos' || professional.specialty == _category;
+      final category = professional.specialty == 'Manicure'
+          ? 'Unhas'
+          : professional.specialty;
+      final matchesCategory = _category == 'Todos' || category == _category;
       final matchesQuery = query.isEmpty ||
           professional.name.toLowerCase().contains(query) ||
           professional.specialty.toLowerCase().contains(query);
@@ -150,7 +153,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         children: [
                           Text(professional.price, style: const TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w900)),
                           const SizedBox(height: 5),
-                          const StatusPill(label: 'Disponível', color: AppColors.green),
+                          StatusPill(
+                            label: state.isDemoSession ||
+                                    (professional.bookable && realProfessional != null)
+                                ? 'Disponível'
+                                : 'Vitrine',
+                            color: state.isDemoSession ||
+                                    (professional.bookable && realProfessional != null)
+                                ? AppColors.green
+                                : AppColors.textMuted,
+                          ),
                         ],
                       ),
                     ],

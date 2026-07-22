@@ -201,6 +201,8 @@ class HomeScreen extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 9),
                 child: _ProfessionalTile(
                   professional: entry.value,
+                  available: demoState.isDemoSession ||
+                      (entry.key == 0 && realProfessional != null),
                   onTap: () {
                     if (entry.key == 0) {
                       Navigator.of(context).push(
@@ -788,9 +790,14 @@ class _FeatureBanner extends StatelessWidget {
 }
 
 class _ProfessionalTile extends StatelessWidget {
-  const _ProfessionalTile({required this.professional, this.onTap});
+  const _ProfessionalTile({
+    required this.professional,
+    required this.available,
+    this.onTap,
+  });
 
   final Professional professional;
+  final bool available;
   final VoidCallback? onTap;
 
   @override
@@ -833,7 +840,10 @@ class _ProfessionalTile extends StatelessWidget {
                 style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 6),
-              const StatusPill(label: 'Disponível', color: AppColors.green),
+              StatusPill(
+                label: available ? 'Disponível' : 'Vitrine',
+                color: available ? AppColors.green : AppColors.textMuted,
+              ),
             ],
           ),
         ],
