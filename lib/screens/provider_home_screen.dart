@@ -53,6 +53,9 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final demoState = DemoAppScope.of(context);
+    final isOnline = demoState.isDemoSession
+        ? _isOnline
+        : demoState.providerOnline;
     return Scaffold(
       body: ConstrainedMobileBody(
         child: SafeArea(
@@ -61,7 +64,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
             children: [
               _ProviderHeader(
-                isOnline: _isOnline,
+                isOnline: isOnline,
                 name: demoState.accountName ?? 'Lari (Manicure)',
                 onBack: () => demoState.isDemoSession
                     ? Navigator.of(context).pop()
@@ -69,13 +72,19 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
               ),
               const SizedBox(height: 10),
               _OnlineCard(
-                isOnline: _isOnline,
-                onChanged: (value) => setState(() => _isOnline = value),
+                isOnline: isOnline,
+                onChanged: (value) {
+                  if (demoState.isDemoSession) {
+                    setState(() => _isOnline = value);
+                  } else {
+                    demoState.setProviderOnline(value);
+                  }
+                },
               ),
               const SizedBox(height: 12),
               _ProviderRequestCard(
                 state: demoState,
-                isOnline: _isOnline,
+                isOnline: isOnline,
               ),
               const SizedBox(height: 12),
               Row(
@@ -254,9 +263,9 @@ class _ProviderRequestCard extends StatelessWidget {
           ),
           if (hasRequest) ...[
             const Divider(height: 18),
-            const Text(
-              'Amanda Souza · Manicure e Pedicure · R\$ 60,00\nR. Izabel A Redentora, 1000 — Centro, SJP',
-              style: TextStyle(fontSize: 9, height: 1.5),
+            Text(
+              '${state.clientName} · Manicure e Pedicure · R\$ 60,00\nR. Izabel A Redentora, 1000 — Centro, SJP',
+              style: const TextStyle(fontSize: 9, height: 1.5),
             ),
             const SizedBox(height: 12),
             Row(
@@ -385,10 +394,26 @@ class _ProviderRequestCard extends StatelessWidget {
         _ => AppColors.primary,
       };
 
-  static void _update(BuildContext context, VoidCallback action, String message) {
-    action();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  static Future<void> _update(
+    BuildContext context,
+    Future<bool> Function() action,
+    String message,
+  ) async {
+    final succeeded = await action();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          succeeded
+              ? message
+              : stateError(context) ?? 'Não foi possível atualizar o atendimento.',
+        ),
+      ),
+    );
   }
+
+  static String? stateError(BuildContext context) =>
+      DemoAppScope.of(context, listen: false).backendError;
 }
 
 class _ProviderShortcut extends StatelessWidget {

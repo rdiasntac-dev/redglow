@@ -16,7 +16,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
   bool _confirmed = false;
   String _paymentMethod = 'Pix';
 
-  void _handleConfirm() {
+  Future<void> _handleConfirm() async {
     if (_confirmed) {
       Navigator.of(context).pop();
       return;
@@ -29,10 +29,27 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
       );
       return;
     }
-    demoState.requestBooking();
+    final requested = await demoState.requestBooking(
+      paymentMethod: _paymentMethod,
+    );
+    if (!mounted) return;
+    if (!requested) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            demoState.backendError ?? 'Não foi possível enviar a solicitação.',
+          ),
+        ),
+      );
+      return;
+    }
     setState(() => _confirmed = true);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Solicitação enviada. Agora aguarde o aceite de Lari.')),
+      SnackBar(
+        content: Text(
+          'Solicitação enviada. Agora aguarde o aceite de ${demoState.providerName}.',
+        ),
+      ),
     );
   }
 
@@ -78,6 +95,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final state = DemoAppScope.of(context);
     return Scaffold(
       body: ConstrainedMobileBody(
         child: LayoutBuilder(
@@ -105,10 +123,15 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                   child: _OrderSheet(
                     confirmed: _confirmed,
                     paymentMethod: _paymentMethod,
+                    providerName: state.providerName,
                     onConfirm: _handleConfirm,
                     onSelectPayment: _selectPayment,
                     onCall: () => ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Ligação protegida simulada para Lari.')),
+                      SnackBar(
+                        content: Text(
+                          'Ligação protegida simulada para ${state.providerName}.',
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -125,6 +148,7 @@ class _OrderSheet extends StatelessWidget {
   const _OrderSheet({
     required this.confirmed,
     required this.paymentMethod,
+    required this.providerName,
     required this.onConfirm,
     required this.onSelectPayment,
     required this.onCall,
@@ -132,6 +156,7 @@ class _OrderSheet extends StatelessWidget {
 
   final bool confirmed;
   final String paymentMethod;
+  final String providerName;
   final VoidCallback onConfirm;
   final VoidCallback onSelectPayment;
   final VoidCallback onCall;
@@ -192,13 +217,13 @@ class _OrderSheet extends StatelessWidget {
                     borderColor: AppColors.purple,
                   ),
                   const SizedBox(width: 9),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Lari (Manicure)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
-                        Text('★ 4.9  ·  834 serviços', style: TextStyle(fontSize: 8, color: AppColors.textSecondary)),
-                        Text('●  Disponível para o chamado', style: TextStyle(fontSize: 8, color: AppColors.green)),
+                        Text(providerName, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
+                        const Text('★ 4.9  ·  Identidade REDGLOW', style: TextStyle(fontSize: 8, color: AppColors.textSecondary)),
+                        const Text('●  Disponível para o chamado', style: TextStyle(fontSize: 8, color: AppColors.green)),
                       ],
                     ),
                   ),

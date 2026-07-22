@@ -202,12 +202,12 @@ class BookingsScreen extends StatelessWidget {
                         size: 48,
                       ),
                       const SizedBox(width: 10),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Lari (Manicure)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
-                            Text('Manicure e Pedicure · R\$ 60,00', style: TextStyle(fontSize: 9, color: AppColors.textSecondary)),
+                            Text(state.providerName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
+                            const Text('Manicure e Pedicure · R\$ 60,00', style: TextStyle(fontSize: 9, color: AppColors.textSecondary)),
                           ],
                         ),
                       ),
@@ -221,14 +221,18 @@ class BookingsScreen extends StatelessWidget {
                   _StatusTimeline(current: status),
                   const SizedBox(height: 14),
                   Text(
-                    _statusGuidance(status),
+                    _statusGuidance(
+                      status,
+                      providerName: state.providerName,
+                      isDemo: state.isDemoSession,
+                    ),
                     style: const TextStyle(fontSize: 9, color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 14),
                   if ({DemoBookingStatus.idle, DemoBookingStatus.cancelled}.contains(status))
                     GradientButton(
                       key: const Key('booking-start'),
-                      label: 'Agendar com Lari',
+                      label: 'Agendar com ${state.providerName}',
                       icon: Icons.calendar_month_rounded,
                       onPressed: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const OrderConfirmationScreen()),
@@ -243,7 +247,7 @@ class BookingsScreen extends StatelessWidget {
                   else if (status == DemoBookingStatus.accepted)
                     OutlinedButton.icon(
                       onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Pedido aceito. Aguardando Lari iniciar o trajeto.')),
+                        SnackBar(content: Text('Pedido aceito. Aguardando ${state.providerName} iniciar o trajeto.')),
                       ),
                       icon: const Icon(Icons.refresh_rounded),
                       label: const Text('Atualizar status'),
@@ -268,7 +272,11 @@ class BookingsScreen extends StatelessWidget {
                     )
                   else
                     OutlinedButton.icon(
-                      onPressed: state.resetBooking,
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const OrderConfirmationScreen(),
+                        ),
+                      ),
                       icon: const Icon(Icons.add_rounded),
                       label: const Text('Iniciar novo atendimento'),
                     ),
@@ -276,15 +284,17 @@ class BookingsScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            const GlowCard(
+            GlowCard(
               child: Row(
                 children: [
-                  Icon(Icons.info_outline_rounded, color: AppColors.purple),
-                  SizedBox(width: 10),
+                  const Icon(Icons.info_outline_rounded, color: AppColors.purple),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Para continuar após solicitar, volte à entrada, abra a demonstração da prestadora e aceite o pedido.',
-                      style: TextStyle(fontSize: 9, color: AppColors.textSecondary),
+                      state.isDemoSession
+                          ? 'Para continuar, volte à entrada, abra a demonstração da prestadora e aceite o pedido.'
+                          : 'Este atendimento é sincronizado pelo Firebase e aparecerá automaticamente na conta da prestadora.',
+                      style: const TextStyle(fontSize: 9, color: AppColors.textSecondary),
                     ),
                   ),
                 ],
@@ -314,14 +324,24 @@ class BookingsScreen extends StatelessWidget {
         _ => AppColors.primary,
       };
 
-  static String _statusGuidance(DemoBookingStatus status) => switch (status) {
-        DemoBookingStatus.idle => 'Você ainda não iniciou o atendimento demonstrativo.',
+  static String _statusGuidance(
+    DemoBookingStatus status, {
+    required String providerName,
+    required bool isDemo,
+  }) => switch (status) {
+        DemoBookingStatus.idle => isDemo
+            ? 'Você ainda não iniciou o atendimento demonstrativo.'
+            : 'Você ainda não possui um atendimento real.',
         DemoBookingStatus.requested => 'Solicitação enviada. Agora a prestadora precisa aceitar.',
-        DemoBookingStatus.accepted => 'Lari aceitou seu pedido e está preparando o deslocamento.',
+        DemoBookingStatus.accepted => '$providerName aceitou seu pedido e está preparando o deslocamento.',
         DemoBookingStatus.onTheWay => 'Acompanhe a rota e envie apenas mensagens rápidas e seguras.',
         DemoBookingStatus.inProgress => 'O atendimento foi iniciado pela prestadora.',
-        DemoBookingStatus.completed => 'Serviço concluído. Sua avaliação libera 60 pontos.',
-        DemoBookingStatus.reviewed => 'Avaliação registrada e pontos creditados.',
+        DemoBookingStatus.completed => isDemo
+            ? 'Serviço concluído. Sua avaliação libera 60 pontos.'
+            : 'Serviço concluído. Envie sua avaliação para finalizar.',
+        DemoBookingStatus.reviewed => isDemo
+            ? 'Avaliação registrada e pontos creditados.'
+            : 'Avaliação registrada com segurança.',
         DemoBookingStatus.cancelled => 'Esta solicitação foi cancelada.',
       };
 }
@@ -401,6 +421,15 @@ class ProfileScreen extends StatelessWidget {
                           state.accountName ?? 'Cliente REDGLOW',
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                         ),
+                        if (!state.isDemoSession && state.accountEmail != null)
+                          Text(
+                            state.accountEmail!,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 9,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
                         Text(
                           state.identityVerified ? 'Identidade verificada' : 'Identidade pendente',
                           style: TextStyle(

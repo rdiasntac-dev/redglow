@@ -43,22 +43,35 @@ class _RatingScreenState extends State<RatingScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_rating == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Escolha uma nota de 1 a 5 estrelas.')),
       );
       return;
     }
-    DemoAppScope.of(context, listen: false).submitRating(
+    final state = DemoAppScope.of(context, listen: false);
+    final succeeded = await state.submitRating(
       _rating,
       asProvider: widget.reviewingClient,
+      tags: _selectedTags.toList(),
+      comment: _commentController.text,
     );
+    if (!mounted) return;
+    if (!succeeded) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(state.backendError ?? 'Não foi possível enviar a avaliação.'),
+        ),
+      );
+      return;
+    }
     setState(() => _sent = true);
   }
 
   @override
   Widget build(BuildContext context) {
+    final state = DemoAppScope.of(context);
     if (_sent) {
       return Scaffold(
         body: ConstrainedMobileBody(
@@ -86,7 +99,9 @@ class _RatingScreenState extends State<RatingScreen> {
                     Text(
                       widget.reviewingClient
                           ? 'Seu relato ajuda a manter os atendimentos seguros para profissionais.'
-                          : 'Seu relato ajuda a comunidade REDGLOW e rendeu 60 pontos.',
+                          : state.isDemoSession
+                              ? 'Seu relato ajuda a comunidade REDGLOW e rendeu 60 pontos.'
+                              : 'Avaliação registrada. Os pontos serão creditados após validação segura.',
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: AppColors.textSecondary),
                     ),
@@ -235,6 +250,7 @@ class _ReviewTargetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final state = DemoAppScope.of(context);
     return GlowCard(
       gradient: const LinearGradient(colors: [Color(0xFF32122F), Color(0xFF221129)]),
       borderColor: AppColors.primary.withValues(alpha: .45),
@@ -254,7 +270,7 @@ class _ReviewTargetCard extends StatelessWidget {
           ),
           const SizedBox(height: 9),
           Text(
-            reviewingClient ? 'Amanda Souza' : 'Lari (Manicure)',
+            reviewingClient ? state.clientName : state.providerName,
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
           ),
           Text(

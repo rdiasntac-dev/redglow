@@ -131,24 +131,24 @@ void main() {
     expect(find.text('Acessar demonstração como Prestadora'), findsOneWidget);
   });
 
-  test('shared demo state follows the bilateral service lifecycle', () {
+  test('shared demo state follows the bilateral service lifecycle', () async {
     final state = DemoAppState();
 
     state.selectRole(UserRole.client);
-    state.requestBooking();
+    await state.requestBooking();
     expect(state.bookingStatus, DemoBookingStatus.requested);
 
     state.selectRole(UserRole.provider);
-    state.acceptBooking();
-    state.startTrip();
-    state.startService();
-    state.completeService();
-    state.submitRating(5, asProvider: true);
+    await state.acceptBooking();
+    await state.startTrip();
+    await state.startService();
+    await state.completeService();
+    await state.submitRating(5, asProvider: true);
     expect(state.providerToClientRating, 5);
     expect(state.bookingStatus, DemoBookingStatus.completed);
 
     state.selectRole(UserRole.client);
-    state.submitRating(5);
+    await state.submitRating(5);
     expect(state.clientToProviderRating, 5);
     expect(state.bookingStatus, DemoBookingStatus.reviewed);
     expect(state.points, 2540);
@@ -181,6 +181,11 @@ void main() {
     expect(state.activeRole, UserRole.provider);
     expect(state.isDemoSession, isFalse);
     expect(state.accountName, 'Lari REDGLOW');
+    expect(state.points, 0);
+
+    state.startSession(role: UserRole.client, demo: true);
+    expect(state.points, 2480);
+    expect(state.bookingStatus, DemoBookingStatus.idle);
 
     state.dispose();
   });

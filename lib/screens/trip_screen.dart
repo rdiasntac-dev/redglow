@@ -16,8 +16,18 @@ class TripScreen extends StatefulWidget {
 class _TripScreenState extends State<TripScreen> {
   String? _sentMessage;
 
-  void _send(String message) {
-    DemoAppScope.of(context, listen: false).sendQuickMessage(message);
+  Future<void> _send(String message) async {
+    final state = DemoAppScope.of(context, listen: false);
+    final succeeded = await state.sendQuickMessage(message);
+    if (!mounted) return;
+    if (!succeeded) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(state.backendError ?? 'Não foi possível enviar a mensagem.'),
+        ),
+      );
+      return;
+    }
     setState(() => _sentMessage = message);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Mensagem enviada: “$message”')),
@@ -96,10 +106,10 @@ class _TripScreenState extends State<TripScreen> {
                                     ),
                                     Text(
                                       inService
-                                          ? 'Lari confirmou a chegada'
+                                          ? '${demoState.providerName} confirmou a chegada'
                                           : completed
                                               ? 'Manicure e Pedicure finalizado'
-                                              : 'Lari (Manicure) · aproximadamente 5 min',
+                                              : '${demoState.providerName} · aproximadamente 5 min',
                                       style: const TextStyle(fontSize: 9, color: AppColors.green),
                                     ),
                                   ],
@@ -108,7 +118,11 @@ class _TripScreenState extends State<TripScreen> {
                               RoundIconButton(
                                 icon: Icons.call_outlined,
                                 onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Ligação protegida simulada para Lari.')),
+                                  SnackBar(
+                                    content: Text(
+                                      'Ligação protegida simulada para ${demoState.providerName}.',
+                                    ),
+                                  ),
                                 ),
                                 size: 36,
                                 color: AppColors.green,

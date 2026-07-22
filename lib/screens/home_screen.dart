@@ -55,6 +55,21 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final demoState = DemoAppScope.of(context);
+    final realProfessional = demoState.selectedProfessional;
+    final visibleProfessionals = realProfessional == null
+        ? professionals
+        : [
+            Professional(
+              name: realProfessional.name,
+              specialty: realProfessional.specialty,
+              price: _formatCurrency(realProfessional.priceCents),
+              rating: 5,
+              services: 0,
+              imageUrl: realProfessional.photoUrl ?? _lariImage,
+              avatarColor: const Color(0xFF597BFF),
+            ),
+            ...professionals.skip(1),
+          ];
     final canTrack = {
       DemoBookingStatus.onTheWay,
       DemoBookingStatus.inProgress,
@@ -160,13 +175,13 @@ class HomeScreen extends StatelessWidget {
               onAction: onExplore,
             ),
             const SizedBox(height: 8),
-            ...professionals.map(
-              (professional) => Padding(
+            ...visibleProfessionals.asMap().entries.map(
+              (entry) => Padding(
                 padding: const EdgeInsets.only(bottom: 9),
                 child: _ProfessionalTile(
-                  professional: professional,
+                  professional: entry.value,
                   onTap: () {
-                    if (professional.name == 'Lari (Manicure)') {
+                    if (entry.key == 0) {
                       Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => const OrderConfirmationScreen(),
@@ -176,8 +191,8 @@ class HomeScreen extends StatelessWidget {
                     }
                     _showInfo(
                       context,
-                      professional.name,
-                      '${professional.specialty} · ${professional.rating} estrelas · ${professional.price}. Agenda demonstrativa disponível em breve.',
+                      entry.value.name,
+                      '${entry.value.specialty} · ${entry.value.rating} estrelas · ${entry.value.price}. Agenda demonstrativa disponível em breve.',
                     );
                   },
                 ),
@@ -190,6 +205,11 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatCurrency(int cents) {
+  final value = (cents / 100).toStringAsFixed(2).replaceAll('.', ',');
+  return 'R\$ $value';
 }
 
 void _showInfo(BuildContext context, String title, String message) {

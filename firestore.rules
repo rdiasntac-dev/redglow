@@ -24,6 +24,66 @@ service cloud.firestore {
         && request.auth.uid in [data.clientId, data.providerId];
     }
 
+    function bookingCoreUnchanged() {
+      return request.resource.data.clientId == resource.data.clientId
+        && request.resource.data.providerId == resource.data.providerId
+        && request.resource.data.clientName == resource.data.clientName
+        && request.resource.data.providerName == resource.data.providerName
+        && request.resource.data.serviceName == resource.data.serviceName
+        && request.resource.data.priceCents == resource.data.priceCents
+        && request.resource.data.address == resource.data.address
+        && request.resource.data.paymentMethod == resource.data.paymentMethod
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    function validClientBookingUpdate() {
+      return request.auth.uid == resource.data.clientId
+        && (
+          resource.data.status == 'requested'
+            && request.resource.data.status == 'cancelled'
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'updatedAt'])
+          || resource.data.status == 'completed'
+            && request.resource.data.status == 'reviewed'
+            && resource.data.clientRating == 0
+            && request.resource.data.clientRating is int
+            && request.resource.data.clientRating >= 1
+            && request.resource.data.clientRating <= 5
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'clientRating', 'updatedAt'])
+        );
+    }
+
+    function validProviderBookingUpdate() {
+      return request.auth.uid == resource.data.providerId
+        && (
+          resource.data.status == 'requested'
+            && request.resource.data.status in ['accepted', 'cancelled']
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'updatedAt'])
+          || resource.data.status == 'accepted'
+            && request.resource.data.status == 'onTheWay'
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'updatedAt'])
+          || resource.data.status == 'onTheWay'
+            && request.resource.data.status == 'inProgress'
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'updatedAt'])
+          || resource.data.status == 'inProgress'
+            && request.resource.data.status == 'completed'
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'updatedAt'])
+          || resource.data.status in ['completed', 'reviewed']
+            && request.resource.data.status == resource.data.status
+            && resource.data.providerRating == 0
+            && request.resource.data.providerRating is int
+            && request.resource.data.providerRating >= 1
+            && request.resource.data.providerRating <= 5
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['providerRating', 'updatedAt'])
+        );
+    }
+
     match /users/{uid} {
       allow create: if isSelf(uid)
         && request.resource.data.keys().hasOnly([
@@ -56,21 +116,64 @@ service cloud.firestore {
 
     match /professionals/{uid} {
       allow read: if signedIn();
-      allow create, update: if isSelf(uid)
+      allow create: if isSelf(uid)
         && hasRole('provider')
-        && request.resource.data.uid == uid;
+        && request.resource.data.uid == uid
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'name',
+          'specialty',
+          'priceCents',
+          'rating',
+          'services',
+          'isOnline',
+          'photoUrl',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.isOnline is bool;
+      allow update: if isSelf(uid)
+        && hasRole('provider')
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name', 'specialty', 'priceCents', 'photoUrl', 'isOnline', 'updatedAt']);
       allow delete: if false;
     }
 
     match /bookings/{bookingId} {
       allow create: if hasRole('client')
         && request.resource.data.clientId == request.auth.uid
-        && request.resource.data.providerId is string;
+        && request.resource.data.providerId is string
+        && exists(/databases/$(database)/documents/professionals/$(request.resource.data.providerId))
+        && get(/databases/$(database)/documents/professionals/$(request.resource.data.providerId)).data.isOnline == true
+        && request.resource.data.keys().hasOnly([
+          'clientId',
+          'providerId',
+          'clientName',
+          'providerName',
+          'serviceName',
+          'priceCents',
+          'address',
+          'paymentMethod',
+          'status',
+          'clientRating',
+          'providerRating',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.status == 'requested'
+        && request.resource.data.serviceName == 'Manicure e Pedicure'
+        && request.resource.data.priceCents == 6000
+        && request.resource.data.paymentMethod in ['Pix', 'Cartão', 'Dinheiro']
+        && request.resource.data.clientRating == 0
+        && request.resource.data.providerRating == 0
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
       allow read: if isBookingParticipant(resource.data);
       allow update: if isBookingParticipant(resource.data)
-        && request.resource.data.clientId == resource.data.clientId
-        && request.resource.data.providerId == resource.data.providerId
-        && request.resource.data.priceCents == resource.data.priceCents;
+        && bookingCoreUnchanged()
+        && request.resource.data.updatedAt == request.time
+        && (validClientBookingUpdate() || validProviderBookingUpdate());
       allow delete: if false;
 
       match /quickMessages/{messageId} {
@@ -81,11 +184,13 @@ service cloud.firestore {
         allow read: if isBookingParticipant(booking().data);
         allow create: if isBookingParticipant(booking().data)
           && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.keys().hasOnly(['senderId', 'body', 'createdAt'])
           && request.resource.data.body in [
             'Pode subir/entrar',
             'Estou descendo',
             'Campainha quebrada'
-          ];
+          ]
+          && request.resource.data.createdAt == request.time;
         allow update, delete: if false;
       }
     }
@@ -98,14 +203,30 @@ service cloud.firestore {
       }
 
       allow create: if signedIn()
+        && ratingId == request.resource.data.bookingId + '_' + request.auth.uid
         && request.resource.data.fromUid == request.auth.uid
         && isBookingParticipant(relatedBooking().data)
+        && relatedBooking().data.status in ['completed', 'reviewed']
         && request.resource.data.toUid
           in [relatedBooking().data.clientId, relatedBooking().data.providerId]
         && request.resource.data.toUid != request.resource.data.fromUid
+        && request.resource.data.keys().hasOnly([
+          'bookingId',
+          'fromUid',
+          'toUid',
+          'score',
+          'tags',
+          'comment',
+          'createdAt'
+        ])
         && request.resource.data.score is int
         && request.resource.data.score >= 1
-        && request.resource.data.score <= 5;
+        && request.resource.data.score <= 5
+        && request.resource.data.tags is list
+        && request.resource.data.tags.size() <= 6
+        && request.resource.data.comment is string
+        && request.resource.data.comment.size() <= 200
+        && request.resource.data.createdAt == request.time;
       allow read: if signedIn()
         && request.auth.uid in [resource.data.fromUid, resource.data.toUid];
       allow update, delete: if false;
