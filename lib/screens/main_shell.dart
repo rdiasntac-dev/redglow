@@ -43,14 +43,14 @@ class _MainShellState extends State<MainShell> {
           Positioned.fill(
             child: IndexedStack(index: _currentIndex, children: _screens),
           ),
-          const Positioned(
+          Positioned(
             left: 0,
             right: 0,
             bottom: 12,
             child: Center(
               child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: 520),
-                child: SizedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: const SizedBox(
                   width: double.infinity,
                   child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 14),
