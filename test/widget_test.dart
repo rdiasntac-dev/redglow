@@ -93,6 +93,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Continuar Verificação'), findsOneWidget);
+    await _scrollTo(tester, find.byKey(const Key('cpf-field')));
     expect(find.byKey(const Key('cpf-field')), findsOneWidget);
     expect(find.byKey(const Key('phone-field')), findsOneWidget);
   });
