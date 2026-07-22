@@ -67,8 +67,13 @@ void main() {
   testWidgets('identity verification starts from its CTA', (tester) async {
     await _openClientDemo(tester);
 
-    await _scrollTo(tester, find.byKey(const Key('identity-check-entry')));
-    await tester.tap(find.byKey(const Key('identity-check-entry')));
+    final identityEntry = find.byKey(const Key('identity-check-entry'));
+    await _scrollTo(tester, identityEntry);
+    final identityAction = find.descendant(
+      of: identityEntry,
+      matching: find.byType(InkWell),
+    );
+    tester.widget<InkWell>(identityAction).onTap!();
     await tester.pumpAndSettle();
 
     expect(find.text('Segurança REDGLOW'), findsOneWidget);
