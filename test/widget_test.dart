@@ -66,19 +66,20 @@ void main() {
     expect(find.text('Fechar e Aguardar Aceite'), findsOneWidget);
   });
 
-  testWidgets('identity verification starts from its CTA', (tester) async {
+  testWidgets('home offers the identity verification CTA', (tester) async {
     await _openClientDemo(tester);
 
     final identityEntry = find.byKey(const Key('identity-check-entry'));
     await _scrollTo(tester, identityEntry);
     expect(identityEntry, findsOneWidget);
+  });
 
+  testWidgets('identity verification can be started', (tester) async {
     final demoState = DemoAppState();
     await tester.pumpWidget(
       DemoAppScope(
         controller: demoState,
         child: MaterialApp(
-          key: const Key('identity-test-app'),
           theme: AppTheme.dark,
           home: const IdentityVerificationScreen(),
         ),
