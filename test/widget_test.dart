@@ -4,10 +4,19 @@ import 'package:redglow/app.dart';
 import 'package:redglow/models/user_role.dart';
 import 'package:redglow/state/demo_app_state.dart';
 
+Future<void> _scrollTo(WidgetTester tester, Finder target) async {
+  await tester.scrollUntilVisible(
+    target,
+    260,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pumpAndSettle();
+}
+
 Future<void> _openClientDemo(WidgetTester tester) async {
   await tester.pumpWidget(const RedGlowApp());
   await tester.pump();
-  await tester.ensureVisible(find.byKey(const Key('demo-access')));
+  await _scrollTo(tester, find.byKey(const Key('demo-access')));
   await tester.tap(find.byKey(const Key('demo-access')));
   await tester.pumpAndSettle();
 }
@@ -20,6 +29,8 @@ void main() {
     expect(find.text('REDGLOW'), findsOneWidget);
     expect(find.text('Cliente'), findsOneWidget);
     expect(find.text('Prestadora'), findsOneWidget);
+
+    await _scrollTo(tester, find.byKey(const Key('demo-access')));
     expect(find.text('Acessar demonstração como Cliente'), findsOneWidget);
   });
 
@@ -28,6 +39,8 @@ void main() {
 
     expect(find.text('REDGLOW PONTOS'), findsOneWidget);
     expect(find.text('R. Izabel A Redentora, 1000'), findsOneWidget);
+
+    await _scrollTo(tester, find.text('Lari (Manicure)'));
     expect(find.text('Lari (Manicure)'), findsOneWidget);
     expect(find.text('R\$ 60,00'), findsOneWidget);
     expect(find.text('Área da Prestadora'), findsNothing);
@@ -37,8 +50,7 @@ void main() {
   testWidgets('Lari opens the order confirmation flow', (tester) async {
     await _openClientDemo(tester);
 
-    await tester.ensureVisible(find.text('Lari (Manicure)').last);
-    await tester.pumpAndSettle();
+    await _scrollTo(tester, find.text('Lari (Manicure)'));
     await tester.tap(find.text('Lari (Manicure)').last);
     await tester.pumpAndSettle();
 
@@ -54,8 +66,7 @@ void main() {
   testWidgets('identity verification starts from its CTA', (tester) async {
     await _openClientDemo(tester);
 
-    await tester.ensureVisible(find.text('Verificar Identidade'));
-    await tester.pumpAndSettle();
+    await _scrollTo(tester, find.text('Verificar Identidade'));
     await tester.tap(find.text('Verificar Identidade'));
     await tester.pumpAndSettle();
 
@@ -72,14 +83,16 @@ void main() {
     await tester.pump();
 
     await tester.tap(find.byKey(const Key('provider-role')));
-    await tester.ensureVisible(find.byKey(const Key('demo-access')));
+    await _scrollTo(tester, find.byKey(const Key('demo-access')));
     await tester.tap(find.byKey(const Key('demo-access')));
     await tester.pumpAndSettle();
 
     expect(find.text('MODO PRESTADORA'), findsOneWidget);
-    expect(find.text('GANHOS DE HOJE'), findsOneWidget);
     expect(find.text('Plano profissional'), findsOneWidget);
     expect(find.text('REDGLOW PONTOS'), findsNothing);
+
+    await _scrollTo(tester, find.text('GANHOS DE HOJE'));
+    expect(find.text('GANHOS DE HOJE'), findsOneWidget);
   });
 
   testWidgets('provider can log out of the demonstrative account', (tester) async {
@@ -87,11 +100,11 @@ void main() {
     await tester.pump();
 
     await tester.tap(find.byKey(const Key('provider-role')));
-    await tester.ensureVisible(find.byKey(const Key('demo-access')));
+    await _scrollTo(tester, find.byKey(const Key('demo-access')));
     await tester.tap(find.byKey(const Key('demo-access')));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.byKey(const Key('provider-logout')));
+    await _scrollTo(tester, find.byKey(const Key('provider-logout')));
     await tester.tap(find.byKey(const Key('provider-logout')));
     await tester.pumpAndSettle();
 
