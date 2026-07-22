@@ -1,4 +1,4 @@
-package com.example.redglow
+package br.com.redglow.app
 
 import io.flutter.embedding.android.FlutterActivity
 
