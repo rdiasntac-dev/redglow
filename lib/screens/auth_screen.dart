@@ -154,7 +154,7 @@ class _AuthScreenState extends State<AuthScreen> {
       _showMessage(_firebaseMessage(error.code));
     } on StateError catch (error) {
       await _auth.signOut();
-      _showMessage('${error.message}');
+      _showMessage(error.message);
     } catch (_) {
       _showMessage('Não foi possível acessar sua conta agora. Tente novamente.');
     } finally {
