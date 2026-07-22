@@ -57,6 +57,7 @@ void main() {
     expect(find.text('Tudo certo para agendar!'), findsOneWidget);
     expect(find.text('Confirmar e Chamar Prestadora'), findsOneWidget);
 
+    await _scrollTo(tester, find.byKey(const Key('confirm-order')));
     await tester.tap(find.byKey(const Key('confirm-order')));
     await tester.pump();
 
@@ -70,10 +71,11 @@ void main() {
     await tester.tap(find.text('Verificar Identidade'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Segurança REDGLOW'), findsOneWidget);
     await tester.tap(find.byKey(const Key('start-verification')));
     await tester.pump();
 
-    expect(find.text('Segurança REDGLOW'), findsOneWidget);
+    expect(find.text('Continuar Verificação'), findsOneWidget);
     expect(find.byKey(const Key('cpf-field')), findsOneWidget);
     expect(find.byKey(const Key('phone-field')), findsOneWidget);
   });
