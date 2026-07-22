@@ -175,6 +175,27 @@ class HomeScreen extends StatelessWidget {
               onAction: onExplore,
             ),
             const SizedBox(height: 8),
+            if (!demoState.isDemoSession && realProfessional == null) ...[
+              const GlowCard(
+                borderColor: AppColors.yellow,
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline_rounded, color: AppColors.yellow),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Nenhuma prestadora real está online. Os perfis abaixo continuam visíveis como vitrine.',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 9),
+            ],
             ...visibleProfessionals.asMap().entries.map(
               (entry) => Padding(
                 padding: const EdgeInsets.only(bottom: 9),

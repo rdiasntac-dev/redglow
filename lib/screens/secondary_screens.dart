@@ -26,18 +26,21 @@ class _ExploreScreenState extends State<ExploreScreen> {
       specialty: 'Unhas',
       price: 'R\$ 60,00',
       image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=240',
+      bookable: true,
     ),
     (
       name: 'Fernanda Lima',
       specialty: 'Sobrancelha',
       price: 'R\$ 65,00',
       image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=240',
+      bookable: false,
     ),
     (
       name: 'Juliana Melo',
       specialty: 'Cabelo',
       price: 'R\$ 120,00',
       image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=240',
+      bookable: false,
     ),
   ];
 
@@ -49,8 +52,22 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final state = DemoAppScope.of(context);
+    final realProfessional = state.selectedProfessional;
+    final professionals = realProfessional == null
+        ? _professionals
+        : [
+            (
+              name: realProfessional.name,
+              specialty: realProfessional.specialty,
+              price: _formatMarketplaceCurrency(realProfessional.priceCents),
+              image: realProfessional.photoUrl ?? _professionals.first.image,
+              bookable: true,
+            ),
+            ..._professionals.skip(1),
+          ];
     final query = _searchController.text.trim().toLowerCase();
-    final results = _professionals.where((professional) {
+    final results = professionals.where((professional) {
       final matchesCategory = _category == 'Todos' || professional.specialty == _category;
       final matchesQuery = query.isEmpty ||
           professional.name.toLowerCase().contains(query) ||
@@ -147,9 +164,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   void _openProfessional(
     BuildContext context,
-    ({String name, String specialty, String price, String image}) professional,
+    ({String name, String specialty, String price, String image, bool bookable}) professional,
   ) {
-    if (professional.name == 'Lari (Manicure)') {
+    if (professional.bookable) {
       Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const OrderConfirmationScreen()),
       );
@@ -158,9 +175,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
     _showInfoSheet(
       context,
       professional.name,
-      '${professional.specialty} · ${professional.price}. Esta agenda será conectada ao backend; o ciclo completo da demonstração está disponível com Lari.',
+      '${professional.specialty} · ${professional.price}. Esta profissional ainda faz parte somente da vitrine demonstrativa.',
     );
   }
+}
+
+String _formatMarketplaceCurrency(int cents) {
+  final value = (cents / 100).toStringAsFixed(2).replaceAll('.', ',');
+  return 'R\$ $value';
 }
 
 class BookingsScreen extends StatelessWidget {
