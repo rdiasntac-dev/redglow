@@ -270,4 +270,12 @@ class FirebaseMarketplaceService {
     }
     await batch.commit();
   }
+
+  Future<void> requestAccountDeletion(String uid) {
+    return _firestore.collection('accountDeletionRequests').doc(uid).set({
+      'uid': uid,
+      'status': 'requested',
+      'requestedAt': FieldValue.serverTimestamp(),
+    });
+  }
 }

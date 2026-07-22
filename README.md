@@ -16,6 +16,8 @@ domicílio. Esta base implementa a interface aprovada na versão 7 do Figma.
 - Ciclo de atendimento real sincronizado entre cliente e prestadora pelo Firestore.
 - Modo demonstrativo independente, sem gravação no Firebase.
 - Busca, agenda, perfil, pontos e ações secundárias com retorno funcional.
+- Solicitação autenticada de exclusão de conta para cliente e prestadora.
+- Avisos explícitos nas integrações ainda simuladas, sem cobrança ou autoaprovação de identidade.
 
 ## Roteiro da demonstração completa
 
@@ -92,6 +94,12 @@ firebase deploy --only firestore:rules,firestore:indexes
   local para evitar alteração de saldo pelo aplicativo.
 - Pix, cartão, assinatura, verificação de identidade e GPS ainda são simulações
   de produto, não integrações finais.
+- A prévia do ID Check não consulta CPF, não seleciona arquivos, não realiza
+  biometria e não aprova contas reais. Use somente dados fictícios nos testes.
+- Os preços do plano são hipóteses comerciais. Contas reais não ativam assinatura
+  nem recebem cobrança enquanto a integração financeira estiver desabilitada.
+- O pedido de exclusão cria um registro protegido no Firestore. A remoção final
+  será executada por processo administrativo/backend após definir retenções legais.
 - Cliente e prestadora não possuem ligação direta ou chat livre; durante o
   atendimento são permitidas somente mensagens rápidas predefinidas.
 - O mapa é vetorial e não depende de API externa; deverá ser substituído por um
@@ -100,3 +108,10 @@ firebase deploy --only firestore:rules,firestore:indexes
 
 O Firebase é inicializado por `lib/main.dart`. O acesso **Acessar demonstração**
 continua sem enviar dados e preserva o roteiro completo da versão 7.
+
+Depois de atualizar esta versão, publique as regras para habilitar o pedido de
+exclusão em contas reais:
+
+```bash
+firebase deploy --only firestore:rules,firestore:indexes
+```

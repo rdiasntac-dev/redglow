@@ -237,6 +237,24 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /accountDeletionRequests/{uid} {
+      function validDeletionRequest() {
+        return isSelf(uid)
+          && request.resource.data.keys().hasOnly([
+            'uid',
+            'status',
+            'requestedAt'
+          ])
+          && request.resource.data.uid == uid
+          && request.resource.data.status == 'requested'
+          && request.resource.data.requestedAt == request.time;
+      }
+
+      allow read: if isSelf(uid);
+      allow create, update: if validDeletionRequest();
+      allow delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

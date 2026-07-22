@@ -17,7 +17,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final planActive = _subscribed || DemoAppScope.of(context).professionalPlanActive;
+    final state = DemoAppScope.of(context);
+    final isDemo = state.isDemoSession;
+    final planActive = isDemo && (_subscribed || state.professionalPlanActive);
     return Scaffold(
       body: ConstrainedMobileBody(
         child: SafeArea(
@@ -61,8 +63,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               const _BenefitTile(
                 icon: Icons.shield_outlined,
                 color: AppColors.route,
-                title: 'Segurança garantida',
-                subtitle: 'Clientes verificados e central de emergência',
+                title: 'Recursos de segurança',
+                subtitle: 'Verificação planejada e central de emergência',
               ),
               const SizedBox(height: 8),
               const _BenefitTile(
@@ -74,9 +76,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               const SizedBox(height: 14),
               const Center(
                 child: StatusPill(
-                  label: '7 DIAS DE GARANTIA · CANCELE QUANDO QUISER',
-                  color: AppColors.green,
-                  icon: Icons.verified_rounded,
+                  label: 'CONDIÇÕES EM VALIDAÇÃO · SEM COBRANÇA NO BETA',
+                  color: AppColors.yellow,
+                  icon: Icons.science_outlined,
                 ),
               ),
             ],
@@ -86,7 +88,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       bottomNavigationBar: ConstrainedBottomBar(
         child: GradientButton(
           key: const Key('subscribe-button'),
-          label: planActive ? 'Perfil profissional ativado!' : 'Assinar e Ativar Perfil',
+          label: planActive
+              ? 'Perfil demonstrativo ativado!'
+              : isDemo
+                  ? 'Simular Ativação do Plano'
+                  : 'Consultar Condições do Beta',
           icon: planActive ? Icons.check_circle_rounded : Icons.workspace_premium_rounded,
           gradient: planActive
               ? const LinearGradient(colors: [Color(0xFF0FBF8B), Color(0xFF0E9F75)])
@@ -96,10 +102,16 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               Navigator.of(context).pop();
               return;
             }
-            DemoAppScope.of(context, listen: false).activateProfessionalPlan();
+            if (!isDemo) {
+              _showBetaConditions(context);
+              return;
+            }
+            state.activateProfessionalPlan();
             setState(() => _subscribed = true);
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Plano profissional ativado com sucesso.')),
+              const SnackBar(
+                content: Text('Simulação concluída. Nenhuma cobrança foi realizada.'),
+              ),
             );
           },
         ),
@@ -228,6 +240,12 @@ class _PriceCard extends StatelessWidget {
         children: [
           const Text('REDGLOW', style: TextStyle(fontSize: 8, color: AppColors.textSecondary)),
           const Text('Plano Profissional', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 4),
+          const StatusPill(
+            label: 'VALOR PROPOSTO PARA TESTE',
+            color: AppColors.yellow,
+            icon: Icons.science_outlined,
+          ),
           const SizedBox(height: 12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -276,6 +294,41 @@ class _PriceCard extends StatelessWidget {
       ),
     );
   }
+}
+
+void _showBetaConditions(BuildContext context) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: AppColors.surface,
+    showDragHandle: true,
+    builder: (context) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Plano em validação', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            const Text(
+              'Os valores exibidos são propostas para o beta. A assinatura real '
+              'será habilitada somente após validação comercial, jurídica e integração '
+              'com um processador de pagamentos. Nenhuma cobrança foi realizada.',
+              style: TextStyle(color: AppColors.textSecondary, height: 1.45),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Entendi'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _BenefitTile extends StatelessWidget {

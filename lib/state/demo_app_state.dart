@@ -250,6 +250,18 @@ class DemoAppState extends ChangeNotifier {
     return succeeded;
   }
 
+  Future<bool> requestAccountDeletion() async {
+    if (isDemoSession) return true;
+    final userId = currentUserId;
+    if (userId == null) {
+      _setBackendError('A sessão expirou. Entre novamente para solicitar a exclusão.');
+      return false;
+    }
+    return _runBackendAction(
+      () => _marketplace.requestAccountDeletion(userId),
+    );
+  }
+
   void markIdentityVerified() {
     if (activeRole == UserRole.client) {
       clientIdentityVerified = true;

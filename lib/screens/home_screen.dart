@@ -159,7 +159,7 @@ class HomeScreen extends StatelessWidget {
                   _showInfo(
                     context,
                     'Identidade verificada',
-                    'Seu ID Check está concluído e protegido pela REDGLOW.',
+                    'Seu perfil consta como verificado no cadastro REDGLOW.',
                   );
                   return;
                 }

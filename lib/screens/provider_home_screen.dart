@@ -4,6 +4,7 @@ import '../models/app_models.dart';
 import '../services/session_service.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
+import '../widgets/account_deletion_action.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/emergency_action.dart';
 import 'identity_verification_screen.dart';
@@ -178,6 +179,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
                 ),
               ),
+              const SizedBox(height: 4),
+              const AccountDeletionButton(),
             ],
           ),
         ),

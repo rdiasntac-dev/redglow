@@ -48,7 +48,9 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Solicitação enviada. Agora aguarde o aceite de ${demoState.providerName}.',
+          demoState.isDemoSession
+              ? 'Solicitação enviada. Agora aguarde o aceite de ${demoState.providerName}.'
+              : 'Solicitação enviada sem cobrança. Aguarde o aceite de ${demoState.providerName}.',
         ),
       ),
     );
@@ -123,6 +125,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                   bottom: 0,
                   child: _OrderSheet(
                     confirmed: _confirmed,
+                    isDemo: state.isDemoSession,
                     paymentMethod: _paymentMethod,
                     providerName: state.providerName,
                     onConfirm: _handleConfirm,
@@ -142,6 +145,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
 class _OrderSheet extends StatelessWidget {
   const _OrderSheet({
     required this.confirmed,
+    required this.isDemo,
     required this.paymentMethod,
     required this.providerName,
     required this.onConfirm,
@@ -150,6 +154,7 @@ class _OrderSheet extends StatelessWidget {
   });
 
   final bool confirmed;
+  final bool isDemo;
   final String paymentMethod;
   final String providerName;
   final VoidCallback onConfirm;
@@ -217,7 +222,12 @@ class _OrderSheet extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(providerName, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
-                        const Text('★ 4.9  ·  Identidade REDGLOW', style: TextStyle(fontSize: 8, color: AppColors.textSecondary)),
+                        Text(
+                          isDemo
+                              ? '★ 4.9  ·  Perfil demonstrativo'
+                              : 'Perfil beta  ·  ID não exibido',
+                          style: const TextStyle(fontSize: 8, color: AppColors.textSecondary),
+                        ),
                         const Text('●  Disponível para o chamado', style: TextStyle(fontSize: 8, color: AppColors.green)),
                       ],
                     ),
@@ -235,13 +245,18 @@ class _OrderSheet extends StatelessWidget {
             const _SummaryCard(),
             const SizedBox(height: 9),
             _PaymentCard(
+              isDemo: isDemo,
               paymentMethod: paymentMethod,
               onSelectPayment: onSelectPayment,
             ),
             const SizedBox(height: 10),
             GradientButton(
               key: const Key('confirm-order'),
-              label: confirmed ? 'Fechar e Aguardar Aceite' : 'Confirmar e Chamar Prestadora',
+              label: confirmed
+                  ? 'Fechar e Aguardar Aceite'
+                  : isDemo
+                      ? 'Confirmar e Chamar Prestadora'
+                      : 'Solicitar Atendimento · Sem Cobrança',
               icon: confirmed ? Icons.schedule_rounded : Icons.send_rounded,
               onPressed: onConfirm,
               gradient: confirmed
@@ -250,11 +265,13 @@ class _OrderSheet extends StatelessWidget {
               height: 48,
             ),
             const SizedBox(height: 8),
-            const Center(
+            Center(
               child: Text(
-                'Ao confirmar, você concorda com os Termos de Serviço da REDGLOW.',
+                isDemo
+                    ? 'Fluxo demonstrativo · nenhum pagamento é processado.'
+                    : 'Versão beta · a preferência é registrada, mas nenhuma cobrança é realizada.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 7, color: AppColors.textMuted),
+                style: const TextStyle(fontSize: 7, color: AppColors.textMuted),
               ),
             ),
           ],
@@ -314,8 +331,13 @@ class _SummaryCard extends StatelessWidget {
 }
 
 class _PaymentCard extends StatelessWidget {
-  const _PaymentCard({required this.paymentMethod, required this.onSelectPayment});
+  const _PaymentCard({
+    required this.isDemo,
+    required this.paymentMethod,
+    required this.onSelectPayment,
+  });
 
+  final bool isDemo;
   final String paymentMethod;
   final VoidCallback onSelectPayment;
 
@@ -329,7 +351,12 @@ class _PaymentCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: Text('FORMA DE PAGAMENTO', style: Theme.of(context).textTheme.labelSmall)),
+              Expanded(
+                child: Text(
+                  'PREFERÊNCIA DE PAGAMENTO · BETA',
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ),
               TextButton(
                 onPressed: onSelectPayment,
                 style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
@@ -351,17 +378,31 @@ class _PaymentCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(paymentMethod, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
-                    const Text('Pagamento protegido', style: TextStyle(fontSize: 8, color: AppColors.textSecondary)),
+                    Text(
+                      isDemo
+                          ? 'Simulação de pagamento'
+                          : 'Cobrança ainda não habilitada',
+                      style: const TextStyle(fontSize: 8, color: AppColors.textSecondary),
+                    ),
                   ],
                 ),
               ),
-              const StatusPill(label: 'Seguro', color: AppColors.green, icon: Icons.shield_outlined),
+              const StatusPill(
+                label: 'SEM COBRANÇA',
+                color: AppColors.yellow,
+                icon: Icons.science_outlined,
+              ),
             ],
           ),
           const Divider(height: 14),
           Row(
             children: [
-              Expanded(child: Text('Total a pagar via $paymentMethod', style: const TextStyle(fontSize: 9, color: AppColors.textSecondary))),
+              Expanded(
+                child: Text(
+                  'Valor demonstrativo via $paymentMethod',
+                  style: const TextStyle(fontSize: 9, color: AppColors.textSecondary),
+                ),
+              ),
               const Text('R\$ 60,00', style: TextStyle(fontSize: 13, color: AppColors.green, fontWeight: FontWeight.w900)),
             ],
           ),

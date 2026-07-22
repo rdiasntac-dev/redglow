@@ -268,7 +268,13 @@ class _ReviewTargetCard extends StatelessWidget {
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
           ),
           Text(
-            reviewingClient ? 'Cliente verificada' : 'Manicure Profissional',
+            state.isDemoSession
+                ? reviewingClient
+                    ? 'Cliente demonstrativa'
+                    : 'Manicure demonstrativa'
+                : reviewingClient
+                    ? 'Cliente cadastrada no beta'
+                    : 'Prestadora cadastrada no beta',
             style: const TextStyle(fontSize: 8, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 9),

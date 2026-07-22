@@ -4,8 +4,10 @@ import 'package:redglow/app.dart';
 import 'package:redglow/models/user_role.dart';
 import 'package:redglow/screens/identity_verification_screen.dart';
 import 'package:redglow/screens/rating_screen.dart';
+import 'package:redglow/screens/subscription_screen.dart';
 import 'package:redglow/state/demo_app_state.dart';
 import 'package:redglow/theme/app_theme.dart';
+import 'package:redglow/widgets/account_deletion_action.dart';
 import 'package:redglow/widgets/emergency_action.dart';
 
 Future<void> _scrollTo(WidgetTester tester, Finder target) async {
@@ -100,6 +102,45 @@ void main() {
     expect(find.byKey(const Key('phone-field')), findsOneWidget);
   });
 
+  testWidgets('real identity preview never self-approves the account', (tester) async {
+    final state = DemoAppState()
+      ..isDemoSession = false
+      ..activeRole = UserRole.client;
+    addTearDown(state.dispose);
+
+    await tester.pumpWidget(
+      DemoAppScope(
+        controller: state,
+        child: MaterialApp(
+          theme: AppTheme.dark,
+          home: const IdentityVerificationScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('start-verification')));
+    await tester.pump();
+    await _scrollTo(tester, find.byKey(const Key('cpf-field')));
+    await tester.enterText(find.byKey(const Key('cpf-field')), '11111111111');
+    await tester.enterText(find.byKey(const Key('phone-field')), '41999999999');
+    await _scrollTo(tester, find.text('Simular Validação'));
+    await tester.tap(find.text('Simular Validação'));
+    await tester.pump(const Duration(milliseconds: 800));
+    await tester.pumpAndSettle();
+
+    await _scrollTo(tester, find.byKey(const Key('document-upload')));
+    await tester.tap(find.byKey(const Key('document-upload')));
+    await tester.pump();
+    await _scrollTo(tester, find.byKey(const Key('selfie-button')));
+    await tester.tap(find.byKey(const Key('selfie-button')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('start-verification')));
+    await tester.pumpAndSettle();
+
+    expect(state.clientIdentityVerified, isFalse);
+  });
+
   testWidgets('provider demo opens the provider dashboard', (tester) async {
     await tester.pumpWidget(const RedGlowApp());
     await tester.pump();
@@ -173,6 +214,51 @@ void main() {
     expect(find.text('Central de Segurança'), findsOneWidget);
     expect(find.byKey(const Key('emergency-call-190')), findsOneWidget);
     expect(find.byKey(const Key('emergency-call-153')), findsOneWidget);
+  });
+
+  testWidgets('account deletion explains the demonstrative behavior', (tester) async {
+    final state = DemoAppState();
+    addTearDown(state.dispose);
+
+    await tester.pumpWidget(
+      DemoAppScope(
+        controller: state,
+        child: MaterialApp(
+          theme: AppTheme.dark,
+          home: const Scaffold(body: AccountDeletionButton()),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('request-account-deletion')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Exclusão de conta'), findsOneWidget);
+    expect(find.textContaining('demonstração não cria uma conta'), findsOneWidget);
+  });
+
+  testWidgets('real accounts cannot activate a simulated subscription', (tester) async {
+    final state = DemoAppState()
+      ..isDemoSession = false
+      ..activeRole = UserRole.provider;
+    addTearDown(state.dispose);
+
+    await tester.pumpWidget(
+      DemoAppScope(
+        controller: state,
+        child: MaterialApp(
+          theme: AppTheme.dark,
+          home: const SubscriptionScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('subscribe-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Plano em validação'), findsOneWidget);
+    expect(state.professionalPlanActive, isFalse);
   });
 
   test('shared demo state follows the bilateral service lifecycle', () async {

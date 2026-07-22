@@ -48,10 +48,17 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
   }
 
   void _startOrFinish() {
+    final state = DemoAppScope.of(context, listen: false);
     if (!_started) {
       setState(() => _started = true);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Comece preenchendo CPF e celular.')),
+        SnackBar(
+          content: Text(
+            state.isDemoSession
+                ? 'Use dados fictícios para percorrer a demonstração.'
+                : 'Fluxo de teste: não informe CPF, documento ou selfie reais.',
+          ),
+        ),
       );
       return;
     }
@@ -63,15 +70,24 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
       return;
     }
 
-    DemoAppScope.of(context, listen: false).markIdentityVerified();
+    if (state.isDemoSession) {
+      state.markIdentityVerified();
+    }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Identidade verificada com sucesso.')),
+      SnackBar(
+        content: Text(
+          state.isDemoSession
+              ? 'Verificação demonstrativa concluída.'
+              : 'Demonstração concluída. Sua identidade real continua pendente.',
+        ),
+      ),
     );
     Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
+    final state = DemoAppScope.of(context);
     final progress = _completedSteps / 3;
     return Scaffold(
       body: ConstrainedMobileBody(
@@ -90,6 +106,30 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
               const SizedBox(height: 10),
               const _SecurityHero(),
               const SizedBox(height: 16),
+              GlowCard(
+                borderColor: AppColors.yellow.withValues(alpha: .5),
+                color: AppColors.yellow.withValues(alpha: .06),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.science_outlined, color: AppColors.yellow, size: 20),
+                    SizedBox(width: 9),
+                    Expanded(
+                      child: Text(
+                        'AMBIENTE DE TESTE: nenhuma consulta à Receita, biometria '
+                        'ou análise documental é realizada. Não use dados reais.',
+                        style: TextStyle(
+                          fontSize: 8,
+                          height: 1.45,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
               if (_started) ...[
                 Row(
                   children: [
@@ -114,7 +154,7 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
                 step: 1,
                 icon: Icons.badge_outlined,
                 title: 'Validação de CPF / Telefone',
-                subtitle: 'Verificação instantânea na Receita Federal.',
+                subtitle: 'Simulação local, sem consulta à Receita Federal.',
                 active: _started,
                 completed: _cpfDone,
                 child: Column(
@@ -165,7 +205,7 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
                                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                               )
                             : Icon(_cpfDone ? Icons.check_rounded : Icons.verified_outlined, size: 16),
-                        label: Text(_cpfDone ? 'CPF e telefone verificados' : 'Verificar Agora'),
+                        label: Text(_cpfDone ? 'Dados de teste aceitos' : 'Simular Validação'),
                       ),
                     ),
                   ],
@@ -204,11 +244,11 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          _documentDone ? 'Documento recebido' : 'Toque para enviar',
+                          _documentDone ? 'Etapa simulada' : 'Simular envio',
                           style: const TextStyle(fontSize: 11, color: AppColors.purple, fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 4),
-                        const Text('RG ou CNH · JPG / PNG · máx. 10 MB', style: TextStyle(fontSize: 7, color: AppColors.textMuted)),
+                        const Text('Nenhum arquivo será selecionado ou armazenado', style: TextStyle(fontSize: 7, color: AppColors.textMuted)),
                       ],
                     ),
                   ),
@@ -219,7 +259,7 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
                 step: 3,
                 icon: Icons.face_retouching_natural_rounded,
                 title: 'Selfie com Prova de Vida',
-                subtitle: 'Biometria facial anti-spoofing ativa.',
+                subtitle: 'Prévia visual; biometria ainda não integrada.',
                 active: _documentDone,
                 completed: _selfieDone,
                 child: Column(
@@ -244,7 +284,7 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
                           ),
                           const SizedBox(height: 6),
                           StatusPill(
-                            label: _selfieDone ? 'VALIDADO' : 'ANTI-SPOOFING ATIVO',
+                            label: _selfieDone ? 'ETAPA SIMULADA' : 'PRÉVIA DO FLUXO',
                             color: _selfieDone ? AppColors.green : AppColors.route,
                           ),
                         ],
@@ -265,7 +305,7 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
                             ? null
                             : () => setState(() => _selfieDone = !_selfieDone),
                         icon: Icon(_selfieDone ? Icons.check_rounded : Icons.camera_alt_outlined, size: 16),
-                        label: Text(_selfieDone ? 'Selfie validada' : 'Tirar Selfie Agora'),
+                        label: Text(_selfieDone ? 'Etapa simulada' : 'Simular Selfie'),
                       ),
                     ),
                   ],
@@ -290,7 +330,9 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
                   GradientButton(
                     key: const Key('start-verification'),
                     label: _completedSteps == 3
-                        ? 'Concluir Verificação'
+                        ? state.isDemoSession
+                            ? 'Concluir Demonstração'
+                            : 'Finalizar Prévia'
                         : _started
                             ? 'Continuar Verificação'
                             : 'Iniciar Verificação',
@@ -304,9 +346,9 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
                   const Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _PrivacySeal(icon: Icons.lock_outline_rounded, label: 'Criptografia\nAES-256'),
-                      _PrivacySeal(icon: Icons.gavel_rounded, label: 'LGPD\nCompliant'),
-                      _PrivacySeal(icon: Icons.visibility_off_outlined, label: 'Sem retenção\nde dados'),
+                      _PrivacySeal(icon: Icons.cloud_off_outlined, label: 'Nenhum envio\nno protótipo'),
+                      _PrivacySeal(icon: Icons.devices_outlined, label: 'Simulação\napenas local'),
+                      _PrivacySeal(icon: Icons.pending_actions_outlined, label: 'Fornecedor KYC\npendente'),
                     ],
                   ),
                 ],
@@ -341,7 +383,7 @@ class _SecurityHero extends StatelessWidget {
         Text('Segurança REDGLOW', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 6),
         const Text(
-          'Para blindar a comunidade contra perfis falsos\ne garantir atendimentos seguros em domicílio,\nvalidamos a identidade de todos.',
+          'Conheça o fluxo planejado para reduzir perfis falsos\ne apoiar atendimentos mais seguros em domicílio.',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 10, color: AppColors.textSecondary, height: 1.45),
         ),

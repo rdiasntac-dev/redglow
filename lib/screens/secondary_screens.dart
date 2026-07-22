@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/session_service.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
+import '../widgets/account_deletion_action.dart';
 import '../widgets/common_widgets.dart';
 import 'identity_verification_screen.dart';
 import 'order_confirmation_screen.dart';
@@ -86,9 +87,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
           children: [
             Text('Explorar serviços', style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 5),
-            const Text(
-              'Encontre profissionais verificadas perto de você.',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+            Text(
+              state.isDemoSession
+                  ? 'Conheça a vitrine demonstrativa perto de você.'
+                  : 'Encontre profissionais disponíveis no ambiente beta.',
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
             ),
             const SizedBox(height: 14),
             TextField(
@@ -144,7 +147,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           children: [
                             Text(professional.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
                             Text(professional.specialty, style: const TextStyle(fontSize: 9, color: AppColors.textSecondary)),
-                            const Text('★ 4.9 · Identidade verificada', style: TextStyle(fontSize: 8, color: AppColors.yellow)),
+                            Text(
+                              state.isDemoSession
+                                  ? '★ 4.9 · Perfil demonstrativo'
+                                  : 'Perfil beta · verificação não exibida',
+                              style: const TextStyle(fontSize: 8, color: AppColors.yellow),
+                            ),
                           ],
                         ),
                       ),
@@ -490,7 +498,11 @@ class ProfileScreen extends StatelessWidget {
             _ProfileOption(
               icon: Icons.payments_outlined,
               label: 'Formas de pagamento',
-              onTap: () => _showInfoSheet(context, 'Pagamento', 'Pix selecionado · Pagamento protegido pela REDGLOW.'),
+              onTap: () => _showInfoSheet(
+                context,
+                'Pagamento no beta',
+                'Pix está selecionado apenas como preferência. Nenhuma cobrança ou repasse real é realizado nesta versão.',
+              ),
             ),
             _ProfileOption(
               icon: Icons.shield_outlined,
@@ -523,6 +535,8 @@ class ProfileScreen extends StatelessWidget {
                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
               ),
             ),
+            const SizedBox(height: 4),
+            const AccountDeletionButton(),
           ],
         ),
       ),

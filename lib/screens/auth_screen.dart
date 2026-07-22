@@ -111,7 +111,7 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
     if (_registerMode && !_acceptedTerms) {
-      _showMessage('Aceite os termos para continuar.');
+      _showMessage('Confirme que você está entrando no ambiente beta.');
       return;
     }
 
@@ -320,7 +320,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         controlAffinity: ListTileControlAffinity.leading,
                         activeColor: AppColors.primary,
                         title: const Text(
-                          'Li e aceito os Termos de Uso e a Política de Privacidade.',
+                          'Estou ciente de que esta é uma versão beta, sem pagamentos reais.',
                           style: TextStyle(fontSize: 8, color: AppColors.textSecondary),
                         ),
                         onChanged: (value) => setState(() => _acceptedTerms = value ?? false),
