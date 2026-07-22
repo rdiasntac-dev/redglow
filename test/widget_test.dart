@@ -78,6 +78,7 @@ void main() {
       DemoAppScope(
         controller: demoState,
         child: MaterialApp(
+          key: const Key('identity-test-app'),
           theme: AppTheme.dark,
           home: const IdentityVerificationScreen(),
         ),
