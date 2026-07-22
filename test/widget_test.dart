@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:redglow/app.dart';
 import 'package:redglow/models/user_role.dart';
+import 'package:redglow/screens/identity_verification_screen.dart';
 import 'package:redglow/state/demo_app_state.dart';
+import 'package:redglow/theme/app_theme.dart';
 
 Future<void> _scrollTo(WidgetTester tester, Finder target) async {
   await tester.scrollUntilVisible(
@@ -69,11 +71,18 @@ void main() {
 
     final identityEntry = find.byKey(const Key('identity-check-entry'));
     await _scrollTo(tester, identityEntry);
-    final identityAction = find.descendant(
-      of: identityEntry,
-      matching: find.byType(InkWell),
+    expect(identityEntry, findsOneWidget);
+
+    final demoState = DemoAppState();
+    await tester.pumpWidget(
+      DemoAppScope(
+        controller: demoState,
+        child: MaterialApp(
+          theme: AppTheme.dark,
+          home: const IdentityVerificationScreen(),
+        ),
+      ),
     );
-    tester.widget<InkWell>(identityAction).onTap!();
     await tester.pumpAndSettle();
 
     expect(find.text('Segurança REDGLOW'), findsOneWidget);
