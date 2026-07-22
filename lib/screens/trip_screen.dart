@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/emergency_action.dart';
 import '../widgets/gps_map.dart';
 import 'rating_screen.dart';
 
@@ -115,18 +116,6 @@ class _TripScreenState extends State<TripScreen> {
                                   ],
                                 ),
                               ),
-                              RoundIconButton(
-                                icon: Icons.call_outlined,
-                                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Ligação protegida simulada para ${demoState.providerName}.',
-                                    ),
-                                  ),
-                                ),
-                                size: 36,
-                                color: AppColors.green,
-                              ),
                             ],
                           ),
                           const SizedBox(height: 12),
@@ -182,11 +171,7 @@ class _TripScreenState extends State<TripScreen> {
                             )
                           else
                             OutlinedButton.icon(
-                              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Central de Segurança pronta para acompanhar este atendimento.'),
-                                ),
-                              ),
+                              onPressed: () => showEmergencyCenter(context),
                               icon: const Icon(Icons.shield_outlined),
                               label: const Text('Central de Segurança'),
                             ),

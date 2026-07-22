@@ -83,31 +83,25 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: ConstrainedMobileBody(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
-            child: GradientButton(
-              key: const Key('subscribe-button'),
-              label: planActive ? 'Perfil profissional ativado!' : 'Assinar e Ativar Perfil',
-              icon: planActive ? Icons.check_circle_rounded : Icons.workspace_premium_rounded,
-              gradient: planActive
-                  ? const LinearGradient(colors: [Color(0xFF0FBF8B), Color(0xFF0E9F75)])
-                  : pinkGradient,
-              onPressed: () {
-                if (planActive) {
-                  Navigator.of(context).pop();
-                  return;
-                }
-                DemoAppScope.of(context, listen: false).activateProfessionalPlan();
-                setState(() => _subscribed = true);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Plano profissional ativado com sucesso.')),
-                );
-              },
-            ),
-          ),
+      bottomNavigationBar: ConstrainedBottomBar(
+        child: GradientButton(
+          key: const Key('subscribe-button'),
+          label: planActive ? 'Perfil profissional ativado!' : 'Assinar e Ativar Perfil',
+          icon: planActive ? Icons.check_circle_rounded : Icons.workspace_premium_rounded,
+          gradient: planActive
+              ? const LinearGradient(colors: [Color(0xFF0FBF8B), Color(0xFF0E9F75)])
+              : pinkGradient,
+          onPressed: () {
+            if (planActive) {
+              Navigator.of(context).pop();
+              return;
+            }
+            DemoAppScope.of(context, listen: false).activateProfessionalPlan();
+            setState(() => _subscribed = true);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Plano profissional ativado com sucesso.')),
+            );
+          },
         ),
       ),
     );

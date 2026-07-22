@@ -5,6 +5,7 @@ import '../services/session_service.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/emergency_action.dart';
 import 'identity_verification_screen.dart';
 import 'rating_screen.dart';
 import 'subscription_screen.dart';
@@ -18,7 +19,6 @@ class ProviderHomeScreen extends StatefulWidget {
 
 class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   bool _isOnline = true;
-  bool _alertSent = false;
 
   static const appointments = [
     Appointment(
@@ -182,31 +182,15 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-          child: GradientButton(
-            label: _alertSent
-                ? 'Alerta enviado — Toque para cancelar'
-                : 'Central de Segurança · Emergência',
-            icon: _alertSent ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
-            gradient: _alertSent
-                ? const LinearGradient(colors: [Color(0xFF0FBF8B), Color(0xFF0E9F75)])
-                : const LinearGradient(colors: [Color(0xFFFF304D), Color(0xFFE42173)]),
-            onPressed: () {
-              setState(() => _alertSent = !_alertSent);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    _alertSent
-                        ? 'Alerta de segurança enviado com sua localização.'
-                        : 'Alerta cancelado.',
-                  ),
-                ),
-              );
-            },
+      bottomNavigationBar: ConstrainedBottomBar(
+        child: GradientButton(
+          key: const Key('provider-emergency-action'),
+          label: 'Emergência · Ligar 190 ou 153',
+          icon: Icons.warning_amber_rounded,
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFF304D), Color(0xFFE42173)],
           ),
+          onPressed: () => showEmergencyCenter(context),
         ),
       ),
     );

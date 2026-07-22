@@ -87,8 +87,10 @@ firebase deploy --only firestore:rules,firestore:indexes
 
 - Pontos de contas reais são somente leitura. O crédito automático continuará
   bloqueado até existir uma função confiável no servidor.
-- Pix, cartão, assinatura, verificação de identidade, ligação protegida,
-  emergência e GPS ainda são simulações de produto, não integrações finais.
+- Pix, cartão, assinatura, verificação de identidade e GPS ainda são simulações
+  de produto, não integrações finais.
+- Cliente e prestadora não possuem ligação direta ou chat livre; durante o
+  atendimento são permitidas somente mensagens rápidas predefinidas.
 - O mapa é vetorial e não depende de API externa; deverá ser substituído por um
   provedor real de mapas e localização antes da publicação comercial.
 - Agenda e ganhos exibem dados de demonstração; o pedido ativo já é real.

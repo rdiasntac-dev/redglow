@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../widgets/emergency_action.dart';
 import 'home_screen.dart';
 import 'secondary_screens.dart';
 
@@ -37,7 +38,33 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _screens),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: IndexedStack(index: _currentIndex, children: _screens),
+          ),
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 12,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: 520),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 14),
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: EmergencyFloatingButton(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
       bottomNavigationBar: NavigationBarTheme(
         data: NavigationBarThemeData(
           backgroundColor: AppColors.surface,

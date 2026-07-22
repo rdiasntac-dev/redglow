@@ -333,3 +333,32 @@ class ConstrainedMobileBody extends StatelessWidget {
     );
   }
 }
+
+class ConstrainedBottomBar extends StatelessWidget {
+  const ConstrainedBottomBar({
+    required this.child,
+    super.key,
+    this.padding = const EdgeInsets.fromLTRB(14, 8, 14, 10),
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        heightFactor: 1,
+        child: Padding(
+          padding: padding,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}

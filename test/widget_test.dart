@@ -3,8 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:redglow/app.dart';
 import 'package:redglow/models/user_role.dart';
 import 'package:redglow/screens/identity_verification_screen.dart';
+import 'package:redglow/screens/rating_screen.dart';
 import 'package:redglow/state/demo_app_state.dart';
 import 'package:redglow/theme/app_theme.dart';
+import 'package:redglow/widgets/emergency_action.dart';
 
 Future<void> _scrollTo(WidgetTester tester, Finder target) async {
   await tester.scrollUntilVisible(
@@ -129,6 +131,48 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Acessar demonstração como Prestadora'), findsOneWidget);
+  });
+
+  testWidgets('rating form remains visible on a desktop viewport', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1366, 768));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final state = DemoAppState();
+    addTearDown(state.dispose);
+
+    await tester.pumpWidget(
+      DemoAppScope(
+        controller: state,
+        child: MaterialApp(
+          theme: AppTheme.dark,
+          home: const RatingScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final firstStar = find.byKey(const Key('rating-star-1'));
+    expect(firstStar, findsOneWidget);
+    expect(find.byKey(const Key('rating-comment')), findsOneWidget);
+    expect(find.byKey(const Key('submit-rating')), findsOneWidget);
+    expect(tester.getCenter(firstStar).dy, lessThan(700));
+  });
+
+  testWidgets('emergency action requires choosing a public service', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: const Scaffold(
+          floatingActionButton: EmergencyFloatingButton(),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('client-emergency-action')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Central de Segurança'), findsOneWidget);
+    expect(find.byKey(const Key('emergency-call-190')), findsOneWidget);
+    expect(find.byKey(const Key('emergency-call-153')), findsOneWidget);
   });
 
   test('shared demo state follows the bilateral service lifecycle', () async {

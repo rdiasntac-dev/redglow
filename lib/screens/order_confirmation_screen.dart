@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/emergency_action.dart';
 import '../widgets/gps_map.dart';
 
 class OrderConfirmationScreen extends StatefulWidget {
@@ -126,13 +127,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                     providerName: state.providerName,
                     onConfirm: _handleConfirm,
                     onSelectPayment: _selectPayment,
-                    onCall: () => ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Ligação protegida simulada para ${state.providerName}.',
-                        ),
-                      ),
-                    ),
+                    onSafety: () => showEmergencyCenter(context),
                   ),
                 ),
               ],
@@ -151,7 +146,7 @@ class _OrderSheet extends StatelessWidget {
     required this.providerName,
     required this.onConfirm,
     required this.onSelectPayment,
-    required this.onCall,
+    required this.onSafety,
   });
 
   final bool confirmed;
@@ -159,7 +154,7 @@ class _OrderSheet extends StatelessWidget {
   final String providerName;
   final VoidCallback onConfirm;
   final VoidCallback onSelectPayment;
-  final VoidCallback onCall;
+  final VoidCallback onSafety;
 
   @override
   Widget build(BuildContext context) {
@@ -228,10 +223,10 @@ class _OrderSheet extends StatelessWidget {
                     ),
                   ),
                   RoundIconButton(
-                    icon: Icons.call_outlined,
-                    onPressed: onCall,
+                    icon: Icons.shield_outlined,
+                    onPressed: onSafety,
                     size: 34,
-                    color: AppColors.purple,
+                    color: Colors.redAccent,
                   ),
                 ],
               ),

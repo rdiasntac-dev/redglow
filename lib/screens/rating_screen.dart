@@ -214,18 +214,12 @@ class _RatingScreenState extends State<RatingScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: ConstrainedMobileBody(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
-            child: GradientButton(
-              key: const Key('submit-rating'),
-              label: 'Enviar Avaliação',
-              icon: Icons.send_rounded,
-              onPressed: _submit,
-            ),
-          ),
+      bottomNavigationBar: ConstrainedBottomBar(
+        child: GradientButton(
+          key: const Key('submit-rating'),
+          label: 'Enviar Avaliação',
+          icon: Icons.send_rounded,
+          onPressed: _submit,
         ),
       ),
     );
