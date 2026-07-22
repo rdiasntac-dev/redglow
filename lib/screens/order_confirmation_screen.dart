@@ -50,18 +50,25 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
             children: [
               Text('Forma de pagamento', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 10),
-              for (final payment in const ['Pix', 'Cartão', 'Dinheiro'])
-                RadioListTile<String>(
-                  value: payment,
-                  groupValue: _paymentMethod,
-                  activeColor: AppColors.primary,
-                  title: Text(payment),
-                  onChanged: (value) {
+              RadioGroup<String>(
+                groupValue: _paymentMethod,
+                onChanged: (value) {
                     if (value == null) return;
                     setState(() => _paymentMethod = value);
                     Navigator.of(sheetContext).pop();
-                  },
+                },
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final payment in const ['Pix', 'Cartão', 'Dinheiro'])
+                      RadioListTile<String>(
+                        value: payment,
+                        activeColor: AppColors.primary,
+                        title: Text(payment),
+                      ),
+                  ],
                 ),
+              ),
             ],
           ),
         ),

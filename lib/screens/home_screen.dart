@@ -622,7 +622,7 @@ class _PartnerCard extends StatelessWidget {
                 Image.network(
                   imageUrl,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const ColoredBox(
+                  errorBuilder: (_, _, _) => const ColoredBox(
                     color: AppColors.surfaceRaised,
                     child: Icon(Icons.storefront_rounded, color: AppColors.textMuted),
                   ),
@@ -698,7 +698,6 @@ class _FeatureBanner extends StatelessWidget {
     required this.subtitle,
     required this.onTap,
     this.trailing,
-    this.gradient,
   });
 
   final IconData icon;
@@ -707,13 +706,11 @@ class _FeatureBanner extends StatelessWidget {
   final String subtitle;
   final VoidCallback onTap;
   final Widget? trailing;
-  final Gradient? gradient;
 
   @override
   Widget build(BuildContext context) {
     return GlowCard(
       onTap: onTap,
-      gradient: gradient,
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
       borderColor: AppColors.primary.withValues(alpha: .4),
       child: Row(
@@ -738,7 +735,7 @@ class _FeatureBanner extends StatelessWidget {
               ],
             ),
           ),
-          if (trailing != null) trailing!,
+          ?trailing,
           const SizedBox(width: 5),
           const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textMuted),
         ],

@@ -180,7 +180,7 @@ class _RatingScreenState extends State<RatingScreen> {
                   Expanded(child: Text('RELATO RÁPIDO (OPCIONAL)', style: Theme.of(context).textTheme.labelSmall)),
                   ValueListenableBuilder<TextEditingValue>(
                     valueListenable: _commentController,
-                    builder: (_, value, __) => Text('${value.text.length}/200', style: const TextStyle(fontSize: 8, color: AppColors.textMuted)),
+                    builder: (_, value, _) => Text('${value.text.length}/200', style: const TextStyle(fontSize: 8, color: AppColors.textMuted)),
                   ),
                 ],
               ),

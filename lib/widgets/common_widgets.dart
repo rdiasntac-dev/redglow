@@ -230,7 +230,7 @@ class ProfileAvatar extends StatelessWidget {
         child: Image.network(
           imageUrl,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => ColoredBox(
+          errorBuilder: (_, _, _) => ColoredBox(
             color: AppColors.surfaceRaised,
             child: Icon(fallbackIcon, color: AppColors.textSecondary, size: size * .55),
           ),
@@ -302,12 +302,13 @@ class PageHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: Theme.of(context).textTheme.titleMedium),
-                if (subtitle != null)
-                  Text(subtitle!, style: Theme.of(context).textTheme.bodySmall),
+                ?subtitle == null
+                    ? null
+                    : Text(subtitle!, style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
           ),
-          if (trailing != null) trailing!,
+          ?trailing,
         ],
       ),
     );
