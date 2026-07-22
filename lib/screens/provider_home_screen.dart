@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/app_models.dart';
+import '../services/session_service.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
@@ -59,7 +60,13 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
             children: [
-              _ProviderHeader(isOnline: _isOnline),
+              _ProviderHeader(
+                isOnline: _isOnline,
+                name: demoState.accountName ?? 'Lari (Manicure)',
+                onBack: () => demoState.isDemoSession
+                    ? Navigator.of(context).pop()
+                    : endCurrentSession(context),
+              ),
               const SizedBox(height: 10),
               _OnlineCard(
                 isOnline: _isOnline,
@@ -145,7 +152,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
               const SizedBox(height: 16),
               OutlinedButton.icon(
                 key: const Key('provider-logout'),
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => endCurrentSession(context),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.primary,
                   side: BorderSide(color: AppColors.primary.withValues(alpha: .5)),
@@ -155,9 +162,11 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                   ),
                 ),
                 icon: const Icon(Icons.logout_rounded, size: 18),
-                label: const Text(
-                  'Sair da conta demonstrativa',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+                label: Text(
+                  demoState.isDemoSession
+                      ? 'Sair da conta demonstrativa'
+                      : 'Sair da conta',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
                 ),
               ),
             ],
@@ -446,9 +455,15 @@ void _showProviderInfo(BuildContext context, String title, String message) {
 }
 
 class _ProviderHeader extends StatelessWidget {
-  const _ProviderHeader({required this.isOnline});
+  const _ProviderHeader({
+    required this.isOnline,
+    required this.name,
+    required this.onBack,
+  });
 
   final bool isOnline;
+  final String name;
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
@@ -456,15 +471,15 @@ class _ProviderHeader extends StatelessWidget {
       children: [
         RoundIconButton(
           icon: Icons.arrow_back_ios_new_rounded,
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: onBack,
         ),
         const SizedBox(width: 10),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('MODO PRESTADORA', style: TextStyle(fontSize: 8, color: AppColors.textSecondary, letterSpacing: .4)),
-              Text('Lari (Manicure)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+              const Text('MODO PRESTADORA', style: TextStyle(fontSize: 8, color: AppColors.textSecondary, letterSpacing: .4)),
+              Text(name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
             ],
           ),
         ),

@@ -28,6 +28,8 @@ extension DemoBookingStatusLabel on DemoBookingStatus {
 
 class DemoAppState extends ChangeNotifier {
   UserRole activeRole = UserRole.client;
+  bool isDemoSession = true;
+  String? accountName;
   DemoBookingStatus bookingStatus = DemoBookingStatus.idle;
   int points = 2480;
   bool clientIdentityVerified = false;
@@ -49,6 +51,17 @@ class DemoAppState extends ChangeNotifier {
 
   void selectRole(UserRole role) {
     activeRole = role;
+    notifyListeners();
+  }
+
+  void startSession({
+    required UserRole role,
+    required bool demo,
+    String? name,
+  }) {
+    activeRole = role;
+    isDemoSession = demo;
+    accountName = name;
     notifyListeners();
   }
 

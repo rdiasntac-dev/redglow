@@ -1,6 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import '../models/user_role.dart';
+import '../services/firebase_auth_service.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
@@ -24,6 +27,17 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _registerMode = false;
   bool _hidePassword = true;
   bool _acceptedTerms = false;
+  bool _loading = false;
+  bool _areaOpen = false;
+  FirebaseAuthService? _authService;
+
+  FirebaseAuthService get _auth => _authService ??= FirebaseAuthService();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _restoreSession());
+  }
 
   @override
   void dispose() {
@@ -34,19 +48,58 @@ class _AuthScreenState extends State<AuthScreen> {
     super.dispose();
   }
 
-  void _openSelectedArea() {
-    DemoAppScope.of(context, listen: false).selectRole(_role);
-    final destination = _role == UserRole.client
+  void _openSelectedArea({
+    required UserRole role,
+    required bool demo,
+    String? accountName,
+  }) {
+    if (_areaOpen) return;
+    _areaOpen = true;
+    DemoAppScope.of(context, listen: false).startSession(
+      role: role,
+      demo: demo,
+      name: accountName,
+    );
+    final destination = role == UserRole.client
         ? const MainShell()
         : const ProviderHomeScreen();
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => destination),
-    );
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => destination))
+        .whenComplete(() {
+          if (mounted) _areaOpen = false;
+        });
   }
 
-  void _submit() {
+  Future<void> _restoreSession() async {
+    if (Firebase.apps.isEmpty || _areaOpen) return;
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final role = await _auth.userRole(user.uid);
+      if (!mounted) return;
+      _openSelectedArea(
+        role: role,
+        demo: false,
+        accountName: user.displayName,
+      );
+    } catch (_) {
+      try {
+        await _auth.signOut();
+      } catch (_) {
+        // A tela de acesso continua disponível mesmo se a sessão expirada
+        // não puder ser encerrada imediatamente.
+      }
+    }
+  }
+
+  Future<void> _submit() async {
     if (_registerMode && _nameController.text.trim().isEmpty) {
       _showMessage('Informe seu nome para criar a conta.');
+      return;
+    }
+    if (_registerMode && _phoneController.text.replaceAll(RegExp(r'\D'), '').length < 10) {
+      _showMessage('Informe um celular válido.');
       return;
     }
     if (!_emailController.text.contains('@')) {
@@ -61,14 +114,93 @@ class _AuthScreenState extends State<AuthScreen> {
       _showMessage('Aceite os termos para continuar.');
       return;
     }
-    _openSelectedArea();
+
+    setState(() => _loading = true);
+    try {
+      final credential = _registerMode
+          ? await _auth.createAccount(
+              name: _nameController.text,
+              email: _emailController.text,
+              phone: _phoneController.text,
+              password: _passwordController.text,
+              role: _role,
+            )
+          : await _auth.signIn(
+              email: _emailController.text,
+              password: _passwordController.text,
+            );
+      final user = credential.user;
+      if (user == null) throw StateError('Conta Firebase indisponível.');
+
+      final accountRole = await _auth.userRole(user.uid);
+      if (accountRole != _role) {
+        await _auth.signOut();
+        if (!mounted) return;
+        _showMessage(
+          'Esta conta é de ${accountRole.title}. Selecione o perfil correto para entrar.',
+        );
+        return;
+      }
+
+      if (!mounted) return;
+      _openSelectedArea(
+        role: accountRole,
+        demo: false,
+        accountName: user.displayName,
+      );
+    } on FirebaseAuthException catch (error) {
+      _showMessage(_firebaseMessage(error.code));
+    } on FirebaseException catch (error) {
+      _showMessage(_firebaseMessage(error.code));
+    } on StateError catch (error) {
+      await _auth.signOut();
+      _showMessage('${error.message}');
+    } catch (_) {
+      _showMessage('Não foi possível acessar sua conta agora. Tente novamente.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _resetPassword() async {
+    if (!_emailController.text.contains('@')) {
+      _showMessage('Informe seu e-mail antes de recuperar a senha.');
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      await _auth.sendPasswordReset(_emailController.text);
+      _showMessage('Enviamos as instruções de recuperação para seu e-mail.');
+    } on FirebaseAuthException catch (error) {
+      _showMessage(_firebaseMessage(error.code));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   void _showMessage(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
   }
+
+  static String _firebaseMessage(String code) => switch (code) {
+        'email-already-in-use' => 'Este e-mail já possui uma conta REDGLOW.',
+        'invalid-email' => 'Informe um e-mail válido.',
+        'weak-password' => 'Crie uma senha mais forte, com pelo menos 6 caracteres.',
+        'user-disabled' => 'Esta conta está desativada. Fale com o suporte.',
+        'user-not-found' || 'wrong-password' || 'invalid-credential' =>
+          'E-mail ou senha incorretos.',
+        'too-many-requests' => 'Muitas tentativas. Aguarde alguns minutos.',
+        'network-request-failed' => 'Sem conexão com a internet.',
+        'operation-not-allowed' =>
+          'O login por e-mail ainda precisa ser ativado no Firebase.',
+        'permission-denied' =>
+          'O acesso ao banco foi bloqueado pelas regras de segurança.',
+        _ => 'Não foi possível concluir. Tente novamente.',
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -197,9 +329,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: () => _showMessage(
-                            'A recuperação de senha será conectada ao backend.',
-                          ),
+                          onPressed: _loading ? null : _resetPassword,
                           child: const Text(
                             'Esqueci minha senha',
                             style: TextStyle(fontSize: 9),
@@ -208,9 +338,11 @@ class _AuthScreenState extends State<AuthScreen> {
                       ),
                     GradientButton(
                       key: const Key('auth-submit'),
-                      label: _registerMode
-                          ? 'Criar conta como ${_role.title}'
-                          : 'Entrar como ${_role.title}',
+                      label: _loading
+                          ? 'Aguarde...'
+                          : _registerMode
+                              ? 'Criar conta como ${_role.title}'
+                              : 'Entrar como ${_role.title}',
                       icon: _registerMode
                           ? Icons.person_add_alt_1_rounded
                           : Icons.login_rounded,
@@ -219,6 +351,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           : const LinearGradient(
                               colors: [AppColors.purple, Color(0xFF6428A3)],
                             ),
+                      enabled: !_loading,
                       onPressed: _submit,
                     ),
                   ],
@@ -238,7 +371,12 @@ class _AuthScreenState extends State<AuthScreen> {
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 key: const Key('demo-access'),
-                onPressed: _openSelectedArea,
+                onPressed: _loading
+                    ? null
+                    : () => _openSelectedArea(
+                          role: _role,
+                          demo: true,
+                        ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.textPrimary,
                   side: BorderSide(

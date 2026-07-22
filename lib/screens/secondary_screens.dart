@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/session_service.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
@@ -396,7 +397,10 @@ class ProfileScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Cliente REDGLOW', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                        Text(
+                          state.accountName ?? 'Cliente REDGLOW',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                        ),
                         Text(
                           state.identityVerified ? 'Identidade verificada' : 'Identidade pendente',
                           style: TextStyle(
@@ -443,7 +447,7 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => endCurrentSession(context),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,
                 side: BorderSide(color: AppColors.primary.withValues(alpha: .5)),
@@ -451,7 +455,10 @@ class ProfileScreen extends StatelessWidget {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
               ),
               icon: const Icon(Icons.logout_rounded, size: 18),
-              label: const Text('Sair da conta demonstrativa', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+              label: Text(
+                state.isDemoSession ? 'Sair da conta demonstrativa' : 'Sair da conta',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+              ),
             ),
           ],
         ),

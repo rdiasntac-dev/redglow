@@ -74,6 +74,10 @@ O mapa da demonstração é vetorial e não depende de uma API externa. Antes da
 publicação, ele deve ser substituído pelo provedor de mapas e localização
 definido para produção.
 
-Enquanto `firebase_options.dart` ainda não tiver sido gerado, o login permanece
-demonstrativo e não envia nem persiste dados. Isso preserva o roteiro completo
-da versão 7 durante a migração para o backend real.
+O Firebase já é inicializado por `lib/main.dart`. Os botões principais de
+entrar, criar conta, recuperar senha e sair usam Authentication e Firestore;
+o acesso **Acessar demonstração** continua sem enviar dados e preserva o roteiro
+completo da versão 7.
+
+Antes de testar contas reais, habilite **E-mail/senha** no Firebase Console e
+publique as regras com o comando indicado acima.

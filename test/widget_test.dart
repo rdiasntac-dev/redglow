@@ -168,4 +168,20 @@ void main() {
 
     state.dispose();
   });
+
+  test('real and demonstrative sessions remain distinguishable', () {
+    final state = DemoAppState();
+
+    state.startSession(
+      role: UserRole.provider,
+      demo: false,
+      name: 'Lari REDGLOW',
+    );
+
+    expect(state.activeRole, UserRole.provider);
+    expect(state.isDemoSession, isFalse);
+    expect(state.accountName, 'Lari REDGLOW');
+
+    state.dispose();
+  });
 }

@@ -43,20 +43,35 @@ class FirebaseAuthService {
       throw StateError('O Firebase não retornou a conta criada.');
     }
 
-    await user.updateDisplayName(name.trim());
-    await _firestore.collection('users').doc(user.uid).set({
-      'uid': user.uid,
-      'name': name.trim(),
-      'email': email.trim().toLowerCase(),
-      'phone': phone.trim(),
-      'role': role.name,
-      'identityStatus': 'pending',
-      'points': role == UserRole.client ? 0 : null,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    try {
+      await user.updateDisplayName(name.trim());
+      await _firestore.collection('users').doc(user.uid).set({
+        'uid': user.uid,
+        'name': name.trim(),
+        'email': email.trim().toLowerCase(),
+        'phone': phone.trim(),
+        'role': role.name,
+        'identityStatus': 'pending',
+        'points': role == UserRole.client ? 0 : null,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (error, stackTrace) {
+      await user.delete();
+      Error.throwWithStackTrace(error, stackTrace);
+    }
 
     return credential;
+  }
+
+  Future<UserRole> userRole(String uid) async {
+    final profile = await _firestore.collection('users').doc(uid).get();
+    final roleName = profile.data()?['role'];
+    return switch (roleName) {
+      'client' => UserRole.client,
+      'provider' => UserRole.provider,
+      _ => throw StateError('Perfil REDGLOW não encontrado para esta conta.'),
+    };
   }
 
   Future<void> sendPasswordReset(String email) {
