@@ -87,7 +87,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Segurança REDGLOW'), findsOneWidget);
+    expect(find.byType(IdentityVerificationScreen), findsOneWidget);
+    expect(find.byKey(const Key('start-verification')), findsOneWidget);
     await tester.tap(find.byKey(const Key('start-verification')));
     await tester.pump();
 
