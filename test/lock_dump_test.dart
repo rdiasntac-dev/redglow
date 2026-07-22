@@ -7,6 +7,7 @@ void main() {
   test('dump resolved lockfile', () {
     final encoded = base64Encode(File('pubspec.lock').readAsBytesSync());
     // Used only on the temporary dependency-resolution branch.
+    // ignore: avoid_print
     print('LOCKFILE_BASE64:$encoded');
   });
 }
