@@ -277,35 +277,40 @@ class _IdentityVerificationScreenState extends State<IdentityVerificationScreen>
       ),
       bottomNavigationBar: SafeArea(
         top: false,
-        child: ConstrainedMobileBody(
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          heightFactor: 1,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                GradientButton(
-                  key: const Key('start-verification'),
-                  label: _completedSteps == 3
-                      ? 'Concluir Verificação'
-                      : _started
-                          ? 'Continuar Verificação'
-                          : 'Iniciar Verificação',
-                  icon: _completedSteps == 3 ? Icons.check_circle_rounded : Icons.shield_outlined,
-                  onPressed: _startOrFinish,
-                  gradient: _completedSteps == 3
-                      ? const LinearGradient(colors: [Color(0xFF0FBF8B), Color(0xFF0E9F75)])
-                      : pinkGradient,
-                ),
-                const SizedBox(height: 7),
-                const Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _PrivacySeal(icon: Icons.lock_outline_rounded, label: 'Criptografia\nAES-256'),
-                    _PrivacySeal(icon: Icons.gavel_rounded, label: 'LGPD\nCompliant'),
-                    _PrivacySeal(icon: Icons.visibility_off_outlined, label: 'Sem retenção\nde dados'),
-                  ],
-                ),
-              ],
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GradientButton(
+                    key: const Key('start-verification'),
+                    label: _completedSteps == 3
+                        ? 'Concluir Verificação'
+                        : _started
+                            ? 'Continuar Verificação'
+                            : 'Iniciar Verificação',
+                    icon: _completedSteps == 3 ? Icons.check_circle_rounded : Icons.shield_outlined,
+                    onPressed: _startOrFinish,
+                    gradient: _completedSteps == 3
+                        ? const LinearGradient(colors: [Color(0xFF0FBF8B), Color(0xFF0E9F75)])
+                        : pinkGradient,
+                  ),
+                  const SizedBox(height: 7),
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _PrivacySeal(icon: Icons.lock_outline_rounded, label: 'Criptografia\nAES-256'),
+                      _PrivacySeal(icon: Icons.gavel_rounded, label: 'LGPD\nCompliant'),
+                      _PrivacySeal(icon: Icons.visibility_off_outlined, label: 'Sem retenção\nde dados'),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
