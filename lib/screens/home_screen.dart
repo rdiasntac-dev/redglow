@@ -130,6 +130,7 @@ class HomeScreen extends StatelessWidget {
             ],
             const SizedBox(height: 10),
             _FeatureBanner(
+              key: const Key('identity-check-entry'),
               icon: Icons.verified_user_outlined,
               iconColor: AppColors.primary,
               title: 'Verificar Identidade',
@@ -692,6 +693,7 @@ class _PartnerCard extends StatelessWidget {
 
 class _FeatureBanner extends StatelessWidget {
   const _FeatureBanner({
+    super.key,
     required this.icon,
     required this.iconColor,
     required this.title,
