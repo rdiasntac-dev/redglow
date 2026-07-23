@@ -180,6 +180,7 @@ void main() {
 
     expect(find.byType(ProviderAnalyticsScreen), findsOneWidget);
     expect(find.byKey(const Key('provider-analytics-chart')), findsOneWidget);
+    await _scrollTo(tester, find.text('Insight REDGLOW'));
     expect(find.text('Insight REDGLOW'), findsOneWidget);
   });
 
