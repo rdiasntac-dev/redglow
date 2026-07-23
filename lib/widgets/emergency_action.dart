@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/app_theme.dart';
+import '../screens/report_issue_screen.dart';
 import 'common_widgets.dart';
 
 Future<void> showEmergencyCenter(BuildContext context) {
@@ -67,6 +68,22 @@ Future<void> showEmergencyCenter(BuildContext context) {
                     ],
                   ),
                 ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(sheetContext).pop();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ReportIssueScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.report_outlined),
+                    label: const Text('Relatar situação não emergencial'),
+                  ),
+                ),
               ],
             ),
           ),
@@ -77,18 +94,28 @@ Future<void> showEmergencyCenter(BuildContext context) {
 }
 
 class EmergencyFloatingButton extends StatelessWidget {
-  const EmergencyFloatingButton({super.key});
+  const EmergencyFloatingButton({
+    super.key,
+    this.heroTag = 'redglow-emergency',
+  });
+
+  final String heroTag;
 
   @override
   Widget build(BuildContext context) {
-    return FloatingActionButton.small(
-      key: const Key('client-emergency-action'),
-      heroTag: 'redglow-emergency',
+    return FloatingActionButton.extended(
+      heroTag: heroTag,
       tooltip: 'Central de Segurança',
       backgroundColor: const Color(0xFFE6294B),
       foregroundColor: Colors.white,
+      extendedPadding: const EdgeInsets.symmetric(horizontal: 14),
+      extendedIconLabelSpacing: 6,
       onPressed: () => showEmergencyCenter(context),
-      child: const Icon(Icons.sos_rounded),
+      icon: const Icon(Icons.shield_rounded, size: 19),
+      label: const Text(
+        'SOS',
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
+      ),
     );
   }
 }

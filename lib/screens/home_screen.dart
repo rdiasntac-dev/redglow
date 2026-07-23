@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../models/app_models.dart';
+import '../models/user_role.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import 'identity_verification_screen.dart';
 import 'order_confirmation_screen.dart';
+import 'notifications_screen.dart';
 import 'rating_screen.dart';
 import 'trip_screen.dart';
 
@@ -309,11 +311,14 @@ class _LocationHeader extends StatelessWidget {
           ),
         ),
         _HeaderAction(
+          key: const Key('client-notifications'),
           icon: Icons.notifications_none_rounded,
-          onPressed: () => _showInfo(
-            context,
-            'Notificações',
-            'Nenhuma nova notificação. As atualizações do atendimento aparecerão aqui.',
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const NotificationsScreen(
+                role: UserRole.client,
+              ),
+            ),
           ),
         ),
         const SizedBox(width: 8),
@@ -335,7 +340,7 @@ class _LocationHeader extends StatelessWidget {
 }
 
 class _HeaderAction extends StatelessWidget {
-  const _HeaderAction({required this.icon, required this.onPressed});
+  const _HeaderAction({required this.icon, required this.onPressed, super.key});
 
   final IconData icon;
   final VoidCallback onPressed;

@@ -39,6 +39,8 @@ class DemoAppState extends ChangeNotifier {
   StreamSubscription<List<MarketplaceProfessional>>? _professionalsSubscription;
   StreamSubscription<List<MarketplaceBooking>>? _bookingsSubscription;
   StreamSubscription<String?>? _quickMessageSubscription;
+  StreamSubscription<MarketplaceRating?>? _clientRatingSubscription;
+  StreamSubscription<MarketplaceRating?>? _providerRatingSubscription;
   int _sessionVersion = 0;
   bool _disposed = false;
 
@@ -50,9 +52,12 @@ class DemoAppState extends ChangeNotifier {
   String? accountName;
   String? accountEmail;
   String? accountPhone;
+  String demoProviderSpecialty = 'Manicure';
+  int demoProviderPriceCents = 6000;
   String? currentUserId;
   MarketplaceProfessional? selectedProfessional;
   MarketplaceBooking? currentBooking;
+  List<MarketplaceBooking> bookingHistory = [];
   bool backendLoading = false;
   String? backendError;
   bool providerOnline = true;
@@ -61,9 +66,16 @@ class DemoAppState extends ChangeNotifier {
   bool clientIdentityVerified = false;
   bool providerIdentityVerified = false;
   bool professionalPlanActive = false;
+  bool isAdmin = false;
   String? lastQuickMessage;
   int clientToProviderRating = 0;
   int providerToClientRating = 0;
+  List<String> clientToProviderTags = [];
+  List<String> providerToClientTags = [];
+  String clientToProviderComment = '';
+  String providerToClientComment = '';
+  String lastCancellationReason = '';
+  int simulatedCancellationFeeCents = 0;
 
   String get providerName =>
       currentBooking?.providerName ??
@@ -74,6 +86,12 @@ class DemoAppState extends ChangeNotifier {
 
   bool get hasRealProvider =>
       isDemoSession || selectedProfessional?.isOnline == true;
+
+  String get providerSpecialty =>
+      selectedProfessional?.specialty ?? demoProviderSpecialty;
+
+  int get providerPriceCents =>
+      selectedProfessional?.priceCents ?? demoProviderPriceCents;
 
   bool get hasActiveBooking => !{
         DemoBookingStatus.idle,
@@ -109,6 +127,8 @@ class DemoAppState extends ChangeNotifier {
       accountPhone = null;
       selectedProfessional = null;
       currentBooking = null;
+      bookingHistory = [];
+      isAdmin = false;
       if (!previousSessionWasDemo) {
         points = 2480;
         bookingStatus = DemoBookingStatus.idle;
@@ -117,16 +137,24 @@ class DemoAppState extends ChangeNotifier {
         professionalPlanActive = false;
         clientToProviderRating = 0;
         providerToClientRating = 0;
+        _clearRatingDetails();
         lastQuickMessage = null;
+        lastCancellationReason = '';
+        simulatedCancellationFeeCents = 0;
       }
     } else {
       points = 0;
       bookingStatus = DemoBookingStatus.idle;
       clientToProviderRating = 0;
       providerToClientRating = 0;
+      _clearRatingDetails();
       lastQuickMessage = null;
+      lastCancellationReason = '';
+      simulatedCancellationFeeCents = 0;
       selectedProfessional = null;
       currentBooking = null;
+      bookingHistory = [];
+      isAdmin = false;
       _connectRealSession(_sessionVersion);
     }
     notifyListeners();
@@ -136,8 +164,11 @@ class DemoAppState extends ChangeNotifier {
     if (isDemoSession) {
       bookingStatus = DemoBookingStatus.requested;
       lastQuickMessage = null;
+      lastCancellationReason = '';
+      simulatedCancellationFeeCents = 0;
       clientToProviderRating = 0;
       providerToClientRating = 0;
+      _clearRatingDetails();
       notifyListeners();
       return true;
     }
@@ -178,8 +209,32 @@ class DemoAppState extends ChangeNotifier {
     return _changeBookingStatus(DemoBookingStatus.completed, 'completed');
   }
 
-  Future<bool> cancelBooking() {
-    return _changeBookingStatus(DemoBookingStatus.cancelled, 'cancelled');
+  Future<bool> cancelBooking({String reason = 'Outro motivo'}) async {
+    final cleanReason = reason.trim();
+    if (cleanReason.isEmpty) {
+      _setBackendError('Selecione o motivo do cancelamento.');
+      return false;
+    }
+    if (isDemoSession) {
+      lastCancellationReason = cleanReason;
+      simulatedCancellationFeeCents = 0;
+      bookingStatus = DemoBookingStatus.cancelled;
+      notifyListeners();
+      return true;
+    }
+    final userId = currentUserId;
+    final bookingId = currentBooking?.id;
+    if (userId == null || bookingId == null) {
+      _setBackendError('Nenhum atendimento foi encontrado para cancelar.');
+      return false;
+    }
+    return _runBackendAction(
+      () => _marketplace.cancelBooking(
+        bookingId: bookingId,
+        cancelledBy: userId,
+        reason: cleanReason,
+      ),
+    );
   }
 
   Future<bool> sendQuickMessage(String message) async {
@@ -210,9 +265,13 @@ class DemoAppState extends ChangeNotifier {
     if (isDemoSession) {
       if (asProvider) {
         providerToClientRating = rating;
+        providerToClientTags = List.of(tags);
+        providerToClientComment = comment.trim();
       } else {
         if (clientToProviderRating == 0) points += 60;
         clientToProviderRating = rating;
+        clientToProviderTags = List.of(tags);
+        clientToProviderComment = comment.trim();
         bookingStatus = DemoBookingStatus.reviewed;
       }
       notifyListeners();
@@ -250,6 +309,56 @@ class DemoAppState extends ChangeNotifier {
     return succeeded;
   }
 
+  Future<bool> updateProfile({
+    required String name,
+    required String phone,
+    String? specialty,
+    int? priceCents,
+  }) async {
+    final cleanName = name.trim();
+    final cleanPhone = phone.trim();
+    if (cleanName.length < 2) {
+      _setBackendError('Informe um nome válido.');
+      return false;
+    }
+    if (cleanPhone.replaceAll(RegExp(r'\D'), '').length < 10) {
+      _setBackendError('Informe um celular válido.');
+      return false;
+    }
+    if (activeRole == UserRole.provider &&
+        (priceCents == null || priceCents < 1000)) {
+      _setBackendError('Informe um valor de serviço válido.');
+      return false;
+    }
+
+    if (isDemoSession) {
+      accountName = cleanName;
+      accountPhone = cleanPhone;
+      if (activeRole == UserRole.provider) {
+        demoProviderSpecialty = specialty?.trim() ?? demoProviderSpecialty;
+        demoProviderPriceCents = priceCents ?? demoProviderPriceCents;
+      }
+      notifyListeners();
+      return true;
+    }
+
+    final userId = currentUserId;
+    if (userId == null) {
+      _setBackendError('A sessão expirou. Entre novamente.');
+      return false;
+    }
+    return _runBackendAction(
+      () => _marketplace.updateProfile(
+        uid: userId,
+        role: activeRole,
+        name: cleanName,
+        phone: cleanPhone,
+        specialty: specialty,
+        priceCents: priceCents,
+      ),
+    );
+  }
+
   Future<bool> requestAccountDeletion() async {
     if (isDemoSession) return true;
     final userId = currentUserId;
@@ -259,6 +368,31 @@ class DemoAppState extends ChangeNotifier {
     }
     return _runBackendAction(
       () => _marketplace.requestAccountDeletion(userId),
+    );
+  }
+
+  Future<bool> submitReport({
+    required String category,
+    required String description,
+  }) async {
+    final cleanDescription = description.trim();
+    if (cleanDescription.length < 10) {
+      _setBackendError('Descreva a situação com pelo menos 10 caracteres.');
+      return false;
+    }
+    if (isDemoSession) return true;
+    final userId = currentUserId;
+    if (userId == null) {
+      _setBackendError('A sessão expirou. Entre novamente.');
+      return false;
+    }
+    return _runBackendAction(
+      () => _marketplace.submitReport(
+        reporterId: userId,
+        bookingId: currentBooking?.id ?? '',
+        category: category,
+        description: cleanDescription,
+      ),
     );
   }
 
@@ -286,8 +420,11 @@ class DemoAppState extends ChangeNotifier {
   void resetBooking() {
     bookingStatus = DemoBookingStatus.idle;
     lastQuickMessage = null;
+    lastCancellationReason = '';
+    simulatedCancellationFeeCents = 0;
     clientToProviderRating = 0;
     providerToClientRating = 0;
+    _clearRatingDetails();
     notifyListeners();
   }
 
@@ -311,6 +448,7 @@ class DemoAppState extends ChangeNotifier {
         accountName = data?['name'] as String? ?? user.displayName;
         accountEmail = data?['email'] as String? ?? user.email;
         accountPhone = data?['phone'] as String?;
+        isAdmin = data?['isAdmin'] == true;
         points = data?['points'] as int? ?? 0;
         final verified = data?['identityStatus'] == 'verified';
         if (activeRole == UserRole.client) {
@@ -352,13 +490,17 @@ class DemoAppState extends ChangeNotifier {
         .listen(
       (bookings) {
         if (!_isCurrentSession(version)) return;
+        bookingHistory = List.unmodifiable(bookings);
         final booking = bookings.isEmpty ? null : bookings.first;
         final changedBooking = currentBooking?.id != booking?.id;
+        if (changedBooking) _clearRatingDetails();
         currentBooking = booking;
         bookingStatus = _statusFromBackend(booking?.status);
         clientToProviderRating = booking?.clientRating ?? 0;
         providerToClientRating = booking?.providerRating ?? 0;
-        if (booking != null && changedBooking) {
+        lastCancellationReason = booking?.cancellationReason ?? '';
+        simulatedCancellationFeeCents = booking?.simulatedFeeCents ?? 0;
+        if (booking != null) {
           _watchBookingDetails(version, booking);
         } else if (booking == null) {
           _cancelBookingDetailSubscriptions();
@@ -388,6 +530,46 @@ class DemoAppState extends ChangeNotifier {
       },
       onError: (Object error) => _handleRealtimeError(version, error),
     );
+    final bothRated = booking.clientRating > 0 && booking.providerRating > 0;
+    if (booking.clientRating > 0 &&
+        (activeRole == UserRole.client || bothRated)) {
+      _clientRatingSubscription = _marketplace
+          .watchRating(bookingId: booking.id, fromUid: booking.clientId)
+          .listen(
+        (rating) {
+          if (!_isCurrentSession(version)) return;
+          clientToProviderRating =
+              rating?.score ?? currentBooking?.clientRating ?? 0;
+          clientToProviderTags = rating?.tags ?? [];
+          clientToProviderComment = rating?.comment ?? '';
+          notifyListeners();
+        },
+        onError: (Object error) => _handleRealtimeError(version, error),
+      );
+    }
+    if (booking.providerRating > 0 &&
+        (activeRole == UserRole.provider || bothRated)) {
+      _providerRatingSubscription = _marketplace
+          .watchRating(bookingId: booking.id, fromUid: booking.providerId)
+          .listen(
+        (rating) {
+          if (!_isCurrentSession(version)) return;
+          providerToClientRating =
+              rating?.score ?? currentBooking?.providerRating ?? 0;
+          providerToClientTags = rating?.tags ?? [];
+          providerToClientComment = rating?.comment ?? '';
+          notifyListeners();
+        },
+        onError: (Object error) => _handleRealtimeError(version, error),
+      );
+    }
+  }
+
+  void _clearRatingDetails() {
+    clientToProviderTags = [];
+    providerToClientTags = [];
+    clientToProviderComment = '';
+    providerToClientComment = '';
   }
 
   Future<bool> _changeBookingStatus(
@@ -477,7 +659,11 @@ class DemoAppState extends ChangeNotifier {
 
   void _cancelBookingDetailSubscriptions() {
     unawaited(_quickMessageSubscription?.cancel());
+    unawaited(_clientRatingSubscription?.cancel());
+    unawaited(_providerRatingSubscription?.cancel());
     _quickMessageSubscription = null;
+    _clientRatingSubscription = null;
+    _providerRatingSubscription = null;
   }
 
   void _cancelRealtimeSubscriptions() {

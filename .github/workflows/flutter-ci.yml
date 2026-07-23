@@ -36,3 +36,39 @@ jobs:
 
       - name: Run tests
         run: flutter test
+
+  android-beta:
+    name: Build Android beta APK
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build installable beta APK
+        run: flutter build apk --debug
+
+      - name: Upload beta APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: redglow-v7-android-beta
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

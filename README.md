@@ -10,7 +10,12 @@ domicílio. Esta base implementa a interface aprovada na versão 7 do Figma.
 - Confirmação do pedido com mapa urbano em modo escuro.
 - Trajeto da prestadora e mensagens rápidas sem chat livre.
 - Avaliação mútua e relato pós-atendimento.
-- Painel da prestadora, agenda, ganhos e central de emergência.
+- Avaliações duplo-cegas, relatos visíveis e histórico de atendimentos.
+- Painel da prestadora, agenda e análise interativa de ganhos.
+- Central de emergência padronizada para cliente e prestadora.
+- Perfis editáveis e central interna de notificações.
+- Cancelamento com motivo e taxa zero explicitamente simulada.
+- Relatos operacionais e painel administrativo com acesso restrito.
 - Verificação bilateral de identidade.
 - Assinatura profissional com zero comissão por atendimento.
 - Ciclo de atendimento real sincronizado entre cliente e prestadora pelo Firestore.
@@ -82,7 +87,21 @@ As regras podem ser publicadas somente depois de revisar o projeto selecionado:
 
 ```bash
 firebase use redglow-54a5f
-firebase deploy --only firestore:rules,firestore:indexes
+firebase.cmd deploy --only firestore:rules,firestore:indexes
+```
+
+## APK de beta interno
+
+Cada atualização da branch gera, após análise e testes, um APK Android
+instalável chamado `redglow-v7-android-beta` nos artefatos do GitHub Actions.
+Ele usa assinatura de desenvolvimento e serve somente para testes em aparelhos
+autorizados. A assinatura definitiva para Play Store será criada separadamente
+antes da distribuição pública.
+
+Para gerar o mesmo APK no computador:
+
+```bash
+flutter build apk --debug
 ```
 
 ## Limites atuais do MVP
@@ -105,6 +124,14 @@ firebase deploy --only firestore:rules,firestore:indexes
 - O mapa é vetorial e não depende de API externa; deverá ser substituído por um
   provedor real de mapas e localização antes da publicação comercial.
 - Agenda e ganhos exibem dados de demonstração; o pedido ativo já é real.
+- O painel financeiro é demonstrativo e não representa saldo para saque.
+- Cancelamentos registram motivo, mas a taxa permanece em R$ 0,00 e nenhuma
+  cobrança é realizada durante o beta.
+- A central de notificações é interna. Alertas push no aparelho ainda serão
+  conectados a um serviço de mensageria.
+- O painel administrativo só aparece para conta marcada pelo backend com
+  `isAdmin: true`; o aplicativo não permite que um usuário conceda essa
+  permissão a si próprio.
 
 O Firebase é inicializado por `lib/main.dart`. O acesso **Acessar demonstração**
 continua sem enviar dados e preserva o roteiro completo da versão 7.
@@ -113,5 +140,5 @@ Depois de atualizar esta versão, publique as regras para habilitar o pedido de
 exclusão em contas reais:
 
 ```bash
-firebase deploy --only firestore:rules,firestore:indexes
+firebase.cmd deploy --only firestore:rules,firestore:indexes
 ```

@@ -56,7 +56,10 @@ class _MainShellState extends State<MainShell> {
                     padding: EdgeInsets.symmetric(horizontal: 14),
                     child: Align(
                       alignment: Alignment.centerRight,
-                      child: EmergencyFloatingButton(),
+                      child: EmergencyFloatingButton(
+                        key: Key('client-emergency-action'),
+                        heroTag: 'client-emergency',
+                      ),
                     ),
                   ),
                 ),

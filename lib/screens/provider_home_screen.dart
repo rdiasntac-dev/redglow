@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
 
 import '../models/app_models.dart';
+import '../models/user_role.dart';
 import '../services/session_service.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/account_deletion_action.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/cancellation_flow.dart';
 import '../widgets/emergency_action.dart';
 import 'identity_verification_screen.dart';
+import 'edit_profile_screen.dart';
+import 'notifications_screen.dart';
+import 'provider_analytics_screen.dart';
 import 'rating_screen.dart';
+import 'reviews_screen.dart';
+import 'report_issue_screen.dart';
+import 'booking_history_screen.dart';
 import 'subscription_screen.dart';
 
 class ProviderHomeScreen extends StatefulWidget {
@@ -57,19 +65,36 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     final isOnline = demoState.isDemoSession
         ? _isOnline
         : demoState.providerOnline;
-    return Scaffold(
-      body: ConstrainedMobileBody(
-        child: SafeArea(
-          bottom: false,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Para encerrar com segurança, use “Sair da conta”.'),
+          ),
+        );
+      },
+      child: Scaffold(
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: ConstrainedMobileBody(
+                child: SafeArea(
+                  bottom: false,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 92),
             children: [
               _ProviderHeader(
                 isOnline: isOnline,
                 name: demoState.accountName ?? 'Lari (Manicure)',
-                onBack: () => demoState.isDemoSession
-                    ? Navigator.of(context).pop()
-                    : endCurrentSession(context),
+                onNotifications: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen(
+                      role: UserRole.provider,
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(height: 10),
               _OnlineCard(
@@ -126,15 +151,23 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              const _EarningsCard(),
+              _EarningsCard(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ProviderAnalyticsScreen(),
+                  ),
+                ),
+              ),
               const SizedBox(height: 14),
               SectionTitle(
                 title: 'Próximos Atendimentos',
                 action: 'Ver agenda  ›',
-                onAction: () => _showProviderInfo(
-                  context,
-                  'Agenda da semana',
-                  '3 atendimentos hoje · 8 nesta semana · horários livres amanhã.',
+                onAction: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const BookingHistoryScreen(
+                      role: UserRole.provider,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 7),
@@ -153,10 +186,98 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                 ),
               const SizedBox(height: 4),
               _MonthlyPerformanceCard(
-                onTap: () => _showProviderInfo(
-                  context,
-                  'Desempenho de julho',
-                  'R\$ 1.840,00 recebidos · 28 atendimentos · nota média 4,9.',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ProviderAnalyticsScreen(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 9),
+              GlowCard(
+                key: const Key('provider-reviews-entry'),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ReviewsScreen(
+                      viewingAsProvider: true,
+                    ),
+                  ),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+                child: Row(
+                  children: [
+                    const Icon(Icons.reviews_outlined, color: AppColors.purple),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Avaliações e relatos', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
+                          Text('Acompanhe o retorno dos atendimentos', style: TextStyle(fontSize: 8, color: AppColors.textSecondary)),
+                        ],
+                      ),
+                    ),
+                    if (demoState.clientToProviderRating > 0 &&
+                        demoState.providerToClientRating > 0)
+                      Text(
+                        '★ ${demoState.clientToProviderRating},0',
+                        style: const TextStyle(color: AppColors.yellow, fontSize: 11, fontWeight: FontWeight.w900),
+                      )
+                    else
+                      const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 9),
+              GlowCard(
+                key: const Key('provider-edit-profile'),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const EditProfileScreen(
+                      role: UserRole.provider,
+                    ),
+                  ),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+                child: const Row(
+                  children: [
+                    Icon(Icons.manage_accounts_outlined, color: AppColors.primary),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Editar perfil profissional', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
+                          Text('Nome, telefone, especialidade e valor base', style: TextStyle(fontSize: 8, color: AppColors.textSecondary)),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 9),
+              GlowCard(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ReportIssueScreen(),
+                  ),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+                child: const Row(
+                  children: [
+                    Icon(Icons.report_outlined, color: AppColors.yellow),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Relatar uma situação', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
+                          Text('Conduta, segurança ou problema técnico', style: TextStyle(fontSize: 8, color: AppColors.textSecondary)),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
@@ -181,19 +302,35 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
               ),
               const SizedBox(height: 4),
               const AccountDeletionButton(),
-            ],
-          ),
-        ),
-      ),
-      bottomNavigationBar: ConstrainedBottomBar(
-        child: GradientButton(
-          key: const Key('provider-emergency-action'),
-          label: 'Emergência · Ligar 190 ou 153',
-          icon: Icons.warning_amber_rounded,
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFF304D), Color(0xFFE42173)],
-          ),
-          onPressed: () => showEmergencyCenter(context),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 12,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: const SizedBox(
+                    width: double.infinity,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 14),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: EmergencyFloatingButton(
+                          key: Key('provider-emergency-action'),
+                          heroTag: 'provider-emergency',
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -248,6 +385,14 @@ class _ProviderRequestCard extends StatelessWidget {
             _description(status),
             style: const TextStyle(fontSize: 9, color: AppColors.textSecondary),
           ),
+          if (status == DemoBookingStatus.cancelled &&
+              state.lastCancellationReason.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Motivo registrado: ${state.lastCancellationReason} · taxa simulada R\$ 0,00',
+              style: const TextStyle(fontSize: 8, color: Colors.redAccent),
+            ),
+          ],
           if (hasRequest) ...[
             const Divider(height: 18),
             Text(
@@ -260,10 +405,9 @@ class _ProviderRequestCard extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton(
                     key: const Key('provider-decline-booking'),
-                    onPressed: () => _update(
+                    onPressed: () => showCancellationFlow(
                       context,
-                      state.cancelBooking,
-                      'Solicitação recusada.',
+                      asProvider: true,
                     ),
                     child: const Text('Recusar'),
                   ),
@@ -301,6 +445,15 @@ class _ProviderRequestCard extends StatelessWidget {
               icon: Icons.route_rounded,
               onPressed: () => _update(context, state.startTrip, 'Trajeto iniciado. A cliente foi avisada.'),
             ),
+            const SizedBox(height: 7),
+            TextButton.icon(
+              onPressed: () => showCancellationFlow(
+                context,
+                asProvider: true,
+              ),
+              icon: const Icon(Icons.event_busy_outlined, size: 17),
+              label: const Text('Cancelar atendimento'),
+            ),
           ] else if (status == DemoBookingStatus.onTheWay) ...[
             const SizedBox(height: 12),
             GradientButton(
@@ -308,6 +461,15 @@ class _ProviderRequestCard extends StatelessWidget {
               label: 'Confirmar chegada e iniciar',
               icon: Icons.play_arrow_rounded,
               onPressed: () => _update(context, state.startService, 'Atendimento iniciado.'),
+            ),
+            const SizedBox(height: 7),
+            TextButton.icon(
+              onPressed: () => showCancellationFlow(
+                context,
+                asProvider: true,
+              ),
+              icon: const Icon(Icons.event_busy_outlined, size: 17),
+              label: const Text('Cancelar por segurança ou imprevisto'),
             ),
           ] else if (status == DemoBookingStatus.inProgress) ...[
             const SizedBox(height: 12),
@@ -357,7 +519,7 @@ class _ProviderRequestCard extends StatelessWidget {
             ? 'Serviço finalizado. Avalie a cliente e aguarde a avaliação dela.'
             : 'Cliente avaliada. Agora aguarde a avaliação dela.',
         DemoBookingStatus.reviewed => state.providerToClientRating == 0
-            ? 'A cliente avaliou com ${state.clientToProviderRating} estrelas. Falta sua avaliação.'
+            ? 'A cliente concluiu a avaliação. Envie a sua para liberar as duas notas.'
             : 'Avaliações concluídas · ${state.clientToProviderRating} estrelas recebidas.',
         DemoBookingStatus.cancelled => 'Nenhum atendimento ativo no momento.',
         DemoBookingStatus.idle => 'Quando uma cliente solicitar, o pedido aparecerá aqui.',
@@ -470,20 +632,30 @@ class _ProviderHeader extends StatelessWidget {
   const _ProviderHeader({
     required this.isOnline,
     required this.name,
-    required this.onBack,
+    required this.onNotifications,
   });
 
   final bool isOnline;
   final String name;
-  final VoidCallback onBack;
+  final VoidCallback onNotifications;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        RoundIconButton(
-          icon: Icons.arrow_back_ios_new_rounded,
-          onPressed: onBack,
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: .12),
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.primary.withValues(alpha: .45)),
+          ),
+          child: const Icon(
+            Icons.business_center_rounded,
+            color: AppColors.primary,
+            size: 19,
+          ),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -495,6 +667,19 @@ class _ProviderHeader extends StatelessWidget {
             ],
           ),
         ),
+        IconButton(
+          key: const Key('provider-notifications'),
+          tooltip: 'Notificações',
+          onPressed: onNotifications,
+          icon: const Icon(Icons.notifications_none_rounded, size: 18),
+          color: AppColors.textSecondary,
+          style: IconButton.styleFrom(
+            fixedSize: const Size(36, 36),
+            backgroundColor: AppColors.surface,
+            side: const BorderSide(color: AppColors.border),
+          ),
+        ),
+        const SizedBox(width: 7),
         const Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -563,11 +748,15 @@ class _OnlineCard extends StatelessWidget {
 }
 
 class _EarningsCard extends StatelessWidget {
-  const _EarningsCard();
+  const _EarningsCard({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return GlowCard(
+      key: const Key('provider-earnings-card'),
+      onTap: onTap,
       padding: const EdgeInsets.all(13),
       borderColor: AppColors.purple.withValues(alpha: .45),
       gradient: const LinearGradient(

@@ -3,7 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:redglow/app.dart';
 import 'package:redglow/models/user_role.dart';
 import 'package:redglow/screens/identity_verification_screen.dart';
+import 'package:redglow/screens/admin_dashboard_screen.dart';
+import 'package:redglow/screens/edit_profile_screen.dart';
+import 'package:redglow/screens/notifications_screen.dart';
+import 'package:redglow/screens/provider_analytics_screen.dart';
 import 'package:redglow/screens/rating_screen.dart';
+import 'package:redglow/screens/reviews_screen.dart';
 import 'package:redglow/screens/subscription_screen.dart';
 import 'package:redglow/state/demo_app_state.dart';
 import 'package:redglow/theme/app_theme.dart';
@@ -156,6 +161,26 @@ void main() {
 
     await _scrollTo(tester, find.text('GANHOS DE HOJE'));
     expect(find.text('GANHOS DE HOJE'), findsOneWidget);
+    expect(find.byKey(const Key('provider-emergency-action')), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_back_ios_new_rounded), findsNothing);
+  });
+
+  testWidgets('provider earnings open the interactive analytics dashboard', (tester) async {
+    await tester.pumpWidget(const RedGlowApp());
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('provider-role')));
+    await _scrollTo(tester, find.byKey(const Key('demo-access')));
+    await tester.tap(find.byKey(const Key('demo-access')));
+    await tester.pumpAndSettle();
+
+    await _scrollTo(tester, find.byKey(const Key('provider-earnings-card')));
+    await tester.tap(find.byKey(const Key('provider-earnings-card')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ProviderAnalyticsScreen), findsOneWidget);
+    expect(find.byKey(const Key('provider-analytics-chart')), findsOneWidget);
+    expect(find.text('Insight REDGLOW'), findsOneWidget);
   });
 
   testWidgets('provider can log out of the demonstrative account', (tester) async {
@@ -198,12 +223,101 @@ void main() {
     expect(tester.getCenter(firstStar).dy, lessThan(700));
   });
 
+  testWidgets('mutual rating comments remain visible in the history', (tester) async {
+    final state = DemoAppState();
+    addTearDown(state.dispose);
+    await state.submitRating(
+      5,
+      tags: const ['Pontual', 'Caprichosa'],
+      comment: 'Atendimento excelente e muito cuidadoso.',
+    );
+    await state.submitRating(
+      5,
+      asProvider: true,
+      tags: const ['Respeitosa'],
+      comment: 'Cliente acolhedora e endereço fácil.',
+    );
+
+    await tester.pumpWidget(
+      DemoAppScope(
+        controller: state,
+        child: MaterialApp(
+          theme: AppTheme.dark,
+          home: const ReviewsScreen(viewingAsProvider: false),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Atendimento excelente e muito cuidadoso.'), findsOneWidget);
+    expect(find.text('Cliente acolhedora e endereço fácil.'), findsOneWidget);
+    expect(find.byKey(const Key('received-review-card')), findsOneWidget);
+  });
+
+  testWidgets('client notification center reflects the current lifecycle', (tester) async {
+    final state = DemoAppState()..bookingStatus = DemoBookingStatus.onTheWay;
+    addTearDown(state.dispose);
+    await tester.pumpWidget(
+      DemoAppScope(
+        controller: state,
+        child: MaterialApp(
+          theme: AppTheme.dark,
+          home: const NotificationsScreen(role: UserRole.client),
+        ),
+      ),
+    );
+
+    expect(find.text('Trajeto iniciado'), findsOneWidget);
+    expect(find.textContaining('está a caminho'), findsOneWidget);
+  });
+
+  testWidgets('profile editor exposes the fields for each role', (tester) async {
+    final state = DemoAppState();
+    addTearDown(state.dispose);
+    await tester.pumpWidget(
+      DemoAppScope(
+        controller: state,
+        child: MaterialApp(
+          theme: AppTheme.dark,
+          home: const EditProfileScreen(role: UserRole.provider),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('profile-name-field')), findsOneWidget);
+    expect(find.byKey(const Key('profile-specialty-field')), findsOneWidget);
+    expect(find.byKey(const Key('profile-price-field')), findsOneWidget);
+  });
+
+  testWidgets('administrative preview separates operational data', (tester) async {
+    final state = DemoAppState();
+    addTearDown(state.dispose);
+    await tester.pumpWidget(
+      DemoAppScope(
+        controller: state,
+        child: MaterialApp(
+          theme: AppTheme.dark,
+          home: const AdminDashboardScreen(preview: true),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Painel operacional'), findsOneWidget);
+    expect(find.text('Relatos abertos'), findsOneWidget);
+    expect(find.text('Usuários'), findsWidgets);
+    expect(find.text('Atendimentos'), findsWidgets);
+  });
+
   testWidgets('emergency action requires choosing a public service', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.dark,
         home: const Scaffold(
-          floatingActionButton: EmergencyFloatingButton(),
+          floatingActionButton: EmergencyFloatingButton(
+            key: Key('client-emergency-action'),
+          ),
         ),
       ),
     );
@@ -282,6 +396,19 @@ void main() {
     expect(state.clientToProviderRating, 5);
     expect(state.bookingStatus, DemoBookingStatus.reviewed);
     expect(state.points, 2540);
+
+    state.dispose();
+  });
+
+  test('cancellation stores a reason and never charges in the beta', () async {
+    final state = DemoAppState();
+    await state.requestBooking();
+    final succeeded = await state.cancelBooking(reason: 'Horário não serve mais');
+
+    expect(succeeded, isTrue);
+    expect(state.bookingStatus, DemoBookingStatus.cancelled);
+    expect(state.lastCancellationReason, 'Horário não serve mais');
+    expect(state.simulatedCancellationFeeCents, 0);
 
     state.dispose();
   });

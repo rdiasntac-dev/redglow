@@ -5,9 +5,16 @@ import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/account_deletion_action.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/cancellation_flow.dart';
 import 'identity_verification_screen.dart';
+import '../models/user_role.dart';
+import 'edit_profile_screen.dart';
 import 'order_confirmation_screen.dart';
 import 'rating_screen.dart';
+import 'reviews_screen.dart';
+import 'report_issue_screen.dart';
+import 'admin_dashboard_screen.dart';
+import 'booking_history_screen.dart';
 import 'trip_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
@@ -270,6 +277,29 @@ class BookingsScreen extends StatelessWidget {
                     ),
                     style: const TextStyle(fontSize: 9, color: AppColors.textSecondary),
                   ),
+                  if (status == DemoBookingStatus.cancelled &&
+                      state.lastCancellationReason.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withValues(alpha: .07),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Colors.redAccent.withValues(alpha: .25),
+                        ),
+                      ),
+                      child: Text(
+                        'Motivo: ${state.lastCancellationReason}\nTaxa simulada: R\$ 0,00 · nenhuma cobrança realizada',
+                        style: const TextStyle(
+                          fontSize: 8,
+                          height: 1.45,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   if ({DemoBookingStatus.idle, DemoBookingStatus.cancelled}.contains(status))
                     GradientButton(
@@ -282,26 +312,58 @@ class BookingsScreen extends StatelessWidget {
                     )
                   else if (status == DemoBookingStatus.requested)
                     OutlinedButton.icon(
-                      onPressed: () => state.cancelBooking(),
+                      key: const Key('booking-cancel'),
+                      onPressed: () => showCancellationFlow(
+                        context,
+                        asProvider: false,
+                      ),
                       icon: const Icon(Icons.close_rounded),
                       label: const Text('Cancelar solicitação'),
                     )
                   else if (status == DemoBookingStatus.accepted)
-                    OutlinedButton.icon(
-                      onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Pedido aceito. Aguardando ${state.providerName} iniciar o trajeto.')),
-                      ),
-                      icon: const Icon(Icons.refresh_rounded),
-                      label: const Text('Atualizar status'),
+                    Column(
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Pedido aceito. Aguardando ${state.providerName} iniciar o trajeto.')),
+                          ),
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: const Text('Atualizar status'),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          onPressed: () => showCancellationFlow(
+                            context,
+                            asProvider: false,
+                          ),
+                          icon: const Icon(Icons.event_busy_outlined, size: 17),
+                          label: const Text('Solicitar cancelamento'),
+                        ),
+                      ],
                     )
                   else if (isTracking)
-                    GradientButton(
-                      key: const Key('booking-track'),
-                      label: 'Acompanhar atendimento',
-                      icon: Icons.route_rounded,
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const TripScreen()),
-                      ),
+                    Column(
+                      children: [
+                        GradientButton(
+                          key: const Key('booking-track'),
+                          label: 'Acompanhar atendimento',
+                          icon: Icons.route_rounded,
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const TripScreen()),
+                          ),
+                        ),
+                        if (status == DemoBookingStatus.onTheWay) ...[
+                          const SizedBox(height: 8),
+                          TextButton.icon(
+                            onPressed: () => showCancellationFlow(
+                              context,
+                              asProvider: false,
+                            ),
+                            icon: const Icon(Icons.event_busy_outlined, size: 17),
+                            label: const Text('Solicitar cancelamento'),
+                          ),
+                        ],
+                      ],
                     )
                   else if (status == DemoBookingStatus.completed)
                     GradientButton(
@@ -311,6 +373,19 @@ class BookingsScreen extends StatelessWidget {
                       onPressed: () => Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const RatingScreen()),
                       ),
+                    )
+                  else if (status == DemoBookingStatus.reviewed)
+                    OutlinedButton.icon(
+                      key: const Key('booking-open-reviews'),
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ReviewsScreen(
+                            viewingAsProvider: false,
+                          ),
+                        ),
+                      ),
+                      icon: const Icon(Icons.reviews_outlined),
+                      label: const Text('Ver avaliação e relato'),
                     )
                   else
                     OutlinedButton.icon(
@@ -487,6 +562,39 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _ProfileOption(
+              icon: Icons.manage_accounts_outlined,
+              label: 'Editar meus dados',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const EditProfileScreen(
+                    role: UserRole.client,
+                  ),
+                ),
+              ),
+            ),
+            _ProfileOption(
+              icon: Icons.history_rounded,
+              label: 'Histórico de atendimentos',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const BookingHistoryScreen(
+                    role: UserRole.client,
+                  ),
+                ),
+              ),
+            ),
+            _ProfileOption(
+              icon: Icons.reviews_outlined,
+              label: 'Minhas avaliações',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const ReviewsScreen(
+                    viewingAsProvider: false,
+                  ),
+                ),
+              ),
+            ),
+            _ProfileOption(
               icon: Icons.location_on_outlined,
               label: 'Endereços',
               onTap: () => _showInfoSheet(
@@ -512,6 +620,15 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
             _ProfileOption(
+              icon: Icons.report_outlined,
+              label: 'Relatar uma situação',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const ReportIssueScreen(),
+                ),
+              ),
+            ),
+            _ProfileOption(
               icon: Icons.help_outline_rounded,
               label: 'Ajuda',
               onTap: () => _showInfoSheet(
@@ -520,6 +637,16 @@ class ProfileScreen extends StatelessWidget {
                 'Demonstração: suporte por atendimento, segurança e cancelamento serão conectados ao backend.',
               ),
             ),
+            if (state.isAdmin)
+              _ProfileOption(
+                icon: Icons.admin_panel_settings_outlined,
+                label: 'Painel administrativo',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const AdminDashboardScreen(),
+                  ),
+                ),
+              ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () => endCurrentSession(context),

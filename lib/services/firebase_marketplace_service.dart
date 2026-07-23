@@ -50,6 +50,9 @@ class MarketplaceBooking {
     required this.createdAt,
     required this.clientRating,
     required this.providerRating,
+    required this.cancellationReason,
+    required this.cancelledBy,
+    required this.simulatedFeeCents,
   });
 
   final String id;
@@ -65,6 +68,9 @@ class MarketplaceBooking {
   final DateTime createdAt;
   final int clientRating;
   final int providerRating;
+  final String cancellationReason;
+  final String cancelledBy;
+  final int simulatedFeeCents;
 
   factory MarketplaceBooking.fromDocument(
     QueryDocumentSnapshot<Map<String, dynamic>> document,
@@ -87,6 +93,40 @@ class MarketplaceBooking {
           : DateTime.fromMillisecondsSinceEpoch(0),
       clientRating: data['clientRating'] as int? ?? 0,
       providerRating: data['providerRating'] as int? ?? 0,
+      cancellationReason: data['cancellationReason'] as String? ?? '',
+      cancelledBy: data['cancelledBy'] as String? ?? '',
+      simulatedFeeCents: data['simulatedFeeCents'] as int? ?? 0,
+    );
+  }
+}
+
+class MarketplaceRating {
+  const MarketplaceRating({
+    required this.fromUid,
+    required this.toUid,
+    required this.score,
+    required this.tags,
+    required this.comment,
+  });
+
+  final String fromUid;
+  final String toUid;
+  final int score;
+  final List<String> tags;
+  final String comment;
+
+  factory MarketplaceRating.fromDocument(
+    DocumentSnapshot<Map<String, dynamic>> document,
+  ) {
+    final data = document.data() ?? const <String, dynamic>{};
+    return MarketplaceRating(
+      fromUid: data['fromUid'] as String? ?? '',
+      toUid: data['toUid'] as String? ?? '',
+      score: data['score'] as int? ?? 0,
+      tags: (data['tags'] as List<dynamic>? ?? const [])
+          .whereType<String>()
+          .toList(growable: false),
+      comment: data['comment'] as String? ?? '',
     );
   }
 }
@@ -155,6 +195,32 @@ class FirebaseMarketplaceService {
     });
   }
 
+  Future<void> updateProfile({
+    required String uid,
+    required UserRole role,
+    required String name,
+    required String phone,
+    String? specialty,
+    int? priceCents,
+  }) async {
+    final batch = _firestore.batch();
+    batch.update(_firestore.collection('users').doc(uid), {
+      'name': name.trim(),
+      'phone': phone.trim(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    if (role == UserRole.provider) {
+      batch.update(_firestore.collection('professionals').doc(uid), {
+        'name': name.trim(),
+        'specialty': specialty?.trim() ?? 'Manicure',
+        'priceCents': priceCents ?? 6000,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+    await _auth.currentUser?.updateDisplayName(name.trim());
+  }
+
   Stream<List<MarketplaceBooking>> watchBookings({
     required String uid,
     required UserRole role,
@@ -184,6 +250,19 @@ class FirebaseMarketplaceService {
             : snapshot.docs.first.data()['body'] as String?);
   }
 
+  Stream<MarketplaceRating?> watchRating({
+    required String bookingId,
+    required String fromUid,
+  }) {
+    return _firestore
+        .collection('ratings')
+        .doc('${bookingId}_$fromUid')
+        .snapshots()
+        .map((document) => document.exists
+            ? MarketplaceRating.fromDocument(document)
+            : null);
+  }
+
   Future<String> createBooking({
     required String clientId,
     required String providerId,
@@ -204,6 +283,9 @@ class FirebaseMarketplaceService {
       'status': 'requested',
       'clientRating': 0,
       'providerRating': 0,
+      'cancellationReason': '',
+      'cancelledBy': '',
+      'simulatedFeeCents': 0,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -213,6 +295,20 @@ class FirebaseMarketplaceService {
   Future<void> updateBookingStatus(String bookingId, String status) {
     return _firestore.collection('bookings').doc(bookingId).update({
       'status': status,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> cancelBooking({
+    required String bookingId,
+    required String cancelledBy,
+    required String reason,
+  }) {
+    return _firestore.collection('bookings').doc(bookingId).update({
+      'status': 'cancelled',
+      'cancellationReason': reason.trim(),
+      'cancelledBy': cancelledBy,
+      'simulatedFeeCents': 0,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
@@ -276,6 +372,23 @@ class FirebaseMarketplaceService {
       'uid': uid,
       'status': 'requested',
       'requestedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> submitReport({
+    required String reporterId,
+    required String bookingId,
+    required String category,
+    required String description,
+  }) {
+    return _firestore.collection('reports').add({
+      'reporterId': reporterId,
+      'bookingId': bookingId,
+      'category': category,
+      'description': description.trim(),
+      'status': 'open',
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 }
