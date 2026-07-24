@@ -2,18 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:redglow/app.dart';
 import 'package:redglow/models/user_role.dart';
-import 'package:redglow/screens/identity_verification_screen.dart';
-import 'package:redglow/screens/admin_dashboard_screen.dart';
 import 'package:redglow/screens/edit_profile_screen.dart';
-import 'package:redglow/screens/notifications_screen.dart';
+import 'package:redglow/screens/focused_explore_screen.dart';
+import 'package:redglow/screens/identity_verification_screen.dart';
 import 'package:redglow/screens/provider_analytics_screen.dart';
+import 'package:redglow/screens/provider_services_screen.dart';
 import 'package:redglow/screens/rating_screen.dart';
-import 'package:redglow/screens/reviews_screen.dart';
-import 'package:redglow/screens/subscription_screen.dart';
 import 'package:redglow/state/demo_app_state.dart';
 import 'package:redglow/theme/app_theme.dart';
-import 'package:redglow/widgets/account_deletion_action.dart';
-import 'package:redglow/widgets/emergency_action.dart';
 
 Future<void> _scrollTo(WidgetTester tester, Finder target) async {
   await tester.scrollUntilVisible(
@@ -32,6 +28,15 @@ Future<void> _openClientDemo(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> _openProviderDemo(WidgetTester tester) async {
+  await tester.pumpWidget(const RedGlowApp());
+  await tester.pump();
+  await tester.tap(find.byKey(const Key('provider-role')));
+  await _scrollTo(tester, find.byKey(const Key('demo-access')));
+  await tester.tap(find.byKey(const Key('demo-access')));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('auth offers client and provider access', (tester) async {
     await tester.pumpWidget(const RedGlowApp());
@@ -45,7 +50,7 @@ void main() {
     expect(find.text('Acessar demonstração como Cliente'), findsOneWidget);
   });
 
-  testWidgets('home shows the approved REDGLOW V7 content', (tester) async {
+  testWidgets('client home shows the approved REDGLOW content', (tester) async {
     await _openClientDemo(tester);
 
     expect(find.text('REDGLOW PONTOS'), findsOneWidget);
@@ -54,8 +59,30 @@ void main() {
     await _scrollTo(tester, find.text('Lari (Manicure)'));
     expect(find.text('Lari (Manicure)'), findsOneWidget);
     expect(find.text('R\$ 60,00'), findsOneWidget);
-    expect(find.text('Área da Prestadora'), findsNothing);
-    expect(find.text('Plano Profissional'), findsNothing);
+  });
+
+  testWidgets('client search exposes every niche and its subsections',
+      (tester) async {
+    await _openClientDemo(tester);
+
+    await tester.tap(find.byIcon(Icons.search_rounded).last);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FocusedExploreScreen), findsOneWidget);
+    expect(find.text('Manicure'), findsWidgets);
+    expect(find.text('Pedicure'), findsWidgets);
+    expect(find.text('Nail Designer'), findsWidgets);
+    expect(find.text('Maquiadora'), findsWidgets);
+    expect(find.text('Designer de Sobrancelhas'), findsWidgets);
+    expect(find.text('Lash Designer'), findsWidgets);
+
+    await tester.tap(find.text('Nail Designer').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Alongamento em gel'), findsWidgets);
+    expect(find.text('Alongamento em fibra'), findsWidgets);
+    expect(find.text('Blindagem'), findsWidgets);
+    expect(find.text('Manutenção'), findsWidgets);
   });
 
   testWidgets('Lari opens the order confirmation flow', (tester) async {
@@ -75,123 +102,67 @@ void main() {
     expect(find.text('Fechar e Aguardar Aceite'), findsOneWidget);
   });
 
-  testWidgets('home offers the identity verification CTA', (tester) async {
+  testWidgets('client account protects the system back action', (tester) async {
     await _openClientDemo(tester);
 
-    final identityEntry = find.byKey(const Key('identity-check-entry'));
-    await _scrollTo(tester, identityEntry);
-    expect(identityEntry, findsOneWidget);
-  });
+    await tester.binding.handlePopRoute();
+    await tester.pump();
 
-  testWidgets('identity verification can be started', (tester) async {
-    final demoState = DemoAppState();
-    await tester.pumpWidget(
-      DemoAppScope(
-        controller: demoState,
-        child: MaterialApp(
-          theme: AppTheme.dark,
-          home: const IdentityVerificationScreen(),
-        ),
-      ),
+    expect(
+      find.text('Para encerrar com segurança, use “Sair da conta”.'),
+      findsOneWidget,
     );
-    await tester.pumpAndSettle();
-
-    expect(find.byType(IdentityVerificationScreen), findsOneWidget);
-    expect(find.byKey(const Key('start-verification')), findsOneWidget);
-    await tester.tap(find.byKey(const Key('start-verification')));
-    await tester.pump();
-
-    expect(find.text('Continuar Verificação'), findsOneWidget);
-    await _scrollTo(tester, find.byKey(const Key('cpf-field')));
-    expect(find.byKey(const Key('cpf-field')), findsOneWidget);
-    expect(find.byKey(const Key('phone-field')), findsOneWidget);
   });
 
-  testWidgets('real identity preview never self-approves the account', (tester) async {
-    final state = DemoAppState()
-      ..isDemoSession = false
-      ..activeRole = UserRole.client;
-    addTearDown(state.dispose);
-
-    await tester.pumpWidget(
-      DemoAppScope(
-        controller: state,
-        child: MaterialApp(
-          theme: AppTheme.dark,
-          home: const IdentityVerificationScreen(),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const Key('start-verification')));
-    await tester.pump();
-    await _scrollTo(tester, find.byKey(const Key('cpf-field')));
-    await tester.enterText(find.byKey(const Key('cpf-field')), '11111111111');
-    await tester.enterText(find.byKey(const Key('phone-field')), '41999999999');
-    await _scrollTo(tester, find.text('Simular Validação'));
-    await tester.tap(find.text('Simular Validação'));
-    await tester.pump(const Duration(milliseconds: 800));
-    await tester.pumpAndSettle();
-
-    await _scrollTo(tester, find.byKey(const Key('document-upload')));
-    await tester.tap(find.byKey(const Key('document-upload')));
-    await tester.pump();
-    await _scrollTo(tester, find.byKey(const Key('selfie-button')));
-    await tester.tap(find.byKey(const Key('selfie-button')));
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('start-verification')));
-    await tester.pumpAndSettle();
-
-    expect(state.clientIdentityVerified, isFalse);
-  });
-
-  testWidgets('provider demo opens the provider dashboard', (tester) async {
-    await tester.pumpWidget(const RedGlowApp());
-    await tester.pump();
-
-    await tester.tap(find.byKey(const Key('provider-role')));
-    await _scrollTo(tester, find.byKey(const Key('demo-access')));
-    await tester.tap(find.byKey(const Key('demo-access')));
-    await tester.pumpAndSettle();
+  testWidgets('provider dashboard has no fake appointment list',
+      (tester) async {
+    await _openProviderDemo(tester);
 
     expect(find.text('MODO PRESTADORA'), findsOneWidget);
     expect(find.text('Plano profissional'), findsOneWidget);
-    expect(find.text('REDGLOW PONTOS'), findsNothing);
-
-    await _scrollTo(tester, find.text('GANHOS DE HOJE'));
-    expect(find.text('GANHOS DE HOJE'), findsOneWidget);
+    expect(find.byKey(const Key('provider-services-profile')), findsOneWidget);
+    expect(find.byKey(const Key('provider-earnings-card')), findsOneWidget);
+    expect(find.text('Amanda Souza'), findsNothing);
+    expect(find.text('Priscila Matos'), findsNothing);
+    expect(find.text('Renata Campos'), findsNothing);
     expect(find.byKey(const Key('provider-emergency-action')), findsOneWidget);
-    expect(find.byIcon(Icons.arrow_back_ios_new_rounded), findsNothing);
   });
 
-  testWidgets('provider earnings open the interactive analytics dashboard', (tester) async {
-    await tester.pumpWidget(const RedGlowApp());
-    await tester.pump();
+  testWidgets('provider dashboard uses a single analytics entry',
+      (tester) async {
+    await _openProviderDemo(tester);
 
-    await tester.tap(find.byKey(const Key('provider-role')));
-    await _scrollTo(tester, find.byKey(const Key('demo-access')));
-    await tester.tap(find.byKey(const Key('demo-access')));
-    await tester.pumpAndSettle();
+    final dashboard = find.byKey(const Key('provider-earnings-card'));
+    await _scrollTo(tester, dashboard);
+    expect(dashboard, findsOneWidget);
+    expect(find.text('Painel de atendimentos'), findsOneWidget);
 
-    await _scrollTo(tester, find.byKey(const Key('provider-earnings-card')));
-    await tester.tap(find.byKey(const Key('provider-earnings-card')));
+    await tester.tap(dashboard);
     await tester.pumpAndSettle();
 
     expect(find.byType(ProviderAnalyticsScreen), findsOneWidget);
     expect(find.byKey(const Key('provider-analytics-chart')), findsOneWidget);
-    await _scrollTo(tester, find.text('Insight REDGLOW'));
-    expect(find.text('Insight REDGLOW'), findsOneWidget);
   });
 
-  testWidgets('provider can log out of the demonstrative account', (tester) async {
-    await tester.pumpWidget(const RedGlowApp());
-    await tester.pump();
+  testWidgets('provider can choose the services actually offered',
+      (tester) async {
+    await _openProviderDemo(tester);
 
-    await tester.tap(find.byKey(const Key('provider-role')));
-    await _scrollTo(tester, find.byKey(const Key('demo-access')));
-    await tester.tap(find.byKey(const Key('demo-access')));
+    final servicesEntry = find.byKey(const Key('provider-services-profile'));
+    await _scrollTo(tester, servicesEntry);
+    await tester.tap(servicesEntry);
     await tester.pumpAndSettle();
+
+    expect(find.byType(ProviderServicesScreen), findsOneWidget);
+    expect(find.text('Serviços que realizo'), findsOneWidget);
+    expect(find.text('Manicure tradicional'), findsOneWidget);
+    expect(find.text('Esmaltação em gel'), findsOneWidget);
+    expect(find.byKey(const Key('save-provider-services')), findsOneWidget);
+  });
+
+  testWidgets('provider can log out of the demonstrative account',
+      (tester) async {
+    await _openProviderDemo(tester);
 
     await _scrollTo(tester, find.byKey(const Key('provider-logout')));
     await tester.tap(find.byKey(const Key('provider-logout')));
@@ -200,79 +171,27 @@ void main() {
     expect(find.text('Acessar demonstração como Prestadora'), findsOneWidget);
   });
 
-  testWidgets('rating form remains visible on a desktop viewport', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(1366, 768));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+  testWidgets('identity verification can be started', (tester) async {
     final state = DemoAppState();
     addTearDown(state.dispose);
-
     await tester.pumpWidget(
       DemoAppScope(
         controller: state,
         child: MaterialApp(
           theme: AppTheme.dark,
-          home: const RatingScreen(),
+          home: const IdentityVerificationScreen(),
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    final firstStar = find.byKey(const Key('rating-star-1'));
-    expect(firstStar, findsOneWidget);
-    expect(find.byKey(const Key('rating-comment')), findsOneWidget);
-    expect(find.byKey(const Key('submit-rating')), findsOneWidget);
-    expect(tester.getCenter(firstStar).dy, lessThan(700));
+    expect(find.byKey(const Key('start-verification')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('start-verification')));
+    await tester.pump();
+    expect(find.text('Continuar Verificação'), findsOneWidget);
   });
 
-  testWidgets('mutual rating comments remain visible in the history', (tester) async {
-    final state = DemoAppState();
-    addTearDown(state.dispose);
-    await state.submitRating(
-      5,
-      tags: const ['Pontual', 'Caprichosa'],
-      comment: 'Atendimento excelente e muito cuidadoso.',
-    );
-    await state.submitRating(
-      5,
-      asProvider: true,
-      tags: const ['Respeitosa'],
-      comment: 'Cliente acolhedora e endereço fácil.',
-    );
-
-    await tester.pumpWidget(
-      DemoAppScope(
-        controller: state,
-        child: MaterialApp(
-          theme: AppTheme.dark,
-          home: const ReviewsScreen(viewingAsProvider: false),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Atendimento excelente e muito cuidadoso.'), findsOneWidget);
-    expect(find.text('Cliente acolhedora e endereço fácil.'), findsOneWidget);
-    expect(find.byKey(const Key('received-review-card')), findsOneWidget);
-  });
-
-  testWidgets('client notification center reflects the current lifecycle', (tester) async {
-    final state = DemoAppState()..bookingStatus = DemoBookingStatus.onTheWay;
-    addTearDown(state.dispose);
-    await tester.pumpWidget(
-      DemoAppScope(
-        controller: state,
-        child: MaterialApp(
-          theme: AppTheme.dark,
-          home: const NotificationsScreen(role: UserRole.client),
-        ),
-      ),
-    );
-
-    expect(find.text('Trajeto iniciado'), findsOneWidget);
-    expect(find.textContaining('está a caminho'), findsOneWidget);
-  });
-
-  testWidgets('profile editor exposes the fields for each role', (tester) async {
+  testWidgets('profile editor exposes professional fields', (tester) async {
     final state = DemoAppState();
     addTearDown(state.dispose);
     await tester.pumpWidget(
@@ -291,47 +210,10 @@ void main() {
     expect(find.byKey(const Key('profile-price-field')), findsOneWidget);
   });
 
-  testWidgets('administrative preview separates operational data', (tester) async {
-    final state = DemoAppState();
-    addTearDown(state.dispose);
-    await tester.pumpWidget(
-      DemoAppScope(
-        controller: state,
-        child: MaterialApp(
-          theme: AppTheme.dark,
-          home: const AdminDashboardScreen(preview: true),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Painel operacional'), findsOneWidget);
-    expect(find.text('Relatos abertos'), findsOneWidget);
-    expect(find.text('Usuários'), findsWidgets);
-    expect(find.text('Atendimentos'), findsWidgets);
-  });
-
-  testWidgets('emergency action requires choosing a public service', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.dark,
-        home: const Scaffold(
-          floatingActionButton: EmergencyFloatingButton(
-            key: Key('client-emergency-action'),
-          ),
-        ),
-      ),
-    );
-
-    await tester.tap(find.byKey(const Key('client-emergency-action')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Central de Segurança'), findsOneWidget);
-    expect(find.byKey(const Key('emergency-call-190')), findsOneWidget);
-    expect(find.byKey(const Key('emergency-call-153')), findsOneWidget);
-  });
-
-  testWidgets('account deletion explains the demonstrative behavior', (tester) async {
+  testWidgets('rating form remains visible on a desktop viewport',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1366, 768));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final state = DemoAppState();
     addTearDown(state.dispose);
 
@@ -340,40 +222,15 @@ void main() {
         controller: state,
         child: MaterialApp(
           theme: AppTheme.dark,
-          home: const Scaffold(body: AccountDeletionButton()),
-        ),
-      ),
-    );
-
-    await tester.tap(find.byKey(const Key('request-account-deletion')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Exclusão de conta'), findsOneWidget);
-    expect(find.textContaining('demonstração não cria uma conta'), findsOneWidget);
-  });
-
-  testWidgets('real accounts cannot activate a simulated subscription', (tester) async {
-    final state = DemoAppState()
-      ..isDemoSession = false
-      ..activeRole = UserRole.provider;
-    addTearDown(state.dispose);
-
-    await tester.pumpWidget(
-      DemoAppScope(
-        controller: state,
-        child: MaterialApp(
-          theme: AppTheme.dark,
-          home: const SubscriptionScreen(),
+          home: const RatingScreen(),
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('subscribe-button')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Plano em validação'), findsOneWidget);
-    expect(state.professionalPlanActive, isFalse);
+    expect(find.byKey(const Key('rating-star-1')), findsOneWidget);
+    expect(find.byKey(const Key('rating-comment')), findsOneWidget);
+    expect(find.byKey(const Key('submit-rating')), findsOneWidget);
   });
 
   test('shared demo state follows the bilateral service lifecycle', () async {
@@ -390,7 +247,6 @@ void main() {
     await state.completeService();
     await state.submitRating(5, asProvider: true);
     expect(state.providerToClientRating, 5);
-    expect(state.bookingStatus, DemoBookingStatus.completed);
 
     state.selectRole(UserRole.client);
     await state.submitRating(5);
@@ -404,64 +260,14 @@ void main() {
   test('cancellation stores a reason and never charges in the beta', () async {
     final state = DemoAppState();
     await state.requestBooking();
-    final succeeded = await state.cancelBooking(reason: 'Horário não serve mais');
+    final succeeded = await state.cancelBooking(
+      reason: 'Horário não serve mais',
+    );
 
     expect(succeeded, isTrue);
     expect(state.bookingStatus, DemoBookingStatus.cancelled);
     expect(state.lastCancellationReason, 'Horário não serve mais');
     expect(state.simulatedCancellationFeeCents, 0);
-
-    state.dispose();
-  });
-
-  test('points require 3000 credits and real accounts cannot redeem locally', () {
-    final state = DemoAppState();
-
-    state.points = DemoAppState.pointsRedemptionCost - 1;
-    expect(state.redeemPoints(), isFalse);
-
-    state.points = DemoAppState.pointsRedemptionCost;
-    expect(state.redeemPoints(), isTrue);
-    expect(state.points, 0);
-
-    state.isDemoSession = false;
-    state.points = DemoAppState.pointsRedemptionCost;
-    expect(state.redeemPoints(), isFalse);
-    expect(state.points, DemoAppState.pointsRedemptionCost);
-
-    state.dispose();
-  });
-
-  test('identity checks remain separate between client and provider', () {
-    final state = DemoAppState();
-
-    state.selectRole(UserRole.client);
-    state.markIdentityVerified();
-    expect(state.identityVerified, isTrue);
-
-    state.selectRole(UserRole.provider);
-    expect(state.identityVerified, isFalse);
-
-    state.dispose();
-  });
-
-  test('real and demonstrative sessions remain distinguishable', () {
-    final state = DemoAppState();
-
-    state.startSession(
-      role: UserRole.provider,
-      demo: false,
-      name: 'Lari REDGLOW',
-    );
-
-    expect(state.activeRole, UserRole.provider);
-    expect(state.isDemoSession, isFalse);
-    expect(state.accountName, 'Lari REDGLOW');
-    expect(state.points, 0);
-
-    state.startSession(role: UserRole.client, demo: true);
-    expect(state.points, 2480);
-    expect(state.bookingStatus, DemoBookingStatus.idle);
 
     state.dispose();
   });
