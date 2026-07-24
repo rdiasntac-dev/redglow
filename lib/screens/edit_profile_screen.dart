@@ -256,7 +256,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
                         key: const Key('profile-specialty-field'),
-                        value: _selectedCategory,
+                        initialValue: _selectedCategory,
                         isExpanded: true,
                         decoration: const InputDecoration(
                           prefixIcon: Icon(Icons.auto_awesome_rounded),
