@@ -157,12 +157,33 @@ service cloud.firestore {
           'createdAt',
           'updatedAt'
         ])
-        && request.resource.data.isOnline is bool;
+        && request.resource.data.isOnline is bool
+        && (
+          request.resource.data.services is int
+          || request.resource.data.services is list
+        );
       allow update: if isSelf(uid)
         && hasRole('provider')
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'specialty', 'priceCents', 'photoUrl', 'isOnline', 'updatedAt']);
+          .hasOnly([
+            'name',
+            'specialty',
+            'priceCents',
+            'photoUrl',
+            'isOnline',
+            'services',
+            'updatedAt'
+          ])
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['services'])
+          || (
+            request.resource.data.services is list
+            && request.resource.data.services.size() > 0
+            && request.resource.data.services.size() <= 20
+          )
+        );
       allow delete: if false;
     }
 
