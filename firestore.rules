@@ -28,6 +28,12 @@ service cloud.firestore {
         && request.auth.uid in [data.clientId, data.providerId];
     }
 
+    function selectedProfessional(providerId) {
+      return get(
+        /databases/$(database)/documents/professionals/$(providerId)
+      );
+    }
+
     function bookingCoreUnchanged() {
       return request.resource.data.clientId == resource.data.clientId
         && request.resource.data.providerId == resource.data.providerId
@@ -77,8 +83,7 @@ service cloud.firestore {
       return request.auth.uid == resource.data.providerId
         && (
           validCancellationUpdate()
-          ||
-          resource.data.status == 'requested'
+          || resource.data.status == 'requested'
             && request.resource.data.status == 'accepted'
             && request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly(['status', 'updatedAt'])
@@ -165,8 +170,10 @@ service cloud.firestore {
       allow create: if hasRole('client')
         && request.resource.data.clientId == request.auth.uid
         && request.resource.data.providerId is string
-        && exists(/databases/$(database)/documents/professionals/$(request.resource.data.providerId))
-        && get(/databases/$(database)/documents/professionals/$(request.resource.data.providerId)).data.isOnline == true
+        && exists(
+          /databases/$(database)/documents/professionals/$(request.resource.data.providerId)
+        )
+        && selectedProfessional(request.resource.data.providerId).data.isOnline == true
         && request.resource.data.keys().hasOnly([
           'clientId',
           'providerId',
@@ -185,10 +192,16 @@ service cloud.firestore {
           'createdAt',
           'updatedAt'
         ])
-        && request.resource.data.status == 'requested'
-        && request.resource.data.serviceName == 'Manicure e Pedicure'
-        && request.resource.data.priceCents == 6000
+        && request.resource.data.providerName
+          == selectedProfessional(request.resource.data.providerId).data.name
+        && request.resource.data.priceCents
+          == selectedProfessional(request.resource.data.providerId).data.priceCents
+        && request.resource.data.serviceName is string
+        && request.resource.data.serviceName.size() > 0
+        && request.resource.data.address is string
+        && request.resource.data.address.size() > 0
         && request.resource.data.paymentMethod in ['Pix', 'Cartão', 'Dinheiro']
+        && request.resource.data.status == 'requested'
         && request.resource.data.clientRating == 0
         && request.resource.data.providerRating == 0
         && request.resource.data.cancellationReason == ''
