@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../models/service_catalog.dart';
 import '../models/user_role.dart';
 
 class MarketplaceProfessional {
@@ -24,11 +25,16 @@ class MarketplaceProfessional {
     QueryDocumentSnapshot<Map<String, dynamic>> document,
   ) {
     final data = document.data();
+    final specialty = RedGlowServiceCatalog.normalizeLabel(
+      data['specialty'] as String?,
+    );
+    final category = RedGlowServiceCatalog.byLabel(specialty);
     return MarketplaceProfessional(
       uid: document.id,
       name: data['name'] as String? ?? 'Prestadora REDGLOW',
-      specialty: data['specialty'] as String? ?? 'Manicure',
-      priceCents: data['priceCents'] as int? ?? 6000,
+      specialty: specialty,
+      priceCents:
+          data['priceCents'] as int? ?? category.recommendedHomeCents,
       isOnline: data['isOnline'] as bool? ?? false,
       photoUrl: data['photoUrl'] as String?,
     );
@@ -84,8 +90,8 @@ class MarketplaceBooking {
       clientName: data['clientName'] as String? ?? 'Cliente REDGLOW',
       providerName: data['providerName'] as String? ?? 'Prestadora REDGLOW',
       status: data['status'] as String? ?? 'requested',
-      serviceName: data['serviceName'] as String? ?? 'Manicure e Pedicure',
-      priceCents: data['priceCents'] as int? ?? 6000,
+      serviceName: data['serviceName'] as String? ?? 'Manicure',
+      priceCents: data['priceCents'] as int? ?? 4500,
       address: data['address'] as String? ?? '',
       paymentMethod: data['paymentMethod'] as String? ?? 'Pix',
       createdAt: timestamp is Timestamp
@@ -166,9 +172,17 @@ class FirebaseMarketplaceService {
   }) async {
     final reference = _firestore.collection('professionals').doc(uid);
     final current = await reference.get();
+    final defaultCategory = RedGlowServiceCatalog.categories.first;
     if (current.exists) {
+      final data = current.data() ?? const <String, dynamic>{};
+      final specialty = RedGlowServiceCatalog.normalizeLabel(
+        data['specialty'] as String?,
+      );
+      final category = RedGlowServiceCatalog.byLabel(specialty);
       await reference.update({
         'name': name.trim(),
+        'specialty': specialty,
+        'priceCents': data['priceCents'] as int? ?? category.recommendedHomeCents,
         'updatedAt': FieldValue.serverTimestamp(),
       });
       return;
@@ -177,9 +191,9 @@ class FirebaseMarketplaceService {
     await reference.set({
       'uid': uid,
       'name': name.trim(),
-      'specialty': 'Manicure',
-      'priceCents': 6000,
-      'rating': 5.0,
+      'specialty': defaultCategory.label,
+      'priceCents': defaultCategory.recommendedHomeCents,
+      'rating': 0.0,
       'services': 0,
       'isOnline': true,
       'photoUrl': null,
@@ -210,10 +224,13 @@ class FirebaseMarketplaceService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
     if (role == UserRole.provider) {
+      final normalizedSpecialty =
+          RedGlowServiceCatalog.normalizeLabel(specialty);
+      final category = RedGlowServiceCatalog.byLabel(normalizedSpecialty);
       batch.update(_firestore.collection('professionals').doc(uid), {
         'name': name.trim(),
-        'specialty': specialty?.trim() ?? 'Manicure',
-        'priceCents': priceCents ?? 6000,
+        'specialty': normalizedSpecialty,
+        'priceCents': priceCents ?? category.recommendedHomeCents,
         'updatedAt': FieldValue.serverTimestamp(),
       });
     }
@@ -270,14 +287,44 @@ class FirebaseMarketplaceService {
     required String providerName,
     required String paymentMethod,
   }) async {
+    final professionalReference =
+        _firestore.collection('professionals').doc(providerId);
+    final professionalSnapshot = await professionalReference.get();
+    final professional = professionalSnapshot.data();
+    if (!professionalSnapshot.exists || professional == null) {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'not-found',
+        message: 'A profissional selecionada não foi encontrada.',
+      );
+    }
+    if (professional['isOnline'] != true) {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'failed-precondition',
+        message: 'A profissional selecionada não está disponível.',
+      );
+    }
+
+    final specialty = RedGlowServiceCatalog.normalizeLabel(
+      professional['specialty'] as String?,
+    );
+    final category = RedGlowServiceCatalog.byLabel(specialty);
+    final currentProviderName =
+        (professional['name'] as String?)?.trim().isNotEmpty == true
+            ? (professional['name'] as String).trim()
+            : providerName.trim();
+    final currentPrice =
+        professional['priceCents'] as int? ?? category.recommendedHomeCents;
+
     final reference = _firestore.collection('bookings').doc();
     await reference.set({
       'clientId': clientId,
       'providerId': providerId,
       'clientName': clientName,
-      'providerName': providerName,
-      'serviceName': 'Manicure e Pedicure',
-      'priceCents': 6000,
+      'providerName': currentProviderName,
+      'serviceName': specialty,
+      'priceCents': currentPrice,
       'address': 'R. Izabel A Redentora, 1000 — Centro, SJP',
       'paymentMethod': paymentMethod,
       'status': 'requested',
