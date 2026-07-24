@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import '../widgets/emergency_action.dart';
-import 'home_screen.dart';
+import 'client_home_screen.dart';
 import 'secondary_screens.dart';
 
 class MainShell extends StatefulWidget {
