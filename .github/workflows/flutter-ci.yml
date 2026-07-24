@@ -81,7 +81,7 @@ jobs:
       - name: Upload beta APK
         uses: actions/upload-artifact@v4
         with:
-          name: redglow-v8-android-beta
+          name: redglow-v7.0.1-android
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14
