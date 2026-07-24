@@ -375,7 +375,6 @@ class _ProfessionalsList extends StatelessWidget {
       isOnline: professional.isOnline,
       photoUrl: professional.photoUrl.isEmpty ? null : professional.photoUrl,
     );
-    state.notifyListeners();
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const OrderConfirmationScreen()),
     );
