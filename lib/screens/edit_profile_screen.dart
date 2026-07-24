@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../models/service_catalog.dart';
 import '../models/user_role.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
@@ -18,25 +19,35 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _specialtyController = TextEditingController();
   final _priceController = TextEditingController();
   bool _initialized = false;
   bool _saving = false;
+  String _selectedCategory = RedGlowServiceCatalog.categories.first.label;
+
+  RedGlowServiceCategory get _category =>
+      RedGlowServiceCatalog.byLabel(_selectedCategory);
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_initialized) return;
     final state = DemoAppScope.of(context, listen: false);
+    final isProvider = widget.role == UserRole.provider;
     _nameController.text = state.accountName ??
-        (widget.role == UserRole.provider
-            ? 'Lari (Manicure)'
-            : 'Cliente REDGLOW');
-    _phoneController.text = state.accountPhone ?? '(41) 99999-9999';
-    _specialtyController.text = state.providerSpecialty;
-    _priceController.text = (state.providerPriceCents / 100)
-        .toStringAsFixed(2)
-        .replaceAll('.', ',');
+        (state.isDemoSession
+            ? isProvider
+                ? 'Lari (Manicure)'
+                : 'Cliente REDGLOW'
+            : '');
+    _phoneController.text =
+        state.accountPhone ?? (state.isDemoSession ? '(41) 99999-9999' : '');
+    _selectedCategory = RedGlowServiceCatalog.normalizeLabel(
+      state.providerSpecialty,
+    );
+    final currentPrice = state.providerPriceCents > 0
+        ? state.providerPriceCents
+        : _category.recommendedHomeCents;
+    _priceController.text = _formatPriceForField(currentPrice);
     _initialized = true;
   }
 
@@ -44,27 +55,63 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
-    _specialtyController.dispose();
     _priceController.dispose();
     super.dispose();
   }
 
-  Future<void> _save() async {
+  String _formatPriceForField(int cents) =>
+      (cents / 100).toStringAsFixed(2).replaceAll('.', ',');
+
+  int? _parsePriceCents() {
     final rawPrice = _priceController.text.trim();
     final priceDigits = rawPrice.replaceAll(RegExp(r'\D'), '');
     final parsedPrice = int.tryParse(priceDigits);
-    final priceCents = parsedPrice == null
-        ? null
-        : rawPrice.contains(',') || rawPrice.contains('.')
-            ? parsedPrice
-            : parsedPrice * 100;
+    if (parsedPrice == null) return null;
+    return rawPrice.contains(',') || rawPrice.contains('.')
+        ? parsedPrice
+        : parsedPrice * 100;
+  }
+
+  Future<bool> _confirmBelowReference(int priceCents) async {
+    if (priceCents >= _category.minimumHomeCents) return true;
+    return await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Valor abaixo da referência'),
+            content: Text(
+              'Para atendimento domiciliar em São José dos Pinhais, o valor mínimo sugerido para ${_category.label} é '
+              '${RedGlowServiceCatalog.formatCurrency(_category.minimumHomeCents)}. '
+              'Um valor menor pode não cobrir material, tempo e deslocamento. Deseja salvar mesmo assim?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Revisar valor'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Salvar mesmo assim'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Future<void> _save() async {
+    final priceCents = _parsePriceCents();
+    if (widget.role == UserRole.provider &&
+        priceCents != null &&
+        !await _confirmBelowReference(priceCents)) {
+      return;
+    }
+    if (!mounted) return;
     setState(() => _saving = true);
     final state = DemoAppScope.of(context, listen: false);
     final succeeded = await state.updateProfile(
       name: _nameController.text,
       phone: _phoneController.text,
-      specialty:
-          widget.role == UserRole.provider ? _specialtyController.text : null,
+      specialty: widget.role == UserRole.provider ? _selectedCategory : null,
       priceCents: widget.role == UserRole.provider ? priceCents : null,
     );
     if (!mounted) return;
@@ -81,6 +128,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       const SnackBar(content: Text('Perfil atualizado com sucesso.')),
     );
     Navigator.of(context).pop();
+  }
+
+  void _selectCategory(String? value) {
+    if (value == null) return;
+    final category = RedGlowServiceCatalog.byLabel(value);
+    setState(() {
+      _selectedCategory = category.label;
+      _priceController.text = _formatPriceForField(
+        category.recommendedHomeCents,
+      );
+    });
   }
 
   @override
@@ -116,12 +174,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    ProfileAvatar(
-                      imageUrl: isProvider
-                          ? 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=180'
-                          : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=180',
-                      size: 82,
-                      borderColor: AppColors.primary,
+                    Container(
+                      width: 82,
+                      height: 82,
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceRaised,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.primary,
+                          width: 2,
+                        ),
+                      ),
+                      child: Icon(
+                        isProvider
+                            ? Icons.badge_outlined
+                            : Icons.person_outline_rounded,
+                        color: AppColors.textSecondary,
+                        size: 34,
+                      ),
                     ),
                     Positioned(
                       right: -3,
@@ -145,7 +215,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
               const SizedBox(height: 9),
               const Text(
-                'Envio de foto será conectado ao armazenamento seguro antes do beta público.',
+                'O envio de foto será conectado ao armazenamento seguro antes do beta público.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 8, color: AppColors.textMuted),
               ),
@@ -182,20 +252,29 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                     if (isProvider) ...[
                       const SizedBox(height: 13),
-                      const _FieldLabel('ESPECIALIDADE PRINCIPAL'),
+                      const _FieldLabel('NICHO PRINCIPAL'),
                       const SizedBox(height: 6),
-                      TextField(
+                      DropdownButtonFormField<String>(
                         key: const Key('profile-specialty-field'),
-                        controller: _specialtyController,
-                        maxLength: 50,
+                        value: _selectedCategory,
+                        isExpanded: true,
                         decoration: const InputDecoration(
-                          hintText: 'Ex.: Manicure',
-                          counterText: '',
                           prefixIcon: Icon(Icons.auto_awesome_rounded),
                         ),
+                        items: RedGlowServiceCatalog.labels
+                            .map(
+                              (label) => DropdownMenuItem<String>(
+                                value: label,
+                                child: Text(label),
+                              ),
+                            )
+                            .toList(growable: false),
+                        onChanged: _selectCategory,
                       ),
+                      const SizedBox(height: 10),
+                      _CategoryReferenceCard(category: _category),
                       const SizedBox(height: 13),
-                      const _FieldLabel('VALOR BASE DO SERVIÇO'),
+                      const _FieldLabel('VALOR BASE DO ATENDIMENTO'),
                       const SizedBox(height: 6),
                       TextField(
                         key: const Key('profile-price-field'),
@@ -206,10 +285,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             RegExp(r'[0-9,.]'),
                           ),
                         ],
-                        decoration: const InputDecoration(
-                          hintText: '60,00',
+                        decoration: InputDecoration(
+                          hintText: _formatPriceForField(
+                            _category.recommendedHomeCents,
+                          ),
                           prefixText: 'R\$ ',
-                          prefixIcon: Icon(Icons.payments_outlined),
+                          prefixIcon: const Icon(Icons.payments_outlined),
                         ),
                       ),
                     ],
@@ -249,6 +330,81 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _CategoryReferenceCard extends StatelessWidget {
+  const _CategoryReferenceCard({required this.category});
+
+  final RedGlowServiceCategory category;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: AppColors.primary.withValues(alpha: .35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.route_outlined,
+                color: AppColors.primary,
+                size: 17,
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  'Referência domiciliar em São José dos Pinhais',
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          Text(
+            '${RedGlowServiceCatalog.formatCurrency(category.recommendedHomeCents)} sugeridos · '
+            '${RedGlowServiceCatalog.formatCurrency(category.travelReserveCents)} reservados para deslocamento · '
+            '${category.estimatedMinutes} min estimados',
+            style: const TextStyle(
+              fontSize: 9,
+              color: AppColors.textSecondary,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: category.services
+                .map(
+                  (service) => Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(99),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Text(
+                      service,
+                      style: const TextStyle(fontSize: 8),
+                    ),
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        ],
       ),
     );
   }
