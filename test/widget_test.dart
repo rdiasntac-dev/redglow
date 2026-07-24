@@ -118,10 +118,10 @@ void main() {
       (tester) async {
     await _openProviderDemo(tester);
 
-    expect(find.text('MODO PRESTADORA'), findsOneWidget);
+    expect(find.text('PAINEL PROFISSIONAL'), findsOneWidget);
     expect(find.text('Plano profissional'), findsOneWidget);
     expect(find.byKey(const Key('provider-services-profile')), findsOneWidget);
-    expect(find.byKey(const Key('provider-earnings-card')), findsOneWidget);
+    expect(find.byKey(const Key('provider-main-dashboard')), findsOneWidget);
     expect(find.text('Amanda Souza'), findsNothing);
     expect(find.text('Priscila Matos'), findsNothing);
     expect(find.text('Renata Campos'), findsNothing);
@@ -132,7 +132,7 @@ void main() {
       (tester) async {
     await _openProviderDemo(tester);
 
-    final dashboard = find.byKey(const Key('provider-earnings-card'));
+    final dashboard = find.byKey(const Key('provider-main-dashboard'));
     await _scrollTo(tester, dashboard);
     expect(dashboard, findsOneWidget);
     expect(find.text('Painel de atendimentos'), findsOneWidget);
