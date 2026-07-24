@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/service_catalog.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
@@ -10,7 +11,8 @@ class OrderConfirmationScreen extends StatefulWidget {
   const OrderConfirmationScreen({super.key});
 
   @override
-  State<OrderConfirmationScreen> createState() => _OrderConfirmationScreenState();
+  State<OrderConfirmationScreen> createState() =>
+      _OrderConfirmationScreenState();
 }
 
 class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
@@ -23,14 +25,14 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
       return;
     }
 
-    final demoState = DemoAppScope.of(context, listen: false);
-    if (demoState.hasActiveBooking) {
+    final state = DemoAppScope.of(context, listen: false);
+    if (state.hasActiveBooking) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Você já possui um atendimento ativo.')),
       );
       return;
     }
-    final requested = await demoState.requestBooking(
+    final requested = await state.requestBooking(
       paymentMethod: _paymentMethod,
     );
     if (!mounted) return;
@@ -38,7 +40,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            demoState.backendError ?? 'Não foi possível enviar a solicitação.',
+            state.backendError ?? 'Não foi possível enviar a solicitação.',
           ),
         ),
       );
@@ -48,9 +50,9 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          demoState.isDemoSession
-              ? 'Solicitação enviada. Agora aguarde o aceite de ${demoState.providerName}.'
-              : 'Solicitação enviada sem cobrança. Aguarde o aceite de ${demoState.providerName}.',
+          state.isDemoSession
+              ? 'Solicitação demonstrativa enviada. Aguarde o aceite de ${state.providerName}.'
+              : 'Solicitação enviada sem cobrança. Aguarde o aceite de ${state.providerName}.',
         ),
       ),
     );
@@ -68,14 +70,25 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Forma de pagamento', style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                'Preferência de pagamento',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'O beta registra apenas a preferência. Nenhum pagamento é processado.',
+                style: TextStyle(
+                  fontSize: 9,
+                  color: AppColors.textSecondary,
+                ),
+              ),
               const SizedBox(height: 10),
               RadioGroup<String>(
                 groupValue: _paymentMethod,
                 onChanged: (value) {
-                    if (value == null) return;
-                    setState(() => _paymentMethod = value);
-                    Navigator.of(sheetContext).pop();
+                  if (value == null) return;
+                  setState(() => _paymentMethod = value);
+                  Navigator.of(sheetContext).pop();
                 },
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -99,15 +112,19 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
   @override
   Widget build(BuildContext context) {
     final state = DemoAppScope.of(context);
+    final professional = state.selectedProfessional;
+    final photoUrl = state.isDemoSession
+        ? 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=180'
+        : professional?.photoUrl ?? '';
     return Scaffold(
       body: ConstrainedMobileBody(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final cardTop = constraints.maxHeight * .59;
+            final cardTop = constraints.maxHeight * .55;
             return Stack(
               children: [
                 Positioned.fill(
-                  bottom: constraints.maxHeight * .28,
+                  bottom: constraints.maxHeight * .31,
                   child: const UrbanGpsMap(),
                 ),
                 Positioned(
@@ -128,6 +145,9 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                     isDemo: state.isDemoSession,
                     paymentMethod: _paymentMethod,
                     providerName: state.providerName,
+                    providerSpecialty: state.providerSpecialty,
+                    providerPriceCents: state.providerPriceCents,
+                    providerPhotoUrl: photoUrl,
                     onConfirm: _handleConfirm,
                     onSelectPayment: _selectPayment,
                     onSafety: () => showEmergencyCenter(context),
@@ -148,6 +168,9 @@ class _OrderSheet extends StatelessWidget {
     required this.isDemo,
     required this.paymentMethod,
     required this.providerName,
+    required this.providerSpecialty,
+    required this.providerPriceCents,
+    required this.providerPhotoUrl,
     required this.onConfirm,
     required this.onSelectPayment,
     required this.onSafety,
@@ -157,6 +180,9 @@ class _OrderSheet extends StatelessWidget {
   final bool isDemo;
   final String paymentMethod;
   final String providerName;
+  final String providerSpecialty;
+  final int providerPriceCents;
+  final String providerPhotoUrl;
   final VoidCallback onConfirm;
   final VoidCallback onSelectPayment;
   final VoidCallback onSafety;
@@ -170,7 +196,11 @@ class _OrderSheet extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         border: Border(top: BorderSide(color: AppColors.border)),
         boxShadow: [
-          BoxShadow(color: Color(0x88000000), blurRadius: 30, offset: Offset(0, -10)),
+          BoxShadow(
+            color: Color(0x88000000),
+            blurRadius: 30,
+            offset: Offset(0, -10),
+          ),
         ],
       ),
       child: SingleChildScrollView(
@@ -184,24 +214,25 @@ class _OrderSheet extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('CONFIRMAR PEDIDO', style: Theme.of(context).textTheme.labelSmall),
+                      Text(
+                        'CONFIRMAR PEDIDO',
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
                       const SizedBox(height: 2),
                       const Text(
                         'Tudo certo para agendar!',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: .1),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.primary.withValues(alpha: .5)),
-                  ),
-                  child: const Icon(Icons.check_circle_outline_rounded, color: AppColors.primary, size: 20),
+                const StatusPill(
+                  label: 'BETA · SEM COBRANÇA',
+                  color: AppColors.yellow,
+                  icon: Icons.science_outlined,
                 ),
               ],
             ),
@@ -211,24 +242,38 @@ class _OrderSheet extends StatelessWidget {
               radius: 14,
               child: Row(
                 children: [
-                  const ProfileAvatar(
-                    imageUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=180',
+                  ProfileAvatar(
+                    imageUrl: providerPhotoUrl,
                     size: 46,
                     borderColor: AppColors.purple,
+                    fallbackIcon: Icons.badge_outlined,
                   ),
                   const SizedBox(width: 9),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(providerName, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
                         Text(
-                          isDemo
-                              ? '★ 4.9  ·  Perfil demonstrativo'
-                              : 'Perfil beta  ·  ID não exibido',
-                          style: const TextStyle(fontSize: 8, color: AppColors.textSecondary),
+                          providerName,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
-                        const Text('●  Disponível para o chamado', style: TextStyle(fontSize: 8, color: AppColors.green)),
+                        Text(
+                          '$providerSpecialty · ${isDemo ? 'Perfil demonstrativo' : 'Perfil real do beta'}',
+                          style: const TextStyle(
+                            fontSize: 8,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const Text(
+                          '● Disponível para o chamado',
+                          style: TextStyle(
+                            fontSize: 8,
+                            color: AppColors.green,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -242,11 +287,14 @@ class _OrderSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 9),
-            const _SummaryCard(),
+            _SummaryCard(
+              serviceName: providerSpecialty,
+              priceCents: providerPriceCents,
+            ),
             const SizedBox(height: 9),
             _PaymentCard(
-              isDemo: isDemo,
               paymentMethod: paymentMethod,
+              priceCents: providerPriceCents,
               onSelectPayment: onSelectPayment,
             ),
             const SizedBox(height: 10),
@@ -260,7 +308,9 @@ class _OrderSheet extends StatelessWidget {
               icon: confirmed ? Icons.schedule_rounded : Icons.send_rounded,
               onPressed: onConfirm,
               gradient: confirmed
-                  ? const LinearGradient(colors: [Color(0xFF0FBF8B), Color(0xFF0E9F75)])
+                  ? const LinearGradient(
+                      colors: [Color(0xFF0FBF8B), Color(0xFF0E9F75)],
+                    )
                   : pinkGradient,
               height: 48,
             ),
@@ -269,9 +319,12 @@ class _OrderSheet extends StatelessWidget {
               child: Text(
                 isDemo
                     ? 'Fluxo demonstrativo · nenhum pagamento é processado.'
-                    : 'Versão beta · a preferência é registrada, mas nenhuma cobrança é realizada.',
+                    : 'Versão beta · o valor acompanha o cadastro real da profissional, sem cobrança no aplicativo.',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 7, color: AppColors.textMuted),
+                style: const TextStyle(
+                  fontSize: 7,
+                  color: AppColors.textMuted,
+                ),
               ),
             ),
           ],
@@ -282,44 +335,81 @@ class _OrderSheet extends StatelessWidget {
 }
 
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard();
+  const _SummaryCard({required this.serviceName, required this.priceCents});
+
+  final String serviceName;
+  final int priceCents;
 
   @override
   Widget build(BuildContext context) {
+    final category = RedGlowServiceCatalog.byLabel(serviceName);
     return GlowCard(
       padding: const EdgeInsets.all(10),
       radius: 14,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('RESUMO DO SERVIÇO', style: Theme.of(context).textTheme.labelSmall),
+          Text(
+            'RESUMO DO ATENDIMENTO',
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
           const SizedBox(height: 7),
-          const Row(
+          Row(
             children: [
-              Icon(Icons.back_hand_rounded, size: 19, color: AppColors.yellow),
-              SizedBox(width: 8),
+              const Icon(
+                Icons.auto_awesome_rounded,
+                size: 19,
+                color: AppColors.yellow,
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Manicure e Pedicure', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
-                    Text('Duração estimada: 1h 30min', style: TextStyle(fontSize: 8, color: AppColors.textSecondary)),
+                    Text(
+                      serviceName,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      'Duração de referência: ${category.estimatedMinutes} min',
+                      style: const TextStyle(
+                        fontSize: 8,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              Text('R\$ 60,00', style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.w900)),
+              Text(
+                RedGlowServiceCatalog.formatCurrency(priceCents),
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 7),
           const Row(
             children: [
-              Icon(Icons.location_on_outlined, size: 13, color: AppColors.textMuted),
+              Icon(
+                Icons.location_on_outlined,
+                size: 13,
+                color: AppColors.textMuted,
+              ),
               SizedBox(width: 5),
               Expanded(
                 child: Text(
-                  'R. Izabel A Redentora, 1000 — Centro, SJP',
+                  'R. Izabel A Redentora, 1000 — Centro, SJP · endereço beta',
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 8, color: AppColors.textMuted),
+                  style: TextStyle(
+                    fontSize: 8,
+                    color: AppColors.textMuted,
+                  ),
                 ),
               ),
             ],
@@ -332,13 +422,13 @@ class _SummaryCard extends StatelessWidget {
 
 class _PaymentCard extends StatelessWidget {
   const _PaymentCard({
-    required this.isDemo,
     required this.paymentMethod,
+    required this.priceCents,
     required this.onSelectPayment,
   });
 
-  final bool isDemo;
   final String paymentMethod;
+  final int priceCents;
   final VoidCallback onSelectPayment;
 
   @override
@@ -359,16 +449,23 @@ class _PaymentCard extends StatelessWidget {
               ),
               TextButton(
                 onPressed: onSelectPayment,
-                style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                child: const Text('Trocar  ›', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800)),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+                child: const Text(
+                  'Trocar  ›',
+                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 7),
+          const SizedBox(height: 5),
           Row(
             children: [
               Icon(
-                paymentMethod == 'Pix' ? Icons.pix_rounded : Icons.payments_outlined,
+                paymentMethod == 'Pix'
+                    ? Icons.pix_rounded
+                    : Icons.payments_outlined,
                 size: 24,
                 color: AppColors.green,
               ),
@@ -377,33 +474,31 @@ class _PaymentCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(paymentMethod, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
                     Text(
-                      isDemo
-                          ? 'Simulação de pagamento'
-                          : 'Cobrança ainda não habilitada',
-                      style: const TextStyle(fontSize: 8, color: AppColors.textSecondary),
+                      paymentMethod,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const Text(
+                      'Cobrança ainda não habilitada',
+                      style: TextStyle(
+                        fontSize: 8,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ],
                 ),
               ),
-              const StatusPill(
-                label: 'SEM COBRANÇA',
-                color: AppColors.yellow,
-                icon: Icons.science_outlined,
-              ),
-            ],
-          ),
-          const Divider(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Valor demonstrativo via $paymentMethod',
-                  style: const TextStyle(fontSize: 9, color: AppColors.textSecondary),
+              Text(
+                RedGlowServiceCatalog.formatCurrency(priceCents),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.green,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
-              const Text('R\$ 60,00', style: TextStyle(fontSize: 13, color: AppColors.green, fontWeight: FontWeight.w900)),
             ],
           ),
         ],
