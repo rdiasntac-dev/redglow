@@ -115,10 +115,20 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
     });
 
     if (state.isDemoSession) {
-      state.demoProviderSpecialty = _selectedCategory;
-      state.notifyListeners();
+      final updated = await state.updateProfile(
+        name: state.accountName ?? 'Profissional REDGLOW',
+        phone: state.accountPhone ?? '(41) 99999-9999',
+        specialty: _selectedCategory,
+        priceCents: state.providerPriceCents,
+      );
       if (!mounted) return;
       setState(() => _saving = false);
+      if (!updated) {
+        setState(() {
+          _error = state.backendError ?? 'Não foi possível atualizar a demonstração.';
+        });
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Serviços atualizados nesta demonstração.'),
