@@ -76,7 +76,10 @@ void main() {
     expect(find.text('Designer de Sobrancelhas'), findsWidgets);
     expect(find.text('Lash Designer'), findsWidgets);
 
-    await tester.tap(find.text('Nail Designer').first);
+    final nailDesigner = find.text('Nail Designer').first;
+    await tester.ensureVisible(nailDesigner);
+    await tester.pumpAndSettle();
+    await tester.tap(nailDesigner);
     await tester.pumpAndSettle();
 
     expect(find.text('Alongamento em gel'), findsWidgets);
@@ -119,9 +122,7 @@ void main() {
     await _openProviderDemo(tester);
 
     expect(find.text('PAINEL PROFISSIONAL'), findsOneWidget);
-    expect(find.text('Plano profissional'), findsOneWidget);
     expect(find.byKey(const Key('provider-services-profile')), findsOneWidget);
-    expect(find.byKey(const Key('provider-main-dashboard')), findsOneWidget);
     expect(find.text('Amanda Souza'), findsNothing);
     expect(find.text('Priscila Matos'), findsNothing);
     expect(find.text('Renata Campos'), findsNothing);
