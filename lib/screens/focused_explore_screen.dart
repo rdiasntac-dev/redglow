@@ -380,49 +380,47 @@ class _ProfessionalsList extends StatelessWidget {
     }
 
     var selectedService = service;
-    if (selectedService == null) {
-      selectedService = await showModalBottomSheet<String>(
-        context: context,
-        backgroundColor: AppColors.surface,
-        showDragHandle: true,
-        builder: (sheetContext) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 4, 18, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Escolha o serviço',
-                  style: Theme.of(context).textTheme.titleLarge,
+    selectedService ??= await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 4, 18, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Escolha o serviço',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${professional.name} oferece ${professional.services.length} opção(ões) neste perfil.',
+                style: const TextStyle(
+                  fontSize: 9,
+                  color: AppColors.textSecondary,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '${professional.name} oferece ${professional.services.length} opção(ões) neste perfil.',
-                  style: const TextStyle(
-                    fontSize: 9,
-                    color: AppColors.textSecondary,
+              ),
+              const SizedBox(height: 10),
+              for (final item in professional.services)
+                ListTile(
+                  key: Key('book-service-${item.toLowerCase()}'),
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.auto_awesome_rounded,
+                    color: AppColors.primary,
                   ),
+                  title: Text(item),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.of(sheetContext).pop(item),
                 ),
-                const SizedBox(height: 10),
-                for (final item in professional.services)
-                  ListTile(
-                    key: Key('book-service-${item.toLowerCase()}'),
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(
-                      Icons.auto_awesome_rounded,
-                      color: AppColors.primary,
-                    ),
-                    title: Text(item),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => Navigator.of(sheetContext).pop(item),
-                  ),
-              ],
-            ),
+            ],
           ),
         ),
-      );
-    }
+      ),
+    );
     if (!context.mounted || selectedService == null) return;
 
     state.selectProfessional(
