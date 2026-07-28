@@ -341,7 +341,7 @@ class _ProviderProfileStatus extends StatelessWidget {
       final category = RedGlowServiceCatalog.byLabel(state.providerSpecialty);
       return _ServicesProfileCard(
         category: category.label,
-        services: category.services,
+        services: state.demoProviderServices,
         demo: true,
       );
     }

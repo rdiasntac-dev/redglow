@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import '../models/service_catalog.dart';
 import '../models/user_role.dart';
 import '../services/firebase_marketplace_service.dart';
 
@@ -54,8 +55,14 @@ class DemoAppState extends ChangeNotifier {
   String? accountPhone;
   String demoProviderSpecialty = 'Manicure';
   int demoProviderPriceCents = 6000;
+  List<String> demoProviderServices = const [
+    'Manicure tradicional',
+    'Esmaltação em gel',
+    'Spa das mãos',
+  ];
   String? currentUserId;
   MarketplaceProfessional? selectedProfessional;
+  String? selectedServiceName;
   MarketplaceBooking? currentBooking;
   List<MarketplaceBooking> bookingHistory = [];
   bool backendLoading = false;
@@ -93,6 +100,13 @@ class DemoAppState extends ChangeNotifier {
   int get providerPriceCents =>
       selectedProfessional?.priceCents ?? demoProviderPriceCents;
 
+  List<String> get providerServices =>
+      selectedProfessional?.services ?? demoProviderServices;
+
+  String get selectedService =>
+      selectedServiceName ??
+      (providerServices.isNotEmpty ? providerServices.first : providerSpecialty);
+
   bool get hasActiveBooking => !{
         DemoBookingStatus.idle,
         DemoBookingStatus.reviewed,
@@ -126,6 +140,7 @@ class DemoAppState extends ChangeNotifier {
       accountEmail = null;
       accountPhone = null;
       selectedProfessional = null;
+      selectedServiceName = null;
       currentBooking = null;
       bookingHistory = [];
       isAdmin = false;
@@ -152,6 +167,7 @@ class DemoAppState extends ChangeNotifier {
       lastCancellationReason = '';
       simulatedCancellationFeeCents = 0;
       selectedProfessional = null;
+      selectedServiceName = null;
       currentBooking = null;
       bookingHistory = [];
       isAdmin = false;
@@ -188,9 +204,25 @@ class DemoAppState extends ChangeNotifier {
         providerId: professional.uid,
         clientName: accountName ?? 'Cliente REDGLOW',
         providerName: professional.name,
+        serviceName: selectedService,
         paymentMethod: paymentMethod,
       );
     });
+  }
+
+  void selectProfessional(
+    MarketplaceProfessional professional, {
+    String? serviceName,
+  }) {
+    selectedProfessional = professional;
+    final requestedService = serviceName?.trim();
+    selectedServiceName = requestedService != null &&
+            professional.services.contains(requestedService)
+        ? requestedService
+        : professional.services.isNotEmpty
+            ? professional.services.first
+            : null;
+    notifyListeners();
   }
 
   Future<bool> acceptBooking() {
@@ -335,8 +367,16 @@ class DemoAppState extends ChangeNotifier {
       accountName = cleanName;
       accountPhone = cleanPhone;
       if (activeRole == UserRole.provider) {
-        demoProviderSpecialty = specialty?.trim() ?? demoProviderSpecialty;
+        final previousSpecialty = demoProviderSpecialty;
+        demoProviderSpecialty = RedGlowServiceCatalog.normalizeLabel(
+          specialty ?? demoProviderSpecialty,
+        );
         demoProviderPriceCents = priceCents ?? demoProviderPriceCents;
+        if (previousSpecialty != demoProviderSpecialty) {
+          demoProviderServices = List.of(
+            RedGlowServiceCatalog.byLabel(demoProviderSpecialty).services,
+          );
+        }
       }
       notifyListeners();
       return true;
@@ -355,6 +395,47 @@ class DemoAppState extends ChangeNotifier {
         phone: cleanPhone,
         specialty: specialty,
         priceCents: priceCents,
+      ),
+    );
+  }
+
+  Future<bool> updateProviderServices({
+    required String specialty,
+    required List<String> services,
+  }) async {
+    final normalizedSpecialty =
+        RedGlowServiceCatalog.normalizeLabel(specialty);
+    final validServices = services
+        .where(
+          (service) => RedGlowServiceCatalog.isServiceAllowedForCategory(
+            normalizedSpecialty,
+            service,
+          ),
+        )
+        .toSet()
+        .toList(growable: false)
+      ..sort();
+    if (validServices.isEmpty) {
+      _setBackendError('Selecione pelo menos um serviço válido.');
+      return false;
+    }
+    if (isDemoSession) {
+      demoProviderSpecialty = normalizedSpecialty;
+      demoProviderServices = List.unmodifiable(validServices);
+      selectedServiceName = validServices.first;
+      notifyListeners();
+      return true;
+    }
+    final userId = currentUserId;
+    if (userId == null) {
+      _setBackendError('A sessão expirou. Entre novamente.');
+      return false;
+    }
+    return _runBackendAction(
+      () => _marketplace.updateProviderServices(
+        uid: userId,
+        specialty: normalizedSpecialty,
+        services: validServices,
       ),
     );
   }
@@ -466,7 +547,16 @@ class DemoAppState extends ChangeNotifier {
       (professionals) {
         if (!_isCurrentSession(version)) return;
         if (activeRole == UserRole.client) {
-          selectedProfessional = _firstOnline(professionals);
+          selectedProfessional = _preserveSelectedProfessional(
+            professionals,
+            selectedProfessional,
+          );
+          if (selectedProfessional != null &&
+              !selectedProfessional!.services.contains(selectedServiceName)) {
+            selectedServiceName = selectedProfessional!.services.isNotEmpty
+                ? selectedProfessional!.services.first
+                : null;
+          }
         } else {
           for (final professional in professionals) {
             if (professional.uid == user.uid) {
@@ -491,7 +581,7 @@ class DemoAppState extends ChangeNotifier {
       (bookings) {
         if (!_isCurrentSession(version)) return;
         bookingHistory = List.unmodifiable(bookings);
-        final booking = bookings.isEmpty ? null : bookings.first;
+        final booking = _currentBookingFrom(bookings);
         final changedBooking = currentBooking?.id != booking?.id;
         if (changedBooking) _clearRatingDetails();
         currentBooking = booking;
@@ -628,13 +718,43 @@ class DemoAppState extends ChangeNotifier {
   bool _isCurrentSession(int version) =>
       !_disposed && !isDemoSession && version == _sessionVersion;
 
-  static MarketplaceProfessional? _firstOnline(
+  static MarketplaceProfessional? _preserveSelectedProfessional(
     List<MarketplaceProfessional> professionals,
+    MarketplaceProfessional? selected,
   ) {
+    if (selected != null) {
+      for (final professional in professionals) {
+        if (professional.uid == selected.uid &&
+            professional.isOnline &&
+            professional.services.isNotEmpty) {
+          return professional;
+        }
+      }
+    }
     for (final professional in professionals) {
-      if (professional.isOnline) return professional;
+      if (professional.isOnline && professional.services.isNotEmpty) {
+        return professional;
+      }
     }
     return null;
+  }
+
+  static MarketplaceBooking? _currentBookingFrom(
+    List<MarketplaceBooking> bookings,
+  ) {
+    const activeStatuses = {
+      'requested',
+      'accepted',
+      'onTheWay',
+      'inProgress',
+      'completed',
+    };
+    for (final booking in bookings) {
+      if (activeStatuses.contains(booking.status)) {
+        return booking;
+      }
+    }
+    return bookings.isEmpty ? null : bookings.first;
   }
 
   static DemoBookingStatus _statusFromBackend(String? status) => switch (status) {
@@ -652,6 +772,9 @@ class DemoAppState extends ChangeNotifier {
       switch (error.code) {
         'permission-denied' =>
           'O Firebase bloqueou esta ação pelas regras de segurança.',
+        'failed-precondition' =>
+          error.message ??
+            'Este perfil ainda não está pronto para receber o pedido.',
         'unavailable' => 'Sem conexão com o Firebase. Tente novamente.',
         'not-found' => 'O registro solicitado não foi encontrado.',
         _ => 'Não foi possível sincronizar com o Firebase (${error.code}).',

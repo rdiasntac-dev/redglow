@@ -293,8 +293,18 @@ class _ProfessionalsList extends StatelessWidget {
                             ),
                             const SizedBox(height: 5),
                             StatusPill(
-                              label: demo ? 'DEMO' : 'ONLINE',
-                              color: demo ? AppColors.purple : AppColors.green,
+                              label: !professional.bookable
+                                  ? demo
+                                      ? 'VITRINE'
+                                      : 'PERFIL INCOMPLETO'
+                                  : demo
+                                      ? 'DEMO'
+                                      : 'ONLINE',
+                              color: !professional.bookable
+                                  ? AppColors.yellow
+                                  : demo
+                                      ? AppColors.purple
+                                      : AppColors.green,
                             ),
                           ],
                         ),
@@ -333,13 +343,13 @@ class _ProfessionalsList extends StatelessWidget {
     );
   }
 
-  void _openProfessional(
+  Future<void> _openProfessional(
     BuildContext context,
     _SearchProfessional professional,
     bool demo,
-  ) {
+  ) async {
     final state = DemoAppScope.of(context, listen: false);
-    if (demo && !professional.bookable) {
+    if (!professional.bookable) {
       showModalBottomSheet<void>(
         context: context,
         backgroundColor: AppColors.surface,
@@ -357,7 +367,9 @@ class _ProfessionalsList extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '${professional.specialty}. Esta é uma vitrine demonstrativa; apenas Lari está liberada para testar o fluxo de pedido.',
+                  demo
+                      ? '${professional.specialty}. Esta é uma vitrine demonstrativa; apenas Lari está liberada para testar o fluxo de pedido.'
+                      : '${professional.specialty}. Esta profissional precisa selecionar os serviços oferecidos antes de receber pedidos.',
                 ),
               ],
             ),
@@ -367,13 +379,63 @@ class _ProfessionalsList extends StatelessWidget {
       return;
     }
 
-    state.selectedProfessional = MarketplaceProfessional(
-      uid: professional.uid,
-      name: professional.name,
-      specialty: professional.specialty,
-      priceCents: professional.priceCents,
-      isOnline: professional.isOnline,
-      photoUrl: professional.photoUrl.isEmpty ? null : professional.photoUrl,
+    var selectedService = service;
+    if (selectedService == null) {
+      selectedService = await showModalBottomSheet<String>(
+        context: context,
+        backgroundColor: AppColors.surface,
+        showDragHandle: true,
+        builder: (sheetContext) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 4, 18, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Escolha o serviço',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${professional.name} oferece ${professional.services.length} opção(ões) neste perfil.',
+                  style: const TextStyle(
+                    fontSize: 9,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                for (final item in professional.services)
+                  ListTile(
+                    key: Key('book-service-${item.toLowerCase()}'),
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(
+                      Icons.auto_awesome_rounded,
+                      color: AppColors.primary,
+                    ),
+                    title: Text(item),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => Navigator.of(sheetContext).pop(item),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    if (!context.mounted || selectedService == null) return;
+
+    state.selectProfessional(
+      MarketplaceProfessional(
+        uid: professional.uid,
+        name: professional.name,
+        specialty: professional.specialty,
+        priceCents: professional.priceCents,
+        services: professional.services,
+        isOnline: professional.isOnline,
+        photoUrl: professional.photoUrl.isEmpty ? null : professional.photoUrl,
+      ),
+      serviceName: selectedService,
     );
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const OrderConfirmationScreen()),
@@ -412,17 +474,27 @@ class _SearchProfessional {
     final category = RedGlowServiceCatalog.byLabel(specialty);
     final rawServices = data['services'];
     final services = rawServices is List
-        ? rawServices.whereType<String>().toList(growable: false)
-        : category.services;
+        ? rawServices
+            .whereType<String>()
+            .where(
+              (service) =>
+                  RedGlowServiceCatalog.isServiceAllowedForCategory(
+                specialty,
+                service,
+              ),
+            )
+            .toList(growable: false)
+        : const <String>[];
     return _SearchProfessional(
       uid: document.id,
       name: data['name'] as String? ?? 'Profissional REDGLOW',
       specialty: specialty,
       priceCents:
           data['priceCents'] as int? ?? category.recommendedHomeCents,
-      services: services.isEmpty ? category.services : services,
+      services: services,
       isOnline: data['isOnline'] as bool? ?? false,
       photoUrl: data['photoUrl'] as String? ?? '',
+      bookable: services.isNotEmpty,
     );
   }
 }

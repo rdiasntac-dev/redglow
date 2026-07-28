@@ -146,6 +146,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                     paymentMethod: _paymentMethod,
                     providerName: state.providerName,
                     providerSpecialty: state.providerSpecialty,
+                    serviceName: state.selectedService,
                     providerPriceCents: state.providerPriceCents,
                     providerPhotoUrl: photoUrl,
                     onConfirm: _handleConfirm,
@@ -169,6 +170,7 @@ class _OrderSheet extends StatelessWidget {
     required this.paymentMethod,
     required this.providerName,
     required this.providerSpecialty,
+    required this.serviceName,
     required this.providerPriceCents,
     required this.providerPhotoUrl,
     required this.onConfirm,
@@ -181,6 +183,7 @@ class _OrderSheet extends StatelessWidget {
   final String paymentMethod;
   final String providerName;
   final String providerSpecialty;
+  final String serviceName;
   final int providerPriceCents;
   final String providerPhotoUrl;
   final VoidCallback onConfirm;
@@ -288,7 +291,7 @@ class _OrderSheet extends StatelessWidget {
             ),
             const SizedBox(height: 9),
             _SummaryCard(
-              serviceName: providerSpecialty,
+              serviceName: serviceName,
               priceCents: providerPriceCents,
             ),
             const SizedBox(height: 9),
@@ -342,7 +345,7 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final category = RedGlowServiceCatalog.byLabel(serviceName);
+    final category = RedGlowServiceCatalog.byServiceOrLabel(serviceName);
     return GlowCard(
       padding: const EdgeInsets.all(10),
       radius: 14,

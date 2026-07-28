@@ -40,7 +40,9 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
         _selectedCategory = category.label;
         _selectedServices
           ..clear()
-          ..addAll(category.services);
+          ..addAll(
+            state.demoProviderServices.where(category.services.contains),
+          );
         _loading = false;
       });
       return;
@@ -114,52 +116,28 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
       _error = null;
     });
 
-    if (state.isDemoSession) {
-      final updated = await state.updateProfile(
-        name: state.accountName ?? 'Profissional REDGLOW',
-        phone: state.accountPhone ?? '(41) 99999-9999',
+    try {
+      final updated = await state.updateProviderServices(
         specialty: _selectedCategory,
-        priceCents: state.providerPriceCents,
+        services: _selectedServices.toList(growable: false),
       );
       if (!mounted) return;
       setState(() => _saving = false);
       if (!updated) {
         setState(() {
-          _error = state.backendError ?? 'Não foi possível atualizar a demonstração.';
+          _error = state.backendError ??
+              'Não foi possível atualizar seus serviços.';
         });
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Serviços atualizados nesta demonstração.'),
+        SnackBar(
+          content: Text(
+            state.isDemoSession
+                ? 'Serviços atualizados nesta demonstração.'
+                : 'Serviços profissionais atualizados.',
+          ),
         ),
-      );
-      Navigator.of(context).pop();
-      return;
-    }
-
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      setState(() {
-        _saving = false;
-        _error = 'Sua sessão expirou. Entre novamente.';
-      });
-      return;
-    }
-
-    try {
-      await FirebaseFirestore.instance
-          .collection('professionals')
-          .doc(user.uid)
-          .update({
-        'specialty': _selectedCategory,
-        'services': _selectedServices.toList(growable: false)..sort(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-      if (!mounted) return;
-      setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Serviços profissionais atualizados.')),
       );
       Navigator.of(context).pop();
     } on FirebaseException catch (error) {

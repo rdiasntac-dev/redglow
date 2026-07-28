@@ -2,7 +2,7 @@ name: redglow
 description: "REDGLOW — plataforma especializada em beleza domiciliar em São José dos Pinhais."
 publish_to: 'none'
 
-version: 7.0.2+10
+version: 7.0.3+11
 
 environment:
   sdk: ^3.12.2

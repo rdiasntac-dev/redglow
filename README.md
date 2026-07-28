@@ -7,6 +7,8 @@ domicílio. Esta base implementa a interface aprovada na versão 7 do Figma.
 
 - Cadastro, login, recuperação de senha, sessão persistente e logout com Firebase.
 - Home do cliente com pontos, serviços, parceiros e profissionais.
+- Escolha do serviço preservada da busca até a criação do pedido.
+- Perfil da prestadora com serviços realmente selecionados e validados.
 - Confirmação do pedido com mapa urbano em modo escuro.
 - Trajeto da prestadora e mensagens rápidas sem chat livre.
 - Avaliação mútua e relato pós-atendimento.

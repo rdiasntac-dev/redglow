@@ -30,4 +30,32 @@ void main() {
       expect(category.minimumHomeCents, greaterThanOrEqualTo(4000));
     }
   });
+
+  test('a service resolves to its correct niche', () {
+    expect(
+      RedGlowServiceCatalog.byServiceOrLabel('Alongamento em gel').label,
+      'Nail Designer',
+    );
+    expect(
+      RedGlowServiceCatalog.byServiceOrLabel('Spa dos pés').label,
+      'Pedicure',
+    );
+  });
+
+  test('services cannot cross professional niches', () {
+    expect(
+      RedGlowServiceCatalog.isServiceAllowedForCategory(
+        'Manicure',
+        'Spa das mãos',
+      ),
+      isTrue,
+    );
+    expect(
+      RedGlowServiceCatalog.isServiceAllowedForCategory(
+        'Manicure',
+        'Maquiagem social',
+      ),
+      isFalse,
+    );
+  });
 }

@@ -130,12 +130,35 @@ abstract final class RedGlowServiceCatalog {
     return categories.first;
   }
 
+  static RedGlowServiceCategory byServiceOrLabel(String? value) {
+    final normalized = value?.trim().toLowerCase();
+    for (final category in categories) {
+      if (category.label.toLowerCase() == normalized ||
+          category.services.any(
+            (service) => service.toLowerCase() == normalized,
+          )) {
+        return category;
+      }
+    }
+    return categories.first;
+  }
+
   static String normalizeLabel(String? label) => byLabel(label).label;
 
   static bool isAllowed(String? label) {
     final normalized = label?.trim().toLowerCase();
     return categories.any(
       (category) => category.label.toLowerCase() == normalized,
+    );
+  }
+
+  static bool isServiceAllowedForCategory(
+    String? categoryLabel,
+    String? serviceName,
+  ) {
+    final normalized = serviceName?.trim().toLowerCase();
+    return byLabel(categoryLabel).services.any(
+      (service) => service.toLowerCase() == normalized,
     );
   }
 

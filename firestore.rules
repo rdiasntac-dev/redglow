@@ -20,7 +20,8 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return signedIn() && currentUser().data.isAdmin == true;
+      return signedIn()
+        && currentUser().data.get('isAdmin', false) == true;
     }
 
     function isBookingParticipant(data) {
@@ -32,6 +33,93 @@ service cloud.firestore {
       return get(
         /databases/$(database)/documents/professionals/$(providerId)
       );
+    }
+
+    function allowedProfessionalSpecialty(specialty) {
+      return specialty in [
+        'Manicure',
+        'Pedicure',
+        'Nail Designer',
+        'Maquiadora',
+        'Designer de Sobrancelhas',
+        'Lash Designer'
+      ];
+    }
+
+    function validProfessionalServices(data) {
+      return data.services is list
+        && data.services.size() > 0
+        && data.services.size() <= 20
+        && (
+          data.specialty == 'Manicure'
+            && data.services.hasOnly([
+              'Manicure tradicional',
+              'Esmaltação em gel',
+              'Spa das mãos',
+              'Remoção de esmaltação em gel'
+            ])
+          || data.specialty == 'Pedicure'
+            && data.services.hasOnly([
+              'Pedicure tradicional',
+              'Esmaltação em gel nos pés',
+              'Spa dos pés',
+              'Manicure e pedicure'
+            ])
+          || data.specialty == 'Nail Designer'
+            && data.services.hasOnly([
+              'Alongamento em gel',
+              'Alongamento em fibra',
+              'Molde F1',
+              'Banho de gel',
+              'Blindagem',
+              'Manutenção',
+              'Remoção'
+            ])
+          || data.specialty == 'Maquiadora'
+            && data.services.hasOnly([
+              'Maquiagem social',
+              'Maquiagem com cílios postiços',
+              'Maquiagem para eventos',
+              'Maquiagem de noiva'
+            ])
+          || data.specialty == 'Designer de Sobrancelhas'
+            && data.services.hasOnly([
+              'Design simples',
+              'Design com henna',
+              'Brow lamination',
+              'Manutenção de design'
+            ])
+          || data.specialty == 'Lash Designer'
+            && data.services.hasOnly([
+              'Fio a fio',
+              'Volume brasileiro',
+              'Volume fox eye',
+              'Volume glamour',
+              'Lash lifting',
+              'Manutenção',
+              'Remoção'
+            ])
+        );
+    }
+
+    function validProfessionalProfile(data) {
+      return data.uid is string
+        && data.name is string
+        && data.name.size() >= 2
+        && data.name.size() <= 80
+        && allowedProfessionalSpecialty(data.specialty)
+        && data.priceCents is int
+        && data.priceCents >= 1000
+        && data.priceCents <= 500000
+        && data.rating is number
+        && data.rating >= 0
+        && data.rating <= 5
+        && validProfessionalServices(data)
+        && data.isOnline is bool
+        && (
+          data.photoUrl == null
+          || data.photoUrl is string && data.photoUrl.size() <= 2048
+        );
     }
 
     function bookingCoreUnchanged() {
@@ -123,11 +211,34 @@ service cloud.firestore {
           'createdAt',
           'updatedAt'
         ])
+        && request.resource.data.keys().hasAll([
+          'uid',
+          'name',
+          'email',
+          'phone',
+          'role',
+          'identityStatus',
+          'points',
+          'createdAt',
+          'updatedAt'
+        ])
         && request.resource.data.uid == uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 2
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.email is string
+        && request.resource.data.email.size() >= 5
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() >= 10
+        && request.resource.data.phone.size() <= 24
         && request.resource.data.role in ['client', 'provider']
         && request.resource.data.identityStatus == 'pending'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
         && (
           request.resource.data.role == 'client'
+            && request.resource.data.points is int
             && request.resource.data.points == 0
           || request.resource.data.role == 'provider'
             && request.resource.data.points == null
@@ -136,7 +247,19 @@ service cloud.firestore {
       allow update: if isSelf(uid)
         && request.resource.data.role == resource.data.role
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'phone', 'photoUrl', 'updatedAt']);
+          .hasOnly(['name', 'phone', 'photoUrl', 'updatedAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 2
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() >= 10
+        && request.resource.data.phone.size() <= 24
+        && (
+          request.resource.data.get('photoUrl', null) == null
+          || request.resource.data.get('photoUrl', null) is string
+            && request.resource.data.get('photoUrl', '').size() <= 2048
+        )
+        && request.resource.data.updatedAt == request.time;
       allow delete: if false;
     }
 
@@ -157,11 +280,21 @@ service cloud.firestore {
           'createdAt',
           'updatedAt'
         ])
-        && request.resource.data.isOnline is bool
-        && (
-          request.resource.data.services is int
-          || request.resource.data.services is list
-        );
+        && request.resource.data.keys().hasAll([
+          'uid',
+          'name',
+          'specialty',
+          'priceCents',
+          'rating',
+          'services',
+          'isOnline',
+          'photoUrl',
+          'createdAt',
+          'updatedAt'
+        ])
+        && validProfessionalProfile(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
       allow update: if isSelf(uid)
         && hasRole('provider')
         && request.resource.data.uid == resource.data.uid
@@ -175,15 +308,8 @@ service cloud.firestore {
             'services',
             'updatedAt'
           ])
-        && (
-          !request.resource.data.diff(resource.data).affectedKeys()
-            .hasAny(['services'])
-          || (
-            request.resource.data.services is list
-            && request.resource.data.services.size() > 0
-            && request.resource.data.services.size() <= 20
-          )
-        );
+        && validProfessionalProfile(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
       allow delete: if false;
     }
 
@@ -219,6 +345,13 @@ service cloud.firestore {
           == selectedProfessional(request.resource.data.providerId).data.priceCents
         && request.resource.data.serviceName is string
         && request.resource.data.serviceName.size() > 0
+        && selectedProfessional(request.resource.data.providerId).data.services
+          is list
+        && request.resource.data.serviceName
+          in selectedProfessional(request.resource.data.providerId).data.services
+        && request.resource.data.clientName is string
+        && request.resource.data.clientName.size() >= 2
+        && request.resource.data.clientName.size() <= 80
         && request.resource.data.address is string
         && request.resource.data.address.size() > 0
         && request.resource.data.paymentMethod in ['Pix', 'Cartão', 'Dinheiro']

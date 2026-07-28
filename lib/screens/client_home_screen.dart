@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/service_catalog.dart';
 import '../models/user_role.dart';
+import '../services/firebase_marketplace_service.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
@@ -747,9 +748,22 @@ class _AvailableProfessionalCard extends StatelessWidget {
         : realProfessional?.photoUrl ?? '';
 
     return GlowCard(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const OrderConfirmationScreen()),
-      ),
+      onTap: () {
+        final professional = realProfessional ??
+            MarketplaceProfessional(
+              uid: 'demo-lari',
+              name: name,
+              specialty: specialty,
+              priceCents: priceCents,
+              services: state.demoProviderServices,
+              isOnline: true,
+              photoUrl: photoUrl,
+            );
+        state.selectProfessional(professional);
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const OrderConfirmationScreen()),
+        );
+      },
       padding: const EdgeInsets.all(10),
       child: Row(
         children: [

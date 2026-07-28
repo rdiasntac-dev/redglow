@@ -10,6 +10,7 @@ class MarketplaceProfessional {
     required this.name,
     required this.specialty,
     required this.priceCents,
+    required this.services,
     required this.isOnline,
     this.photoUrl,
   });
@@ -18,6 +19,7 @@ class MarketplaceProfessional {
   final String name;
   final String specialty;
   final int priceCents;
+  final List<String> services;
   final bool isOnline;
   final String? photoUrl;
 
@@ -29,12 +31,26 @@ class MarketplaceProfessional {
       data['specialty'] as String?,
     );
     final category = RedGlowServiceCatalog.byLabel(specialty);
+    final rawServices = data['services'];
+    final services = rawServices is List
+        ? rawServices
+            .whereType<String>()
+            .where(
+              (service) =>
+                  RedGlowServiceCatalog.isServiceAllowedForCategory(
+                specialty,
+                service,
+              ),
+            )
+            .toList(growable: false)
+        : const <String>[];
     return MarketplaceProfessional(
       uid: document.id,
       name: data['name'] as String? ?? 'Prestadora REDGLOW',
       specialty: specialty,
       priceCents:
           data['priceCents'] as int? ?? category.recommendedHomeCents,
+      services: services,
       isOnline: data['isOnline'] as bool? ?? false,
       photoUrl: data['photoUrl'] as String?,
     );
@@ -179,10 +195,24 @@ class FirebaseMarketplaceService {
         data['specialty'] as String?,
       );
       final category = RedGlowServiceCatalog.byLabel(specialty);
+      final rawServices = data['services'];
+      final services = rawServices is List
+          ? rawServices
+              .whereType<String>()
+              .where(
+                (service) =>
+                    RedGlowServiceCatalog.isServiceAllowedForCategory(
+                  specialty,
+                  service,
+                ),
+              )
+              .toList(growable: false)
+          : category.services;
       await reference.update({
         'name': name.trim(),
         'specialty': specialty,
         'priceCents': data['priceCents'] as int? ?? category.recommendedHomeCents,
+        'services': services.isEmpty ? category.services : services,
         'updatedAt': FieldValue.serverTimestamp(),
       });
       return;
@@ -194,7 +224,7 @@ class FirebaseMarketplaceService {
       'specialty': defaultCategory.label,
       'priceCents': defaultCategory.recommendedHomeCents,
       'rating': 0.0,
-      'services': 0,
+      'services': defaultCategory.services,
       'isOnline': true,
       'photoUrl': null,
       'createdAt': FieldValue.serverTimestamp(),
@@ -205,6 +235,37 @@ class FirebaseMarketplaceService {
   Future<void> setProviderOnline(String uid, bool isOnline) {
     return _firestore.collection('professionals').doc(uid).update({
       'isOnline': isOnline,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> updateProviderServices({
+    required String uid,
+    required String specialty,
+    required List<String> services,
+  }) {
+    final normalizedSpecialty =
+        RedGlowServiceCatalog.normalizeLabel(specialty);
+    final validServices = services
+        .where(
+          (service) => RedGlowServiceCatalog.isServiceAllowedForCategory(
+            normalizedSpecialty,
+            service,
+          ),
+        )
+        .toSet()
+        .toList(growable: false)
+      ..sort();
+    if (validServices.isEmpty) {
+      throw ArgumentError.value(
+        services,
+        'services',
+        'Selecione pelo menos um serviço válido.',
+      );
+    }
+    return _firestore.collection('professionals').doc(uid).update({
+      'specialty': normalizedSpecialty,
+      'services': validServices,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
@@ -227,12 +288,41 @@ class FirebaseMarketplaceService {
       final normalizedSpecialty =
           RedGlowServiceCatalog.normalizeLabel(specialty);
       final category = RedGlowServiceCatalog.byLabel(normalizedSpecialty);
-      batch.update(_firestore.collection('professionals').doc(uid), {
+      final professionalReference =
+          _firestore.collection('professionals').doc(uid);
+      final currentProfessional = await professionalReference.get();
+      final currentData =
+          currentProfessional.data() ?? const <String, dynamic>{};
+      final currentSpecialty = RedGlowServiceCatalog.normalizeLabel(
+        currentData['specialty'] as String?,
+      );
+      final rawServices = currentData['services'];
+      final currentServices = rawServices is List
+          ? rawServices
+              .whereType<String>()
+              .where(
+                (service) =>
+                    RedGlowServiceCatalog.isServiceAllowedForCategory(
+                  normalizedSpecialty,
+                  service,
+                ),
+              )
+              .toList(growable: false)
+          : const <String>[];
+      final professionalUpdate = <String, dynamic>{
         'name': name.trim(),
         'specialty': normalizedSpecialty,
         'priceCents': priceCents ?? category.recommendedHomeCents,
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+      if (currentSpecialty != normalizedSpecialty ||
+          rawServices is! List ||
+          currentServices.length != rawServices.length ||
+          currentServices.isEmpty) {
+        professionalUpdate['services'] =
+            currentServices.isEmpty ? category.services : currentServices;
+      }
+      batch.update(professionalReference, professionalUpdate);
     }
     await batch.commit();
     await _auth.currentUser?.updateDisplayName(name.trim());
@@ -285,6 +375,7 @@ class FirebaseMarketplaceService {
     required String providerId,
     required String clientName,
     required String providerName,
+    required String serviceName,
     required String paymentMethod,
   }) async {
     final professionalReference =
@@ -310,6 +401,27 @@ class FirebaseMarketplaceService {
       professional['specialty'] as String?,
     );
     final category = RedGlowServiceCatalog.byLabel(specialty);
+    final cleanServiceName = serviceName.trim();
+    final rawServices = professional['services'];
+    final availableServices = rawServices is List
+        ? rawServices
+            .whereType<String>()
+            .where(
+              (service) =>
+                  RedGlowServiceCatalog.isServiceAllowedForCategory(
+                specialty,
+                service,
+              ),
+            )
+            .toList(growable: false)
+        : const <String>[];
+    if (!availableServices.contains(cleanServiceName)) {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'failed-precondition',
+        message: 'O serviço selecionado não está disponível neste perfil.',
+      );
+    }
     final currentProviderName =
         (professional['name'] as String?)?.trim().isNotEmpty == true
             ? (professional['name'] as String).trim()
@@ -323,7 +435,7 @@ class FirebaseMarketplaceService {
       'providerId': providerId,
       'clientName': clientName,
       'providerName': currentProviderName,
-      'serviceName': specialty,
+      'serviceName': cleanServiceName,
       'priceCents': currentPrice,
       'address': 'R. Izabel A Redentora, 1000 — Centro, SJP',
       'paymentMethod': paymentMethod,

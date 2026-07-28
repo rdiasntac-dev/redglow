@@ -8,8 +8,10 @@ import 'package:redglow/screens/identity_verification_screen.dart';
 import 'package:redglow/screens/provider_analytics_screen.dart';
 import 'package:redglow/screens/provider_services_screen.dart';
 import 'package:redglow/screens/rating_screen.dart';
+import 'package:redglow/services/firebase_marketplace_service.dart';
 import 'package:redglow/state/demo_app_state.dart';
 import 'package:redglow/theme/app_theme.dart';
+import 'package:redglow/widgets/emergency_action.dart';
 
 Future<void> _scrollTo(WidgetTester tester, Finder target) async {
   await tester.scrollUntilVisible(
@@ -97,12 +99,33 @@ void main() {
 
     expect(find.text('Tudo certo para agendar!'), findsOneWidget);
     expect(find.text('Confirmar e Chamar Prestadora'), findsOneWidget);
+    expect(find.text('BETA · SEM COBRANÇA'), findsOneWidget);
 
     await _scrollTo(tester, find.byKey(const Key('confirm-order')));
     await tester.tap(find.byKey(const Key('confirm-order')));
     await tester.pump();
 
     expect(find.text('Fechar e Aguardar Aceite'), findsOneWidget);
+  });
+
+  testWidgets('selected service reaches the order confirmation',
+      (tester) async {
+    await _openClientDemo(tester);
+
+    await tester.tap(find.byIcon(Icons.search_rounded).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('niche-manicure')));
+    await tester.pumpAndSettle();
+    final serviceChip = find.byKey(const Key('service-spa das mãos'));
+    await tester.ensureVisible(serviceChip);
+    await tester.tap(serviceChip);
+    await tester.pumpAndSettle();
+    await _scrollTo(tester, find.text('Lari (Manicure)'));
+    await tester.tap(find.text('Lari (Manicure)').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Spa das mãos'), findsOneWidget);
+    expect(find.text('BETA · SEM COBRANÇA'), findsOneWidget);
   });
 
   testWidgets('client account protects the system back action', (tester) async {
@@ -234,6 +257,27 @@ void main() {
     expect(find.byKey(const Key('submit-rating')), findsOneWidget);
   });
 
+  testWidgets('emergency action requires choosing a public service',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: const Scaffold(
+          floatingActionButton: EmergencyFloatingButton(
+            key: Key('client-emergency-action'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('client-emergency-action')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Central de Segurança'), findsOneWidget);
+    expect(find.byKey(const Key('emergency-call-190')), findsOneWidget);
+    expect(find.byKey(const Key('emergency-call-153')), findsOneWidget);
+  });
+
   test('shared demo state follows the bilateral service lifecycle', () async {
     final state = DemoAppState();
 
@@ -269,6 +313,72 @@ void main() {
     expect(state.bookingStatus, DemoBookingStatus.cancelled);
     expect(state.lastCancellationReason, 'Horário não serve mais');
     expect(state.simulatedCancellationFeeCents, 0);
+
+    state.dispose();
+  });
+
+  test('provider services persist in the demonstrative profile', () async {
+    final state = DemoAppState()..selectRole(UserRole.provider);
+
+    final updated = await state.updateProviderServices(
+      specialty: 'Pedicure',
+      services: const ['Spa dos pés', 'Pedicure tradicional'],
+    );
+
+    expect(updated, isTrue);
+    expect(state.demoProviderSpecialty, 'Pedicure');
+    expect(
+      state.demoProviderServices,
+      const ['Pedicure tradicional', 'Spa dos pés'],
+    );
+
+    state.dispose();
+  });
+
+  test('selected service is preserved for the booking', () {
+    final state = DemoAppState();
+    final professional = MarketplaceProfessional(
+      uid: 'demo-lari',
+      name: 'Lari (Manicure)',
+      specialty: 'Manicure',
+      priceCents: 6000,
+      services: const ['Manicure tradicional', 'Spa das mãos'],
+      isOnline: true,
+    );
+
+    state.selectProfessional(
+      professional,
+      serviceName: 'Spa das mãos',
+    );
+
+    expect(state.selectedService, 'Spa das mãos');
+    state.dispose();
+  });
+
+  test('points remain simulated and real sessions cannot redeem locally', () {
+    final state = DemoAppState();
+
+    state.points = DemoAppState.pointsRedemptionCost;
+    expect(state.redeemPoints(), isTrue);
+    expect(state.points, 0);
+
+    state.isDemoSession = false;
+    state.points = DemoAppState.pointsRedemptionCost;
+    expect(state.redeemPoints(), isFalse);
+    expect(state.points, DemoAppState.pointsRedemptionCost);
+
+    state.dispose();
+  });
+
+  test('identity checks remain separate between client and provider', () {
+    final state = DemoAppState();
+
+    state.selectRole(UserRole.client);
+    state.markIdentityVerified();
+    expect(state.identityVerified, isTrue);
+
+    state.selectRole(UserRole.provider);
+    expect(state.identityVerified, isFalse);
 
     state.dispose();
   });
