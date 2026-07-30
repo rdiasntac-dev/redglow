@@ -56,7 +56,8 @@ void main() {
     await _openClientDemo(tester);
 
     expect(find.text('REDGLOW PONTOS'), findsOneWidget);
-    expect(find.text('R. Izabel A Redentora, 1000'), findsOneWidget);
+    expect(find.text('SUA LOCALIZAÇÃO'), findsOneWidget);
+    expect(find.text('Permitir localização durante o uso'), findsOneWidget);
 
     await _scrollTo(tester, find.text('Lari (Manicure)'));
     expect(find.text('Lari (Manicure)'), findsOneWidget);
@@ -188,6 +189,14 @@ void main() {
     expect(find.text('Serviços que realizo'), findsOneWidget);
     expect(find.text('Manicure tradicional'), findsOneWidget);
     expect(find.text('Esmaltação em gel'), findsOneWidget);
+    for (var index = 0; index < 7; index++) {
+      await tester.drag(
+        find.byType(Scrollable).last,
+        const Offset(0, -600),
+      );
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('save-provider-services')), findsOneWidget);
   });
 
