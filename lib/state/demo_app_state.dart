@@ -423,8 +423,9 @@ class DemoAppState extends ChangeNotifier {
       _setBackendError('O atendimento não foi encontrado para registrar a avaliação.');
       return false;
     }
+    final selectedBooking = booking;
     return _runBackendAction(() => _marketplace.submitRating(
-          booking: booking,
+          booking: selectedBooking,
           fromUid: userId,
           score: rating,
           tags: tags,

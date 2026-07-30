@@ -1470,25 +1470,3 @@ String _professionalIdLabel(String status) => switch (status) {
       'verified' => 'Verificado',
       _ => 'Certificados pendentes',
     };
-
-void _showInfo(BuildContext context, String title, String message) {
-  showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: AppColors.surface,
-    showDragHandle: true,
-    builder: (context) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Text(message),
-          ],
-        ),
-      ),
-    ),
-  );
-}
