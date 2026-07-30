@@ -9,19 +9,31 @@ class MarketplaceProfessional {
     required this.uid,
     required this.name,
     required this.specialty,
+    required this.specialties,
     required this.priceCents,
+    required this.rating,
     required this.services,
     required this.isOnline,
     this.photoUrl,
+    this.latitude,
+    this.longitude,
+    this.locationUpdatedAt,
+    this.professionalIdStatus = 'pending',
   });
 
   final String uid;
   final String name;
   final String specialty;
+  final List<String> specialties;
   final int priceCents;
+  final double rating;
   final List<String> services;
   final bool isOnline;
   final String? photoUrl;
+  final double? latitude;
+  final double? longitude;
+  final DateTime? locationUpdatedAt;
+  final String professionalIdStatus;
 
   factory MarketplaceProfessional.fromDocument(
     QueryDocumentSnapshot<Map<String, dynamic>> document,
@@ -30,29 +42,41 @@ class MarketplaceProfessional {
     final specialty = RedGlowServiceCatalog.normalizeLabel(
       data['specialty'] as String?,
     );
+    final rawSpecialties = data['specialties'];
+    final specialties = RedGlowServiceCatalog.normalizeLabels(
+      rawSpecialties is List
+          ? rawSpecialties.whereType<String>()
+          : <String>[specialty],
+    );
+    final effectiveSpecialties =
+        specialties.isEmpty ? <String>[specialty] : specialties;
     final category = RedGlowServiceCatalog.byLabel(specialty);
     final rawServices = data['services'];
-    final services = rawServices is List
-        ? rawServices
-            .whereType<String>()
-            .where(
-              (service) =>
-                  RedGlowServiceCatalog.isServiceAllowedForCategory(
-                specialty,
-                service,
-              ),
-            )
-            .toList(growable: false)
-        : const <String>[];
+    final services = RedGlowServiceCatalog.validServicesForCategories(
+      effectiveSpecialties,
+      rawServices is List ? rawServices.whereType<String>() : const <String>[],
+    );
+    final location = data['location'];
+    final locationData =
+        location is Map ? Map<String, dynamic>.from(location) : null;
+    final locationTimestamp = locationData?['updatedAt'];
     return MarketplaceProfessional(
       uid: document.id,
       name: data['name'] as String? ?? 'Prestadora REDGLOW',
       specialty: specialty,
+      specialties: effectiveSpecialties,
       priceCents:
           data['priceCents'] as int? ?? category.recommendedHomeCents,
+      rating: (data['rating'] as num?)?.toDouble() ?? 0,
       services: services,
       isOnline: data['isOnline'] as bool? ?? false,
       photoUrl: data['photoUrl'] as String?,
+      latitude: (locationData?['latitude'] as num?)?.toDouble(),
+      longitude: (locationData?['longitude'] as num?)?.toDouble(),
+      locationUpdatedAt:
+          locationTimestamp is Timestamp ? locationTimestamp.toDate() : null,
+      professionalIdStatus:
+          data['professionalIdStatus'] as String? ?? 'pending',
     );
   }
 }
@@ -70,11 +94,16 @@ class MarketplaceBooking {
     required this.address,
     required this.paymentMethod,
     required this.createdAt,
+    required this.updatedAt,
     required this.clientRating,
     required this.providerRating,
     required this.cancellationReason,
     required this.cancelledBy,
     required this.simulatedFeeCents,
+    this.clientLatitude,
+    this.clientLongitude,
+    this.providerLatitude,
+    this.providerLongitude,
   });
 
   final String id;
@@ -88,17 +117,34 @@ class MarketplaceBooking {
   final String address;
   final String paymentMethod;
   final DateTime createdAt;
+  final DateTime updatedAt;
   final int clientRating;
   final int providerRating;
   final String cancellationReason;
   final String cancelledBy;
   final int simulatedFeeCents;
+  final double? clientLatitude;
+  final double? clientLongitude;
+  final double? providerLatitude;
+  final double? providerLongitude;
 
   factory MarketplaceBooking.fromDocument(
     QueryDocumentSnapshot<Map<String, dynamic>> document,
   ) {
     final data = document.data();
-    final timestamp = data['createdAt'];
+    final createdTimestamp = data['createdAt'];
+    final updatedTimestamp = data['updatedAt'];
+    final clientLocation = data['clientLocation'];
+    final providerLocation = data['providerLocation'];
+    final clientLocationData = clientLocation is Map
+        ? Map<String, dynamic>.from(clientLocation)
+        : null;
+    final providerLocationData = providerLocation is Map
+        ? Map<String, dynamic>.from(providerLocation)
+        : null;
+    final updatedAt = updatedTimestamp is Timestamp
+        ? updatedTimestamp.toDate()
+        : DateTime.now();
     return MarketplaceBooking(
       id: document.id,
       clientId: data['clientId'] as String? ?? '',
@@ -110,14 +156,22 @@ class MarketplaceBooking {
       priceCents: data['priceCents'] as int? ?? 4500,
       address: data['address'] as String? ?? '',
       paymentMethod: data['paymentMethod'] as String? ?? 'Pix',
-      createdAt: timestamp is Timestamp
-          ? timestamp.toDate()
-          : DateTime.fromMillisecondsSinceEpoch(0),
+      createdAt:
+          createdTimestamp is Timestamp ? createdTimestamp.toDate() : updatedAt,
+      updatedAt: updatedAt,
       clientRating: data['clientRating'] as int? ?? 0,
       providerRating: data['providerRating'] as int? ?? 0,
       cancellationReason: data['cancellationReason'] as String? ?? '',
       cancelledBy: data['cancelledBy'] as String? ?? '',
       simulatedFeeCents: data['simulatedFeeCents'] as int? ?? 0,
+      clientLatitude:
+          (clientLocationData?['latitude'] as num?)?.toDouble(),
+      clientLongitude:
+          (clientLocationData?['longitude'] as num?)?.toDouble(),
+      providerLatitude:
+          (providerLocationData?['latitude'] as num?)?.toDouble(),
+      providerLongitude:
+          (providerLocationData?['longitude'] as num?)?.toDouble(),
     );
   }
 }
@@ -195,24 +249,29 @@ class FirebaseMarketplaceService {
         data['specialty'] as String?,
       );
       final category = RedGlowServiceCatalog.byLabel(specialty);
+      final rawSpecialties = data['specialties'];
+      final specialties = RedGlowServiceCatalog.normalizeLabels(
+        rawSpecialties is List
+            ? rawSpecialties.whereType<String>()
+            : <String>[specialty],
+      );
+      final effectiveSpecialties =
+          specialties.isEmpty ? <String>[specialty] : specialties;
       final rawServices = data['services'];
-      final services = rawServices is List
-          ? rawServices
-              .whereType<String>()
-              .where(
-                (service) =>
-                    RedGlowServiceCatalog.isServiceAllowedForCategory(
-                  specialty,
-                  service,
-                ),
-              )
-              .toList(growable: false)
-          : category.services;
+      final services = RedGlowServiceCatalog.validServicesForCategories(
+        effectiveSpecialties,
+        rawServices is List ? rawServices.whereType<String>() : category.services,
+      );
       await reference.update({
         'name': name.trim(),
         'specialty': specialty,
+        'specialties': effectiveSpecialties,
         'priceCents': data['priceCents'] as int? ?? category.recommendedHomeCents,
         'services': services.isEmpty ? category.services : services,
+        'professionalIdStatus':
+            data['professionalIdStatus'] as String? ?? 'pending',
+        if (data.containsKey('location'))
+          'location': FieldValue.delete(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
       return;
@@ -222,11 +281,13 @@ class FirebaseMarketplaceService {
       'uid': uid,
       'name': name.trim(),
       'specialty': defaultCategory.label,
+      'specialties': [defaultCategory.label],
       'priceCents': defaultCategory.recommendedHomeCents,
       'rating': 0.0,
       'services': defaultCategory.services,
       'isOnline': true,
       'photoUrl': null,
+      'professionalIdStatus': 'pending',
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -239,32 +300,68 @@ class FirebaseMarketplaceService {
     });
   }
 
+  Future<void> updateProfilePhoto({
+    required String uid,
+    required UserRole role,
+    required String photoUrl,
+  }) async {
+    final cleanUrl = photoUrl.trim();
+    final batch = _firestore.batch();
+    batch.update(_firestore.collection('users').doc(uid), {
+      'photoUrl': cleanUrl,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    if (role == UserRole.provider) {
+      batch.update(_firestore.collection('professionals').doc(uid), {
+        'photoUrl': cleanUrl,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+    await _auth.currentUser?.updatePhotoURL(cleanUrl);
+  }
+
+  Future<void> updateCurrentLocation({
+    required String uid,
+    required double latitude,
+    required double longitude,
+    required double accuracy,
+  }) async {
+    final location = <String, dynamic>{
+      'latitude': latitude,
+      'longitude': longitude,
+      'accuracy': accuracy,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    await _firestore.collection('users').doc(uid).update({
+      'location': location,
+      'locationPermission': 'granted',
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<void> updateProviderServices({
     required String uid,
-    required String specialty,
+    required List<String> specialties,
     required List<String> services,
   }) {
-    final normalizedSpecialty =
-        RedGlowServiceCatalog.normalizeLabel(specialty);
-    final validServices = services
-        .where(
-          (service) => RedGlowServiceCatalog.isServiceAllowedForCategory(
-            normalizedSpecialty,
-            service,
-          ),
-        )
-        .toSet()
-        .toList(growable: false)
+    final normalizedSpecialties =
+        RedGlowServiceCatalog.normalizeLabels(specialties);
+    final validServices = RedGlowServiceCatalog.validServicesForCategories(
+      normalizedSpecialties,
+      services,
+    ).toList()
       ..sort();
-    if (validServices.isEmpty) {
+    if (normalizedSpecialties.isEmpty || validServices.isEmpty) {
       throw ArgumentError.value(
         services,
         'services',
-        'Selecione pelo menos um serviço válido.',
+        'Selecione pelo menos um nicho e um serviço válido.',
       );
     }
     return _firestore.collection('professionals').doc(uid).update({
-      'specialty': normalizedSpecialty,
+      'specialty': normalizedSpecialties.first,
+      'specialties': normalizedSpecialties,
       'services': validServices,
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -296,26 +393,31 @@ class FirebaseMarketplaceService {
       final currentSpecialty = RedGlowServiceCatalog.normalizeLabel(
         currentData['specialty'] as String?,
       );
+      final rawSpecialties = currentData['specialties'];
+      final currentSpecialties = RedGlowServiceCatalog.normalizeLabels(
+        rawSpecialties is List
+            ? rawSpecialties.whereType<String>()
+            : <String>[currentSpecialty],
+      );
       final rawServices = currentData['services'];
-      final currentServices = rawServices is List
-          ? rawServices
-              .whereType<String>()
-              .where(
-                (service) =>
-                    RedGlowServiceCatalog.isServiceAllowedForCategory(
-                  normalizedSpecialty,
-                  service,
-                ),
-              )
-              .toList(growable: false)
-          : const <String>[];
+      final effectiveSpecialties = currentSpecialties.contains(
+        normalizedSpecialty,
+      )
+          ? currentSpecialties
+          : <String>[normalizedSpecialty, ...currentSpecialties];
+      final currentServices = RedGlowServiceCatalog.validServicesForCategories(
+        effectiveSpecialties,
+        rawServices is List ? rawServices.whereType<String>() : const <String>[],
+      );
       final professionalUpdate = <String, dynamic>{
         'name': name.trim(),
         'specialty': normalizedSpecialty,
+        'specialties': effectiveSpecialties,
         'priceCents': priceCents ?? category.recommendedHomeCents,
         'updatedAt': FieldValue.serverTimestamp(),
       };
       if (currentSpecialty != normalizedSpecialty ||
+          rawSpecialties is! List ||
           rawServices is! List ||
           currentServices.length != rawServices.length ||
           currentServices.isEmpty) {
@@ -377,6 +479,8 @@ class FirebaseMarketplaceService {
     required String providerName,
     required String serviceName,
     required String paymentMethod,
+    double? clientLatitude,
+    double? clientLongitude,
   }) async {
     final professionalReference =
         _firestore.collection('professionals').doc(providerId);
@@ -400,21 +504,21 @@ class FirebaseMarketplaceService {
     final specialty = RedGlowServiceCatalog.normalizeLabel(
       professional['specialty'] as String?,
     );
+    final rawSpecialties = professional['specialties'];
+    final specialties = RedGlowServiceCatalog.normalizeLabels(
+      rawSpecialties is List
+          ? rawSpecialties.whereType<String>()
+          : <String>[specialty],
+    );
+    final effectiveSpecialties =
+        specialties.isEmpty ? <String>[specialty] : specialties;
     final category = RedGlowServiceCatalog.byLabel(specialty);
     final cleanServiceName = serviceName.trim();
     final rawServices = professional['services'];
-    final availableServices = rawServices is List
-        ? rawServices
-            .whereType<String>()
-            .where(
-              (service) =>
-                  RedGlowServiceCatalog.isServiceAllowedForCategory(
-                specialty,
-                service,
-              ),
-            )
-            .toList(growable: false)
-        : const <String>[];
+    final availableServices = RedGlowServiceCatalog.validServicesForCategories(
+      effectiveSpecialties,
+      rawServices is List ? rawServices.whereType<String>() : const <String>[],
+    );
     if (!availableServices.contains(cleanServiceName)) {
       throw FirebaseException(
         plugin: 'cloud_firestore',
@@ -428,7 +532,6 @@ class FirebaseMarketplaceService {
             : providerName.trim();
     final currentPrice =
         professional['priceCents'] as int? ?? category.recommendedHomeCents;
-
     final reference = _firestore.collection('bookings').doc();
     await reference.set({
       'clientId': clientId,
@@ -438,6 +541,13 @@ class FirebaseMarketplaceService {
       'serviceName': cleanServiceName,
       'priceCents': currentPrice,
       'address': 'R. Izabel A Redentora, 1000 — Centro, SJP',
+      'clientLocation': clientLatitude != null && clientLongitude != null
+          ? {
+              'latitude': clientLatitude,
+              'longitude': clientLongitude,
+            }
+          : null,
+      'providerLocation': null,
       'paymentMethod': paymentMethod,
       'status': 'requested',
       'clientRating': 0,
@@ -451,9 +561,20 @@ class FirebaseMarketplaceService {
     return reference.id;
   }
 
-  Future<void> updateBookingStatus(String bookingId, String status) {
+  Future<void> updateBookingStatus(
+    String bookingId,
+    String status, {
+    double? providerLatitude,
+    double? providerLongitude,
+  }) {
     return _firestore.collection('bookings').doc(bookingId).update({
       'status': status,
+      if (providerLatitude != null && providerLongitude != null)
+        'providerLocation': {
+          'latitude': providerLatitude,
+          'longitude': providerLongitude,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
@@ -495,35 +616,66 @@ class FirebaseMarketplaceService {
     required List<String> tags,
     required String comment,
   }) async {
-    final toUid = fromUid == booking.clientId
-        ? booking.providerId
-        : booking.clientId;
+    final bookingReference =
+        _firestore.collection('bookings').doc(booking.id);
     final ratingReference = _firestore
         .collection('ratings')
         .doc('${booking.id}_$fromUid');
-    final batch = _firestore.batch();
-    batch.set(ratingReference, {
-      'bookingId': booking.id,
-      'fromUid': fromUid,
-      'toUid': toUid,
-      'score': score,
-      'tags': tags,
-      'comment': comment.trim(),
-      'createdAt': FieldValue.serverTimestamp(),
+    await _firestore.runTransaction((transaction) async {
+      final liveSnapshot = await transaction.get(bookingReference);
+      final liveData = liveSnapshot.data();
+      if (!liveSnapshot.exists || liveData == null) {
+        throw FirebaseException(
+          plugin: 'cloud_firestore',
+          code: 'not-found',
+          message: 'O atendimento não foi encontrado.',
+        );
+      }
+      final clientId = liveData['clientId'] as String? ?? '';
+      final providerId = liveData['providerId'] as String? ?? '';
+      if (fromUid != clientId && fromUid != providerId) {
+        throw FirebaseException(
+          plugin: 'cloud_firestore',
+          code: 'permission-denied',
+          message: 'Esta conta não participa do atendimento.',
+        );
+      }
+      final status = liveData['status'] as String? ?? '';
+      if (status != 'completed' && status != 'reviewed') {
+        throw FirebaseException(
+          plugin: 'cloud_firestore',
+          code: 'failed-precondition',
+          message: 'A avaliação é liberada somente após a conclusão.',
+        );
+      }
+      final fromClient = fromUid == clientId;
+      final ownRating =
+          liveData[fromClient ? 'clientRating' : 'providerRating'] as int? ?? 0;
+      if (ownRating > 0) {
+        throw FirebaseException(
+          plugin: 'cloud_firestore',
+          code: 'already-exists',
+          message: 'Sua avaliação já foi registrada.',
+        );
+      }
+      final otherRating =
+          liveData[fromClient ? 'providerRating' : 'clientRating'] as int? ?? 0;
+      final toUid = fromClient ? providerId : clientId;
+      transaction.set(ratingReference, {
+        'bookingId': booking.id,
+        'fromUid': fromUid,
+        'toUid': toUid,
+        'score': score,
+        'tags': tags,
+        'comment': comment.trim(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      transaction.update(bookingReference, {
+        if (fromClient) 'clientRating': score else 'providerRating': score,
+        'status': otherRating > 0 ? 'reviewed' : 'completed',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     });
-    if (fromUid == booking.clientId) {
-      batch.update(_firestore.collection('bookings').doc(booking.id), {
-        'status': 'reviewed',
-        'clientRating': score,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    } else {
-      batch.update(_firestore.collection('bookings').doc(booking.id), {
-        'providerRating': score,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    }
-    await batch.commit();
   }
 
   Future<void> requestAccountDeletion(String uid) {

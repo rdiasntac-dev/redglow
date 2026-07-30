@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/firebase_marketplace_service.dart';
 import '../services/session_service.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
@@ -219,6 +220,22 @@ class BookingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = DemoAppScope.of(context);
     final status = state.bookingStatus;
+    final selectedBooking = state.currentBooking;
+    final openBookings = state.isDemoSession
+        ? const <MarketplaceBooking>[]
+        : state.bookingHistory
+            .where(
+              (booking) =>
+                  {
+                    'requested',
+                    'accepted',
+                    'onTheWay',
+                    'inProgress',
+                  }.contains(booking.status) ||
+                  booking.status == 'completed' &&
+                      booking.clientRating == 0,
+            )
+            .toList(growable: false);
     final isTracking = {
       DemoBookingStatus.onTheWay,
       DemoBookingStatus.inProgress,
@@ -237,6 +254,76 @@ class BookingsScreen extends StatelessWidget {
               style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
             ),
             const SizedBox(height: 16),
+            if (openBookings.length > 1) ...[
+              Text(
+                'ATIVOS E PENDENTES (${openBookings.length})',
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+              const SizedBox(height: 8),
+              for (final booking in openBookings)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 7),
+                  child: GlowCard(
+                    key: Key('client-booking-${booking.id}'),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 11,
+                      vertical: 10,
+                    ),
+                    borderColor: selectedBooking?.id == booking.id
+                        ? AppColors.primary
+                        : AppColors.border,
+                    onTap: () => state.selectBooking(booking),
+                    child: Row(
+                      children: [
+                        Icon(
+                          booking.status == 'completed'
+                              ? Icons.star_outline_rounded
+                              : Icons.event_available_outlined,
+                          color: booking.status == 'completed'
+                              ? AppColors.yellow
+                              : AppColors.primary,
+                        ),
+                        const SizedBox(width: 9),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                booking.serviceName,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              Text(
+                                '${booking.providerName} · ${_bookingStatusLabel(booking.status)}',
+                                style: const TextStyle(
+                                  fontSize: 8,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          _formatMarketplaceCurrency(booking.priceCents),
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppColors.textMuted,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 5),
+            ],
             GlowCard(
               borderColor: status == DemoBookingStatus.completed
                   ? AppColors.green.withValues(alpha: .5)
@@ -246,8 +333,9 @@ class BookingsScreen extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const ProfileAvatar(
-                        imageUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=180',
+                      ProfileAvatar(
+                        imageUrl: state.selectedProfessional?.photoUrl ?? '',
+                        fallbackText: state.providerName,
                         size: 48,
                       ),
                       const SizedBox(width: 10),
@@ -256,7 +344,14 @@ class BookingsScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(state.providerName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
-                            const Text('Manicure e Pedicure · R\$ 60,00', style: TextStyle(fontSize: 9, color: AppColors.textSecondary)),
+                            Text(
+                              '${selectedBooking?.serviceName ?? state.selectedService} · '
+                              '${_formatMarketplaceCurrency(selectedBooking?.priceCents ?? state.providerPriceCents)}',
+                              style: const TextStyle(
+                                fontSize: 9,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -371,7 +466,11 @@ class BookingsScreen extends StatelessWidget {
                       label: 'Avaliar atendimento',
                       icon: Icons.star_rounded,
                       onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const RatingScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => RatingScreen(
+                            bookingId: selectedBooking?.id,
+                          ),
+                        ),
                       ),
                     )
                   else if (status == DemoBookingStatus.reviewed)
@@ -463,6 +562,17 @@ class BookingsScreen extends StatelessWidget {
       };
 }
 
+String _bookingStatusLabel(String status) => switch (status) {
+      'requested' => 'Solicitado',
+      'accepted' => 'Aceito',
+      'onTheWay' => 'A caminho',
+      'inProgress' => 'Em atendimento',
+      'completed' => 'Avaliação pendente',
+      'reviewed' => 'Avaliado',
+      'cancelled' => 'Cancelado',
+      _ => status,
+    };
+
 class _StatusTimeline extends StatelessWidget {
   const _StatusTimeline({required this.current});
 
@@ -525,8 +635,10 @@ class ProfileScreen extends StatelessWidget {
             GlowCard(
               child: Row(
                 children: [
-                  const ProfileAvatar(
-                    imageUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=180',
+                  ProfileAvatar(
+                    key: const Key('client-profile-avatar'),
+                    imageUrl: state.profilePhotoUrl,
+                    fallbackText: state.accountName ?? 'Cliente',
                     size: 64,
                   ),
                   const SizedBox(width: 14),

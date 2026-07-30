@@ -3,6 +3,17 @@
 Aplicativo Flutter para contratação segura de profissionais de beleza em
 domicílio. Esta base implementa a interface aprovada na versão 7 do Figma.
 
+### Atualização 7.0.4
+
+- foto persistida e localização durante o uso;
+- múltiplos nichos e serviços por profissional;
+- certificados profissionais sujeitos a análise manual;
+- fila de atendimentos e avaliações pendentes;
+- ciclo bilateral sincronizado e avaliação independente;
+- painel da prestadora em abas, com dados reais do histórico.
+
+Pagamentos, saques, assinaturas e taxas continuam apenas simulados no beta.
+
 ## Fluxos implementados
 
 - Cadastro, login, recuperação de senha, sessão persistente e logout com Firebase.
@@ -71,7 +82,7 @@ flutter test
 
 O repositório está associado ao projeto Firebase `redglow-54a5f` e usa o
 identificador definitivo `br.com.redglow.app`. A base inclui Firebase Core,
-Authentication, Firestore e regras iniciais de acesso por papel.
+Authentication, Firestore, Storage e regras de acesso por papel.
 
 Os arquivos de configuração das plataformas já estão versionados. Em uma nova
 máquina, basta autenticar a CLI antes de publicar regras:
@@ -92,10 +103,18 @@ firebase use redglow-54a5f
 firebase.cmd deploy --only firestore:rules,firestore:indexes
 ```
 
+Fotos e certificados usam Cloud Storage. Desde fevereiro de 2026, o Firebase
+exige o plano Blaze para habilitar ou manter esse serviço. Depois de ativá-lo
+com alerta de orçamento, publique as regras separadamente:
+
+```bash
+firebase.cmd deploy --only storage
+```
+
 ## APK de beta interno
 
 Cada atualização da branch gera, após análise e testes, um APK Android
-instalável chamado `redglow-v7-android-beta` nos artefatos do GitHub Actions.
+instalável chamado `redglow-v7.0.4-android` nos artefatos do GitHub Actions.
 Ele usa assinatura de desenvolvimento e serve somente para testes em aparelhos
 autorizados. A assinatura definitiva para Play Store será criada separadamente
 antes da distribuição pública.
@@ -113,10 +132,11 @@ flutter build apk --debug
 - Na demonstração, o atendimento de R$ 60 concluído e avaliado credita 60
   pontos; o resgate de R$ 25 exige 3.000 pontos. Contas reais não fazem resgate
   local para evitar alteração de saldo pelo aplicativo.
-- Pix, cartão, assinatura, verificação de identidade e GPS ainda são simulações
-  de produto, não integrações finais.
-- A prévia do ID Check não consulta CPF, não seleciona arquivos, não realiza
-  biometria e não aprova contas reais. Use somente dados fictícios nos testes.
+- Pix, cartão e assinatura ainda são simulações de produto, não integrações
+  financeiras finais. O GPS usa a localização real durante o uso, mas o mapa
+  visual ainda é vetorial.
+- A prévia do ID Check não consulta CPF nem realiza biometria. O ID profissional
+  aceita certificados, mas nenhuma conta é aprovada automaticamente.
 - Os preços do plano são hipóteses comerciais. Contas reais não ativam assinatura
   nem recebem cobrança enquanto a integração financeira estiver desabilitada.
 - O pedido de exclusão cria um registro protegido no Firestore. A remoção final
@@ -125,7 +145,8 @@ flutter build apk --debug
   atendimento são permitidas somente mensagens rápidas predefinidas.
 - O mapa é vetorial e não depende de API externa; deverá ser substituído por um
   provedor real de mapas e localização antes da publicação comercial.
-- Agenda e ganhos exibem dados de demonstração; o pedido ativo já é real.
+- Agenda e ganhos usam o histórico real da conta; os valores de demonstração
+  continuam claramente identificados no acesso de teste.
 - O painel financeiro é demonstrativo e não representa saldo para saque.
 - Cancelamentos registram motivo, mas a taxa permanece em R$ 0,00 e nenhuma
   cobrança é realizada durante o beta.

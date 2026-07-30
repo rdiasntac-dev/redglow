@@ -46,60 +46,154 @@ service cloud.firestore {
       ];
     }
 
+    function validProfessionalSpecialties(data) {
+      return data.specialties is list
+        && data.specialties.size() > 0
+        && data.specialties.size() <= 6
+        && data.specialties.hasOnly([
+          'Manicure',
+          'Pedicure',
+          'Nail Designer',
+          'Maquiadora',
+          'Designer de Sobrancelhas',
+          'Lash Designer'
+        ])
+        && data.specialty in data.specialties;
+    }
+
     function validProfessionalServices(data) {
       return data.services is list
         && data.services.size() > 0
-        && data.services.size() <= 20
+        && data.services.size() <= 32
+        && data.services.hasOnly([
+          'Manicure tradicional',
+          'Esmaltação em gel',
+          'Spa das mãos',
+          'Remoção de esmaltação em gel',
+          'Pedicure tradicional',
+          'Esmaltação em gel nos pés',
+          'Spa dos pés',
+          'Manicure e pedicure',
+          'Alongamento em gel',
+          'Alongamento em fibra',
+          'Molde F1',
+          'Banho de gel',
+          'Blindagem',
+          'Manutenção',
+          'Remoção',
+          'Maquiagem social',
+          'Maquiagem com cílios postiços',
+          'Maquiagem para eventos',
+          'Maquiagem de noiva',
+          'Design simples',
+          'Design com henna',
+          'Brow lamination',
+          'Manutenção de design',
+          'Fio a fio',
+          'Volume brasileiro',
+          'Volume fox eye',
+          'Volume glamour',
+          'Lash lifting'
+        ])
         && (
-          data.specialty == 'Manicure'
-            && data.services.hasOnly([
-              'Manicure tradicional',
-              'Esmaltação em gel',
-              'Spa das mãos',
-              'Remoção de esmaltação em gel'
-            ])
-          || data.specialty == 'Pedicure'
-            && data.services.hasOnly([
-              'Pedicure tradicional',
-              'Esmaltação em gel nos pés',
-              'Spa dos pés',
-              'Manicure e pedicure'
-            ])
-          || data.specialty == 'Nail Designer'
-            && data.services.hasOnly([
-              'Alongamento em gel',
-              'Alongamento em fibra',
-              'Molde F1',
-              'Banho de gel',
-              'Blindagem',
-              'Manutenção',
-              'Remoção'
-            ])
-          || data.specialty == 'Maquiadora'
-            && data.services.hasOnly([
-              'Maquiagem social',
-              'Maquiagem com cílios postiços',
-              'Maquiagem para eventos',
-              'Maquiagem de noiva'
-            ])
-          || data.specialty == 'Designer de Sobrancelhas'
-            && data.services.hasOnly([
-              'Design simples',
-              'Design com henna',
-              'Brow lamination',
-              'Manutenção de design'
-            ])
-          || data.specialty == 'Lash Designer'
-            && data.services.hasOnly([
-              'Fio a fio',
-              'Volume brasileiro',
-              'Volume fox eye',
-              'Volume glamour',
-              'Lash lifting',
-              'Manutenção',
-              'Remoção'
-            ])
+          !data.services.hasAny([
+            'Manicure tradicional',
+            'Esmaltação em gel',
+            'Spa das mãos',
+            'Remoção de esmaltação em gel'
+          ])
+          || 'Manicure' in data.specialties
+        )
+        && (
+          !data.services.hasAny([
+            'Pedicure tradicional',
+            'Esmaltação em gel nos pés',
+            'Spa dos pés',
+            'Manicure e pedicure'
+          ])
+          || 'Pedicure' in data.specialties
+        )
+        && (
+          !data.services.hasAny([
+            'Alongamento em gel',
+            'Alongamento em fibra',
+            'Molde F1',
+            'Banho de gel',
+            'Blindagem'
+          ])
+          || 'Nail Designer' in data.specialties
+        )
+        && (
+          !data.services.hasAny([
+            'Maquiagem social',
+            'Maquiagem com cílios postiços',
+            'Maquiagem para eventos',
+            'Maquiagem de noiva'
+          ])
+          || 'Maquiadora' in data.specialties
+        )
+        && (
+          !data.services.hasAny([
+            'Design simples',
+            'Design com henna',
+            'Brow lamination',
+            'Manutenção de design'
+          ])
+          || 'Designer de Sobrancelhas' in data.specialties
+        )
+        && (
+          !data.services.hasAny([
+            'Fio a fio',
+            'Volume brasileiro',
+            'Volume fox eye',
+            'Volume glamour',
+            'Lash lifting'
+          ])
+          || 'Lash Designer' in data.specialties
+        )
+        && (
+          !data.services.hasAny(['Manutenção', 'Remoção'])
+          || 'Nail Designer' in data.specialties
+          || 'Lash Designer' in data.specialties
         );
+    }
+
+    function validLocation(location) {
+      return location == null
+        || location is map
+          && location.keys().hasOnly([
+            'latitude',
+            'longitude',
+            'accuracy',
+            'updatedAt'
+          ])
+          && location.latitude is number
+          && location.latitude >= -90
+          && location.latitude <= 90
+          && location.longitude is number
+          && location.longitude >= -180
+          && location.longitude <= 180
+          && (
+            !('accuracy' in location)
+            || location.accuracy is number && location.accuracy >= 0
+          );
+    }
+
+    function validBookingLocation(location) {
+      return location == null
+        || location is map
+          && location.keys().hasOnly([
+            'latitude',
+            'longitude',
+            'accuracy',
+            'updatedAt'
+          ])
+          && location.latitude is number
+          && location.latitude >= -90
+          && location.latitude <= 90
+          && location.longitude is number
+          && location.longitude >= -180
+          && location.longitude <= 180;
     }
 
     function validProfessionalProfile(data) {
@@ -114,12 +208,16 @@ service cloud.firestore {
         && data.rating is number
         && data.rating >= 0
         && data.rating <= 5
+        && validProfessionalSpecialties(data)
         && validProfessionalServices(data)
         && data.isOnline is bool
         && (
           data.photoUrl == null
           || data.photoUrl is string && data.photoUrl.size() <= 2048
-        );
+        )
+        && validLocation(data.get('location', null))
+        && data.get('professionalIdStatus', 'pending')
+          in ['pending', 'reviewing', 'verified', 'rejected'];
     }
 
     function bookingCoreUnchanged() {
@@ -131,6 +229,7 @@ service cloud.firestore {
         && request.resource.data.priceCents == resource.data.priceCents
         && request.resource.data.address == resource.data.address
         && request.resource.data.paymentMethod == resource.data.paymentMethod
+        && request.resource.data.clientLocation == resource.data.clientLocation
         && request.resource.data.createdAt == resource.data.createdAt;
     }
 
@@ -156,8 +255,9 @@ service cloud.firestore {
       return request.auth.uid == resource.data.clientId
         && (
           validCancellationUpdate()
-          || resource.data.status == 'completed'
-            && request.resource.data.status == 'reviewed'
+          || resource.data.status in ['completed', 'reviewed']
+            && request.resource.data.status
+              == (resource.data.providerRating > 0 ? 'reviewed' : 'completed')
             && resource.data.clientRating == 0
             && request.resource.data.clientRating is int
             && request.resource.data.clientRating >= 1
@@ -174,27 +274,40 @@ service cloud.firestore {
           || resource.data.status == 'requested'
             && request.resource.data.status == 'accepted'
             && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['status', 'updatedAt'])
+              .hasOnly(['status', 'providerLocation', 'updatedAt'])
+            && validBookingLocation(
+              request.resource.data.get('providerLocation', null)
+            )
           || resource.data.status == 'accepted'
             && request.resource.data.status == 'onTheWay'
             && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['status', 'updatedAt'])
+              .hasOnly(['status', 'providerLocation', 'updatedAt'])
+            && validBookingLocation(
+              request.resource.data.get('providerLocation', null)
+            )
           || resource.data.status == 'onTheWay'
             && request.resource.data.status == 'inProgress'
             && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['status', 'updatedAt'])
+              .hasOnly(['status', 'providerLocation', 'updatedAt'])
+            && validBookingLocation(
+              request.resource.data.get('providerLocation', null)
+            )
           || resource.data.status == 'inProgress'
             && request.resource.data.status == 'completed'
             && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['status', 'updatedAt'])
+              .hasOnly(['status', 'providerLocation', 'updatedAt'])
+            && validBookingLocation(
+              request.resource.data.get('providerLocation', null)
+            )
           || resource.data.status in ['completed', 'reviewed']
-            && request.resource.data.status == resource.data.status
+            && request.resource.data.status
+              == (resource.data.clientRating > 0 ? 'reviewed' : 'completed')
             && resource.data.providerRating == 0
             && request.resource.data.providerRating is int
             && request.resource.data.providerRating >= 1
             && request.resource.data.providerRating <= 5
             && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['providerRating', 'updatedAt'])
+              .hasOnly(['status', 'providerRating', 'updatedAt'])
         );
     }
 
@@ -208,6 +321,9 @@ service cloud.firestore {
           'role',
           'identityStatus',
           'points',
+          'photoUrl',
+          'location',
+          'locationPermission',
           'createdAt',
           'updatedAt'
         ])
@@ -247,7 +363,14 @@ service cloud.firestore {
       allow update: if isSelf(uid)
         && request.resource.data.role == resource.data.role
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'phone', 'photoUrl', 'updatedAt'])
+          .hasOnly([
+            'name',
+            'phone',
+            'photoUrl',
+            'location',
+            'locationPermission',
+            'updatedAt'
+          ])
         && request.resource.data.name is string
         && request.resource.data.name.size() >= 2
         && request.resource.data.name.size() <= 80
@@ -259,6 +382,9 @@ service cloud.firestore {
           || request.resource.data.get('photoUrl', null) is string
             && request.resource.data.get('photoUrl', '').size() <= 2048
         )
+        && validLocation(request.resource.data.get('location', null))
+        && request.resource.data.get('locationPermission', 'unknown')
+          in ['unknown', 'granted', 'denied']
         && request.resource.data.updatedAt == request.time;
       allow delete: if false;
     }
@@ -272,11 +398,14 @@ service cloud.firestore {
           'uid',
           'name',
           'specialty',
+          'specialties',
           'priceCents',
           'rating',
           'services',
           'isOnline',
           'photoUrl',
+          'professionalIdStatus',
+          'location',
           'createdAt',
           'updatedAt'
         ])
@@ -284,11 +413,13 @@ service cloud.firestore {
           'uid',
           'name',
           'specialty',
+          'specialties',
           'priceCents',
           'rating',
           'services',
           'isOnline',
           'photoUrl',
+          'professionalIdStatus',
           'createdAt',
           'updatedAt'
         ])
@@ -298,17 +429,40 @@ service cloud.firestore {
       allow update: if isSelf(uid)
         && hasRole('provider')
         && request.resource.data.uid == resource.data.uid
+        && (
+          request.resource.data.get('professionalIdStatus', 'pending')
+            == resource.data.get('professionalIdStatus', 'pending')
+          || !('professionalIdStatus' in resource.data)
+            && request.resource.data.professionalIdStatus == 'pending'
+        )
+        && (
+          !('location' in request.resource.data)
+          || request.resource.data.location == resource.data.location
+        )
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly([
             'name',
             'specialty',
+            'specialties',
             'priceCents',
             'photoUrl',
             'isOnline',
             'services',
+            'professionalIdStatus',
+            'location',
             'updatedAt'
           ])
         && validProfessionalProfile(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isAdmin()
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['professionalIdStatus', 'rating', 'updatedAt'])
+        && request.resource.data.professionalIdStatus
+          in ['pending', 'reviewing', 'verified', 'rejected']
+        && request.resource.data.rating is number
+        && request.resource.data.rating >= 0
+        && request.resource.data.rating <= 5
         && request.resource.data.updatedAt == request.time;
       allow delete: if false;
     }
@@ -329,6 +483,8 @@ service cloud.firestore {
           'serviceName',
           'priceCents',
           'address',
+          'clientLocation',
+          'providerLocation',
           'paymentMethod',
           'status',
           'clientRating',
@@ -354,6 +510,8 @@ service cloud.firestore {
         && request.resource.data.clientName.size() <= 80
         && request.resource.data.address is string
         && request.resource.data.address.size() > 0
+        && validBookingLocation(request.resource.data.clientLocation)
+        && validBookingLocation(request.resource.data.providerLocation)
         && request.resource.data.paymentMethod in ['Pix', 'Cartão', 'Dinheiro']
         && request.resource.data.status == 'requested'
         && request.resource.data.clientRating == 0
@@ -432,6 +590,36 @@ service cloud.firestore {
     match /subscriptions/{uid} {
       allow read: if isSelf(uid);
       allow write: if false;
+    }
+
+    match /professionalCredentials/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+      allow create: if isSelf(uid)
+        && hasRole('provider')
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'documents',
+          'status',
+          'updatedAt'
+        ])
+        && request.resource.data.uid == uid
+        && request.resource.data.documents is map
+        && request.resource.data.status == 'pending'
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isAdmin()
+        || isSelf(uid)
+          && hasRole('provider')
+          && request.resource.data.keys().hasOnly([
+            'uid',
+            'documents',
+            'status',
+            'updatedAt'
+          ])
+          && request.resource.data.uid == uid
+          && request.resource.data.documents is map
+          && request.resource.data.status == 'pending'
+          && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
     }
 
     match /accountDeletionRequests/{uid} {

@@ -122,6 +122,33 @@ abstract final class RedGlowServiceCatalog {
   static List<String> get labels =>
       categories.map((category) => category.label).toList(growable: false);
 
+  static List<String> get allServices => categories
+      .expand((category) => category.services)
+      .toSet()
+      .toList(growable: false);
+
+  static List<String> normalizeLabels(Iterable<String> labels) {
+    final normalized = <String>[];
+    for (final label in labels) {
+      if (!isAllowed(label)) continue;
+      final value = normalizeLabel(label);
+      if (!normalized.contains(value)) normalized.add(value);
+    }
+    return List.unmodifiable(normalized);
+  }
+
+  static List<RedGlowServiceCategory> categoriesForServices(
+    Iterable<String> services,
+  ) {
+    final selected = services.map((service) => service.trim()).toSet();
+    return categories
+        .where(
+          (category) =>
+              category.services.any((service) => selected.contains(service)),
+        )
+        .toList(growable: false);
+  }
+
   static RedGlowServiceCategory byLabel(String? label) {
     final normalized = label?.trim().toLowerCase();
     for (final category in categories) {
@@ -160,6 +187,33 @@ abstract final class RedGlowServiceCatalog {
     return byLabel(categoryLabel).services.any(
       (service) => service.toLowerCase() == normalized,
     );
+  }
+
+  static bool isServiceAllowedForCategories(
+    Iterable<String> categoryLabels,
+    String? serviceName,
+  ) {
+    return normalizeLabels(categoryLabels).any(
+      (category) => isServiceAllowedForCategory(category, serviceName),
+    );
+  }
+
+  static List<String> validServicesForCategories(
+    Iterable<String> categoryLabels,
+    Iterable<String> services,
+  ) {
+    final categories = normalizeLabels(categoryLabels);
+    final valid = <String>[];
+    for (final service in services) {
+      final clean = service.trim();
+      if (clean.isEmpty ||
+          !isServiceAllowedForCategories(categories, clean) ||
+          valid.contains(clean)) {
+        continue;
+      }
+      valid.add(clean);
+    }
+    return List.unmodifiable(valid);
   }
 
   static String formatCurrency(int cents) {

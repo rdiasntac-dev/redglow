@@ -7,7 +7,12 @@ import '../widgets/common_widgets.dart';
 enum _AnalyticsRange { week, month, quarter }
 
 class ProviderAnalyticsScreen extends StatefulWidget {
-  const ProviderAnalyticsScreen({super.key});
+  const ProviderAnalyticsScreen({
+    super.key,
+    this.embedded = false,
+  });
+
+  final bool embedded;
 
   @override
   State<ProviderAnalyticsScreen> createState() =>
@@ -52,23 +57,33 @@ class _ProviderAnalyticsScreenState extends State<ProviderAnalyticsScreen> {
   @override
   Widget build(BuildContext context) {
     final state = DemoAppScope.of(context);
-    final data = _data;
+    final data = state.isDemoSession
+        ? _demoDataWithCurrentCycle(state)
+        : _realData(state);
     final total = data.values.fold<double>(0, (sum, value) => sum + value);
-    final ticket = total / data.appointments;
+    final ticket = data.appointments == 0 ? 0.0 : total / data.appointments;
+    final serviceShares = _serviceShares(state);
 
-    return Scaffold(
-      body: ConstrainedMobileBody(
+    final content = ConstrainedMobileBody(
         child: SafeArea(
+          bottom: false,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(14, 6, 14, 28),
+            padding: EdgeInsets.fromLTRB(
+              14,
+              6,
+              14,
+              widget.embedded ? 96 : 28,
+            ),
             children: [
               Row(
                 children: [
-                  RoundIconButton(
-                    icon: Icons.arrow_back_ios_new_rounded,
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  const SizedBox(width: 11),
+                  if (!widget.embedded) ...[
+                    RoundIconButton(
+                      icon: Icons.arrow_back_ios_new_rounded,
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    const SizedBox(width: 11),
+                  ],
                   const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -225,38 +240,81 @@ class _ProviderAnalyticsScreenState extends State<ProviderAnalyticsScreen> {
                 ],
               ),
               const SizedBox(height: 10),
-              const GlowCard(
+              GlowCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('SERVIÇOS MAIS PROCURADOS', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900)),
-                    SizedBox(height: 13),
-                    _ServiceShare(label: 'Manicure e Pedicure', percentage: .52, color: AppColors.primary),
-                    SizedBox(height: 11),
-                    _ServiceShare(label: 'Manicure', percentage: .28, color: AppColors.purple),
-                    SizedBox(height: 11),
-                    _ServiceShare(label: 'Pedicure', percentage: .20, color: AppColors.route),
+                    const Text(
+                      'SERVIÇOS MAIS PROCURADOS',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 13),
+                    if (serviceShares.isEmpty)
+                      const Text(
+                        'Conclua atendimentos para formar este ranking.',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: AppColors.textSecondary,
+                        ),
+                      )
+                    else
+                      for (var index = 0;
+                          index < serviceShares.length;
+                          index++) ...[
+                        _ServiceShare(
+                          label: serviceShares[index].label,
+                          percentage: serviceShares[index].percentage,
+                          color: [
+                            AppColors.primary,
+                            AppColors.purple,
+                            AppColors.route,
+                          ][index % 3],
+                        ),
+                        if (index < serviceShares.length - 1)
+                          const SizedBox(height: 11),
+                      ],
                   ],
                 ),
               ),
               const SizedBox(height: 10),
-              const GlowCard(
+              GlowCard(
                 borderColor: Color(0xFF275E51),
                 color: Color(0xFF10221E),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.auto_awesome_rounded, color: AppColors.green, size: 21),
-                    SizedBox(width: 10),
+                    const Icon(
+                      Icons.auto_awesome_rounded,
+                      color: AppColors.green,
+                      size: 21,
+                    ),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Insight REDGLOW', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
-                          SizedBox(height: 4),
+                          const Text(
+                            'Insight REDGLOW',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
                           Text(
-                            'Manicure e Pedicure representa 52% da procura. Na simulação, abrir dois horários extras nos dias de maior movimento pode elevar o faturamento sem reduzir o ticket médio.',
-                            style: TextStyle(fontSize: 9, height: 1.45, color: AppColors.textSecondary),
+                            serviceShares.isEmpty
+                                ? 'O painel aprenderá com seus atendimentos concluídos. Não exibiremos serviços fora dos nichos selecionados.'
+                                : '${serviceShares.first.label} representa '
+                                    '${(serviceShares.first.percentage * 100).round()}% '
+                                    'dos atendimentos concluídos no período.',
+                            style: const TextStyle(
+                              fontSize: 9,
+                              height: 1.45,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -273,8 +331,117 @@ class _ProviderAnalyticsScreenState extends State<ProviderAnalyticsScreen> {
             ],
           ),
         ),
-      ),
+      );
+    return widget.embedded ? content : Scaffold(body: content);
+  }
+
+  _PerformanceData _realData(DemoAppState state) {
+    final completed = state.bookingHistory
+        .where(
+          (booking) =>
+              booking.status == 'completed' ||
+              booking.status == 'reviewed',
+        )
+        .toList(growable: false);
+    final now = DateTime.now();
+    final labels = switch (_range) {
+      _AnalyticsRange.week =>
+        const ['D-6', 'D-5', 'D-4', 'D-3', 'D-2', 'Ontem', 'Hoje'],
+      _AnalyticsRange.month =>
+        const ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'],
+      _AnalyticsRange.quarter =>
+        const ['Mês 1', 'Mês 2', 'Mês atual'],
+    };
+    final values = List<double>.filled(labels.length, 0);
+    var appointments = 0;
+    for (final booking in completed) {
+      final days = now.difference(booking.updatedAt).inDays;
+      int? index;
+      switch (_range) {
+        case _AnalyticsRange.week:
+          if (days >= 0 && days < 7) index = 6 - days;
+          break;
+        case _AnalyticsRange.month:
+          if (days >= 0 && days < 28) index = 3 - (days ~/ 7);
+          break;
+        case _AnalyticsRange.quarter:
+          if (days >= 0 && days < 90) index = 2 - (days ~/ 30);
+          break;
+      }
+      if (index != null && index >= 0 && index < values.length) {
+        values[index] += booking.priceCents / 100;
+        appointments++;
+      }
+    }
+    return _PerformanceData(
+      title: switch (_range) {
+        _AnalyticsRange.week => 'Últimos 7 dias',
+        _AnalyticsRange.month => 'Últimos 28 dias',
+        _AnalyticsRange.quarter => 'Últimos 90 dias',
+      },
+      labels: labels,
+      values: values,
+      appointments: appointments,
+      growth: 0,
     );
+  }
+
+  _PerformanceData _demoDataWithCurrentCycle(DemoAppState state) {
+    final base = _data;
+    final hasCompletedTest = {
+      DemoBookingStatus.completed,
+      DemoBookingStatus.reviewed,
+    }.contains(state.bookingStatus);
+    if (!hasCompletedTest) return base;
+    final values = List<double>.of(base.values);
+    values[values.length - 1] += state.providerPriceCents / 100;
+    return _PerformanceData(
+      title: base.title,
+      labels: base.labels,
+      values: values,
+      appointments: base.appointments + 1,
+      growth: base.growth,
+    );
+  }
+
+  List<_ServiceShareData> _serviceShares(DemoAppState state) {
+    if (state.isDemoSession) {
+      final services = state.providerServices.take(3).toList();
+      if (services.isEmpty) return const [];
+      const demoShares = [.52, .28, .20];
+      return [
+        for (var index = 0; index < services.length; index++)
+          _ServiceShareData(
+            services[index],
+            demoShares[index],
+          ),
+      ];
+    }
+    final counts = <String, int>{};
+    for (final booking in state.bookingHistory) {
+      if ((booking.status == 'completed' ||
+              booking.status == 'reviewed') &&
+          state.providerServices.contains(booking.serviceName)) {
+        counts.update(
+          booking.serviceName,
+          (value) => value + 1,
+          ifAbsent: () => 1,
+        );
+      }
+    }
+    final entries = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final total = entries.fold<int>(0, (sum, entry) => sum + entry.value);
+    if (total == 0) return const [];
+    return entries
+        .take(3)
+        .map(
+          (entry) => _ServiceShareData(
+            entry.key,
+            entry.value / total,
+          ),
+        )
+        .toList(growable: false);
   }
 }
 
@@ -325,7 +492,8 @@ class _InteractiveBarChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxValue = data.values.reduce((a, b) => a > b ? a : b);
+    final rawMax = data.values.reduce((a, b) => a > b ? a : b);
+    final maxValue = rawMax <= 0 ? 1.0 : rawMax;
     return SizedBox(
       height: 142,
       child: Row(
@@ -469,6 +637,13 @@ class _PerformanceData {
   final List<double> values;
   final int appointments;
   final double growth;
+}
+
+class _ServiceShareData {
+  const _ServiceShareData(this.label, this.percentage);
+
+  final String label;
+  final double percentage;
 }
 
 String _money(double value) {

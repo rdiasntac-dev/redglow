@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/device_location_service.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
@@ -44,6 +45,22 @@ class _TripScreenState extends State<TripScreen> {
       DemoBookingStatus.completed,
       DemoBookingStatus.reviewed,
     }.contains(demoState.bookingStatus);
+    final booking = demoState.currentBooking;
+    final etaMinutes = DeviceLocationService.estimateTravelMinutes(
+      fromLatitude:
+          booking?.providerLatitude ??
+          demoState.selectedProfessional?.latitude,
+      fromLongitude:
+          booking?.providerLongitude ??
+          demoState.selectedProfessional?.longitude,
+      toLatitude:
+          booking?.clientLatitude ?? demoState.accountLatitude,
+      toLongitude:
+          booking?.clientLongitude ?? demoState.accountLongitude,
+    );
+    final providerPhotoUrl =
+        demoState.selectedProfessional?.photoUrl ??
+        demoState.profilePhotoUrl;
 
     return Scaffold(
       body: ConstrainedMobileBody(
@@ -54,10 +71,14 @@ class _TripScreenState extends State<TripScreen> {
               children: [
                 Positioned.fill(
                   bottom: constraints.maxHeight * .3,
-                  child: const UrbanGpsMap(
+                  child: UrbanGpsMap(
                     showProviderChip: true,
                     showEtaChip: false,
                     compactRoute: true,
+                    providerName: demoState.providerName,
+                    providerPhotoUrl: providerPhotoUrl,
+                    etaMinutes: etaMinutes,
+                    liveLocation: booking?.providerLatitude != null,
                   ),
                 ),
                 Positioned(
@@ -87,8 +108,9 @@ class _TripScreenState extends State<TripScreen> {
                         children: [
                           Row(
                             children: [
-                              const ProfileAvatar(
-                                imageUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=180',
+                              ProfileAvatar(
+                                imageUrl: providerPhotoUrl,
+                                fallbackText: demoState.providerName,
                                 size: 47,
                                 borderColor: AppColors.green,
                               ),
@@ -110,7 +132,9 @@ class _TripScreenState extends State<TripScreen> {
                                           ? '${demoState.providerName} confirmou a chegada'
                                           : completed
                                               ? 'Manicure e Pedicure finalizado'
-                                              : '${demoState.providerName} · aproximadamente 5 min',
+                                              : etaMinutes == null
+                                                  ? '${demoState.providerName} · aguardando posição GPS'
+                                                  : '${demoState.providerName} · aproximadamente $etaMinutes min',
                                       style: const TextStyle(fontSize: 9, color: AppColors.green),
                                     ),
                                   ],
@@ -166,7 +190,11 @@ class _TripScreenState extends State<TripScreen> {
                               label: 'Avaliar atendimento',
                               icon: Icons.star_rounded,
                               onPressed: () => Navigator.of(context).pushReplacement(
-                                MaterialPageRoute(builder: (_) => const RatingScreen()),
+                                MaterialPageRoute(
+                                  builder: (_) => RatingScreen(
+                                    bookingId: booking?.id,
+                                  ),
+                                ),
                               ),
                             )
                           else

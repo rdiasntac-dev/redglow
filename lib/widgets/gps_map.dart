@@ -11,11 +11,19 @@ class UrbanGpsMap extends StatelessWidget {
     this.showProviderChip = false,
     this.showEtaChip = true,
     this.compactRoute = false,
+    this.providerName = 'Prestadora REDGLOW',
+    this.providerPhotoUrl = '',
+    this.etaMinutes,
+    this.liveLocation = false,
   });
 
   final bool showProviderChip;
   final bool showEtaChip;
   final bool compactRoute;
+  final String providerName;
+  final String providerPhotoUrl;
+  final int? etaMinutes;
+  final bool liveLocation;
 
   @override
   Widget build(BuildContext context) {
@@ -63,21 +71,31 @@ class UrbanGpsMap extends StatelessWidget {
           ),
         ),
         if (showProviderChip)
-          const Positioned(
+          Positioned(
             top: 18,
             right: 16,
-            child: _ProviderMapChip(),
+            child: _ProviderMapChip(
+              providerName: providerName,
+              providerPhotoUrl: providerPhotoUrl,
+              liveLocation: liveLocation,
+            ),
           ),
         if (showEtaChip)
-          const Positioned(
+          Positioned(
             bottom: 22,
             left: 0,
             right: 0,
             child: Center(
               child: StatusPill(
-                label: 'Prestadora a ~8 min de você',
-                color: AppColors.primary,
-                icon: Icons.directions_car_filled_rounded,
+                label: etaMinutes == null
+                    ? 'Rota simulada · aguardando GPS'
+                    : 'Prestadora a ~$etaMinutes min de você',
+                color: etaMinutes == null
+                    ? AppColors.textMuted
+                    : AppColors.primary,
+                icon: etaMinutes == null
+                    ? Icons.location_searching_rounded
+                    : Icons.directions_car_filled_rounded,
               ),
             ),
           ),
@@ -87,7 +105,15 @@ class UrbanGpsMap extends StatelessWidget {
 }
 
 class _ProviderMapChip extends StatelessWidget {
-  const _ProviderMapChip();
+  const _ProviderMapChip({
+    required this.providerName,
+    required this.providerPhotoUrl,
+    required this.liveLocation,
+  });
+
+  final String providerName;
+  final String providerPhotoUrl;
+  final bool liveLocation;
 
   @override
   Widget build(BuildContext context) {
@@ -95,31 +121,44 @@ class _ProviderMapChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
       radius: 12,
       borderColor: AppColors.green.withValues(alpha: .45),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Lari (Manicure)', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900)),
+              Text(
+                providerName,
+                style: const TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
               Row(
                 children: [
-                  SizedBox(
+                  const SizedBox(
                     width: 6,
                     height: 6,
                     child: DecoratedBox(
                       decoration: BoxDecoration(color: AppColors.green, shape: BoxShape.circle),
                     ),
                   ),
-                  SizedBox(width: 4),
-                  Text('A caminho', style: TextStyle(fontSize: 7, color: AppColors.green)),
+                  const SizedBox(width: 4),
+                  Text(
+                    liveLocation ? 'GPS atualizado' : 'Rota estimada',
+                    style: const TextStyle(
+                      fontSize: 7,
+                      color: AppColors.green,
+                    ),
+                  ),
                 ],
               ),
             ],
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           ProfileAvatar(
-            imageUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=180',
+            imageUrl: providerPhotoUrl,
+            fallbackText: providerName,
             size: 30,
             borderColor: AppColors.green,
           ),

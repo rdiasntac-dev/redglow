@@ -145,6 +145,11 @@ void main() {
     await _openProviderDemo(tester);
 
     expect(find.text('PAINEL PROFISSIONAL'), findsOneWidget);
+    expect(find.byKey(const Key('provider-home-avatar')), findsOneWidget);
+    expect(find.text('Online'), findsOneWidget);
+    expect(find.text('Pausada'), findsNothing);
+    await tester.tap(find.byIcon(Icons.person_rounded).last);
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('provider-services-profile')), findsOneWidget);
     expect(find.text('Amanda Souza'), findsNothing);
     expect(find.text('Priscila Matos'), findsNothing);
@@ -172,6 +177,8 @@ void main() {
       (tester) async {
     await _openProviderDemo(tester);
 
+    await tester.tap(find.byIcon(Icons.person_rounded).last);
+    await tester.pumpAndSettle();
     final servicesEntry = find.byKey(const Key('provider-services-profile'));
     await _scrollTo(tester, servicesEntry);
     await tester.tap(servicesEntry);
@@ -188,6 +195,8 @@ void main() {
       (tester) async {
     await _openProviderDemo(tester);
 
+    await tester.tap(find.byIcon(Icons.person_rounded).last);
+    await tester.pumpAndSettle();
     await _scrollTo(tester, find.byKey(const Key('provider-logout')));
     await tester.tap(find.byKey(const Key('provider-logout')));
     await tester.pumpAndSettle();
@@ -321,7 +330,7 @@ void main() {
     final state = DemoAppState()..selectRole(UserRole.provider);
 
     final updated = await state.updateProviderServices(
-      specialty: 'Pedicure',
+      specialties: const ['Pedicure'],
       services: const ['Spa dos pés', 'Pedicure tradicional'],
     );
 
@@ -335,13 +344,37 @@ void main() {
     state.dispose();
   });
 
+  test('provider can persist more than one niche and matching services',
+      () async {
+    final state = DemoAppState()..selectRole(UserRole.provider);
+
+    final updated = await state.updateProviderServices(
+      specialties: const ['Manicure', 'Pedicure'],
+      services: const [
+        'Manicure tradicional',
+        'Pedicure tradicional',
+      ],
+    );
+
+    expect(updated, isTrue);
+    expect(state.providerSpecialties, const ['Manicure', 'Pedicure']);
+    expect(
+      state.providerServices,
+      const ['Manicure tradicional', 'Pedicure tradicional'],
+    );
+
+    state.dispose();
+  });
+
   test('selected service is preserved for the booking', () {
     final state = DemoAppState();
     final professional = MarketplaceProfessional(
       uid: 'demo-lari',
       name: 'Lari (Manicure)',
       specialty: 'Manicure',
+      specialties: const ['Manicure'],
       priceCents: 6000,
+      rating: 4.9,
       services: const ['Manicure tradicional', 'Spa das mãos'],
       isOnline: true,
     );

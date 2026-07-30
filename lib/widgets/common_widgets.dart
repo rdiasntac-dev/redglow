@@ -209,12 +209,14 @@ class ProfileAvatar extends StatelessWidget {
     this.size = 44,
     this.borderColor = AppColors.primary,
     this.fallbackIcon = Icons.person_rounded,
+    this.fallbackText,
   });
 
   final String imageUrl;
   final double size;
   final Color borderColor;
   final IconData fallbackIcon;
+  final String? fallbackText;
 
   @override
   Widget build(BuildContext context) {
@@ -230,14 +232,59 @@ class ProfileAvatar extends StatelessWidget {
         ),
       ),
       child: ClipOval(
-        child: Image.network(
-          imageUrl,
-          fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => ColoredBox(
-            color: AppColors.surfaceRaised,
-            child: Icon(fallbackIcon, color: AppColors.textSecondary, size: size * .55),
-          ),
-        ),
+        child: imageUrl.trim().isEmpty
+            ? _AvatarFallback(
+                icon: fallbackIcon,
+                text: fallbackText,
+                size: size,
+              )
+            : Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => _AvatarFallback(
+                  icon: fallbackIcon,
+                  text: fallbackText,
+                  size: size,
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _AvatarFallback extends StatelessWidget {
+  const _AvatarFallback({
+    required this.icon,
+    required this.text,
+    required this.size,
+  });
+
+  final IconData icon;
+  final String? text;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = text?.trim().isNotEmpty == true
+        ? text!.trim().substring(0, 1).toUpperCase()
+        : null;
+    return ColoredBox(
+      color: AppColors.surfaceRaised,
+      child: Center(
+        child: initial == null
+            ? Icon(
+                icon,
+                color: AppColors.textSecondary,
+                size: size * .55,
+              )
+            : Text(
+                initial,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: size * .42,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
       ),
     );
   }

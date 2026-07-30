@@ -26,6 +26,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>O REDGLOW usa sua localização durante o uso para conectar clientes e prestadoras e estimar o deslocamento com segurança.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>O REDGLOW acessa a galeria somente para você escolher sua foto de perfil ou um comprovante profissional.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>O REDGLOW usa a câmera somente quando você decide fotografar seu perfil ou um documento de verificação.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

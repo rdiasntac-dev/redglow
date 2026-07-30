@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/service_catalog.dart';
+import '../services/device_location_service.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
@@ -26,12 +27,6 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
     }
 
     final state = DemoAppScope.of(context, listen: false);
-    if (state.hasActiveBooking) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Você já possui um atendimento ativo.')),
-      );
-      return;
-    }
     final requested = await state.requestBooking(
       paymentMethod: _paymentMethod,
     );
@@ -116,6 +111,12 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
     final photoUrl = state.isDemoSession
         ? 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=180'
         : professional?.photoUrl ?? '';
+    final etaMinutes = DeviceLocationService.estimateTravelMinutes(
+      fromLatitude: professional?.latitude,
+      fromLongitude: professional?.longitude,
+      toLatitude: state.accountLatitude,
+      toLongitude: state.accountLongitude,
+    );
     return Scaffold(
       body: ConstrainedMobileBody(
         child: LayoutBuilder(
@@ -125,7 +126,12 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
               children: [
                 Positioned.fill(
                   bottom: constraints.maxHeight * .31,
-                  child: const UrbanGpsMap(),
+                  child: UrbanGpsMap(
+                    providerName: state.providerName,
+                    providerPhotoUrl: photoUrl,
+                    etaMinutes: etaMinutes,
+                    liveLocation: professional?.latitude != null,
+                  ),
                 ),
                 Positioned(
                   left: 14,

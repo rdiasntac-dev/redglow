@@ -5,9 +5,14 @@ import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 
 class RatingScreen extends StatefulWidget {
-  const RatingScreen({super.key, this.reviewingClient = false});
+  const RatingScreen({
+    super.key,
+    this.reviewingClient = false,
+    this.bookingId,
+  });
 
   final bool reviewingClient;
+  final String? bookingId;
 
   @override
   State<RatingScreen> createState() => _RatingScreenState();
@@ -56,6 +61,7 @@ class _RatingScreenState extends State<RatingScreen> {
       asProvider: widget.reviewingClient,
       tags: _selectedTags.toList(),
       comment: _commentController.text,
+      bookingId: widget.bookingId,
     );
     if (!mounted) return;
     if (!succeeded) {
@@ -136,7 +142,10 @@ class _RatingScreenState extends State<RatingScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              _ReviewTargetCard(reviewingClient: widget.reviewingClient),
+              _ReviewTargetCard(
+                reviewingClient: widget.reviewingClient,
+                bookingId: widget.bookingId,
+              ),
               const SizedBox(height: 18),
               const Center(
                 child: Text('Dê uma nota', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
@@ -238,13 +247,33 @@ String _ratingLabel(int rating) {
 }
 
 class _ReviewTargetCard extends StatelessWidget {
-  const _ReviewTargetCard({required this.reviewingClient});
+  const _ReviewTargetCard({
+    required this.reviewingClient,
+    this.bookingId,
+  });
 
   final bool reviewingClient;
+  final String? bookingId;
 
   @override
   Widget build(BuildContext context) {
     final state = DemoAppScope.of(context);
+    var booking = state.currentBooking;
+    if (bookingId != null) {
+      for (final candidate in state.bookingHistory) {
+        if (candidate.id == bookingId) {
+          booking = candidate;
+          break;
+        }
+      }
+    }
+    final targetName = reviewingClient
+        ? booking?.clientName ?? state.clientName
+        : booking?.providerName ?? state.providerName;
+    final serviceName =
+        booking?.serviceName ?? (state.isDemoSession
+            ? 'Manicure e Pedicure'
+            : state.selectedService);
     return GlowCard(
       gradient: const LinearGradient(colors: [Color(0xFF32122F), Color(0xFF221129)]),
       borderColor: AppColors.primary.withValues(alpha: .45),
@@ -264,7 +293,7 @@ class _ReviewTargetCard extends StatelessWidget {
           ),
           const SizedBox(height: 9),
           Text(
-            reviewingClient ? state.clientName : state.providerName,
+            targetName,
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
           ),
           Text(
@@ -278,7 +307,10 @@ class _ReviewTargetCard extends StatelessWidget {
             style: const TextStyle(fontSize: 8, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 9),
-          const StatusPill(label: 'Serviço concluído · Manicure e Pedicure', icon: Icons.check_circle_outline_rounded),
+          StatusPill(
+            label: 'Serviço concluído · $serviceName',
+            icon: Icons.check_circle_outline_rounded,
+          ),
         ],
       ),
     );

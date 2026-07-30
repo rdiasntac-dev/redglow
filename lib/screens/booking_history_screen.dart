@@ -5,6 +5,7 @@ import '../services/firebase_marketplace_service.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import 'rating_screen.dart';
 import 'reviews_screen.dart';
 
 class BookingHistoryScreen extends StatelessWidget {
@@ -22,7 +23,6 @@ class BookingHistoryScreen extends StatelessWidget {
               (booking) => _fromBooking(
                 booking,
                 role,
-                state.currentBooking?.id,
               ),
             )
             .toList();
@@ -65,14 +65,47 @@ class BookingHistoryScreen extends StatelessWidget {
                 for (final entry in entries)
                   _HistoryCard(
                     entry: entry,
-                    onReviews: entry.reviewed
-                        ? () => Navigator.of(context).push(
+                    onReview: entry.pendingReview
+                        ? () {
+                            MarketplaceBooking? booking;
+                            for (final candidate
+                                in state.bookingHistory) {
+                              if (candidate.id == entry.bookingId) {
+                                booking = candidate;
+                                break;
+                              }
+                            }
+                            if (booking != null) {
+                              state.selectBooking(booking);
+                            }
+                            Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => ReviewsScreen(
-                                  viewingAsProvider: role == UserRole.provider,
+                                builder: (_) => RatingScreen(
+                                  reviewingClient:
+                                      role == UserRole.provider,
+                                  bookingId: entry.bookingId,
                                 ),
                               ),
-                            )
+                            );
+                          }
+                        : null,
+                    onReviews: entry.reviewed
+                        ? () {
+                            for (final booking in state.bookingHistory) {
+                              if (booking.id == entry.bookingId) {
+                                state.selectBooking(booking);
+                                break;
+                              }
+                            }
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => ReviewsScreen(
+                                  viewingAsProvider:
+                                      role == UserRole.provider,
+                                ),
+                              ),
+                            );
+                          }
                         : null,
                   ),
               if (state.isDemoSession) ...[
@@ -102,6 +135,8 @@ class BookingHistoryScreen extends StatelessWidget {
           status: state.bookingStatus.label,
           color: _statusColor(state.bookingStatus),
           reviewed: state.bookingStatus == DemoBookingStatus.reviewed,
+          pendingReview:
+              state.bookingStatus == DemoBookingStatus.completed,
         ),
       const _HistoryEntry(
         counterpart: 'Atendimento demonstrativo',
@@ -111,6 +146,7 @@ class BookingHistoryScreen extends StatelessWidget {
         status: 'Serviço concluído',
         color: AppColors.green,
         reviewed: false,
+        pendingReview: false,
       ),
       const _HistoryEntry(
         counterpart: 'Atendimento demonstrativo',
@@ -120,6 +156,7 @@ class BookingHistoryScreen extends StatelessWidget {
         status: 'Serviço concluído',
         color: AppColors.green,
         reviewed: false,
+        pendingReview: false,
       ),
     ];
   }
@@ -127,7 +164,6 @@ class BookingHistoryScreen extends StatelessWidget {
   static _HistoryEntry _fromBooking(
     MarketplaceBooking booking,
     UserRole role,
-    String? currentBookingId,
   ) {
     final status = switch (booking.status) {
       'requested' => 'Solicitado',
@@ -147,7 +183,12 @@ class BookingHistoryScreen extends StatelessWidget {
       date: '${booking.createdAt.day.toString().padLeft(2, '0')}/${booking.createdAt.month.toString().padLeft(2, '0')}',
       status: status,
       color: booking.status == 'cancelled' ? Colors.redAccent : AppColors.green,
-      reviewed: booking.status == 'reviewed' && booking.id == currentBookingId,
+      reviewed: booking.status == 'reviewed',
+      pendingReview: booking.status == 'completed' &&
+          (role == UserRole.client
+              ? booking.clientRating == 0
+              : booking.providerRating == 0),
+      bookingId: booking.id,
     );
   }
 
@@ -168,6 +209,8 @@ class _HistoryEntry {
     required this.status,
     required this.color,
     required this.reviewed,
+    required this.pendingReview,
+    this.bookingId,
   });
   final String counterpart;
   final String service;
@@ -176,11 +219,18 @@ class _HistoryEntry {
   final String status;
   final Color color;
   final bool reviewed;
+  final bool pendingReview;
+  final String? bookingId;
 }
 
 class _HistoryCard extends StatelessWidget {
-  const _HistoryCard({required this.entry, this.onReviews});
+  const _HistoryCard({
+    required this.entry,
+    this.onReview,
+    this.onReviews,
+  });
   final _HistoryEntry entry;
+  final VoidCallback? onReview;
   final VoidCallback? onReviews;
 
   @override
@@ -214,6 +264,17 @@ class _HistoryCard extends StatelessWidget {
                 onPressed: onReviews,
                 icon: const Icon(Icons.reviews_outlined, size: 17),
                 label: const Text('Ver avaliação e relato'),
+              ),
+            ),
+          ],
+          if (onReview != null) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: onReview,
+                icon: const Icon(Icons.star_outline_rounded, size: 17),
+                label: const Text('Avaliar este atendimento'),
               ),
             ),
           ],

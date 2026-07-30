@@ -208,7 +208,7 @@ class _ProfessionalsList extends StatelessWidget {
     final normalizedQuery = query.trim().toLowerCase();
     final results = professionals.where((professional) {
       final matchesCategory =
-          category == 'Todos' || professional.specialty == category;
+          category == 'Todos' || professional.specialties.contains(category);
       final matchesService = service == null ||
           professional.services.any(
             (item) => item.toLowerCase() == service!.toLowerCase(),
@@ -216,6 +216,9 @@ class _ProfessionalsList extends StatelessWidget {
       final matchesQuery = normalizedQuery.isEmpty ||
           professional.name.toLowerCase().contains(normalizedQuery) ||
           professional.specialty.toLowerCase().contains(normalizedQuery) ||
+          professional.specialties.any(
+            (item) => item.toLowerCase().contains(normalizedQuery),
+          ) ||
           professional.services.any(
             (item) => item.toLowerCase().contains(normalizedQuery),
           );
@@ -269,7 +272,7 @@ class _ProfessionalsList extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                professional.specialty,
+                                professional.specialties.join(' · '),
                                 style: const TextStyle(
                                   fontSize: 9,
                                   color: AppColors.textSecondary,
@@ -428,7 +431,11 @@ class _ProfessionalsList extends StatelessWidget {
         uid: professional.uid,
         name: professional.name,
         specialty: professional.specialty,
+        specialties: professional.specialties.isEmpty
+            ? <String>[professional.specialty]
+            : professional.specialties,
         priceCents: professional.priceCents,
+        rating: professional.rating,
         services: professional.services,
         isOnline: professional.isOnline,
         photoUrl: professional.photoUrl.isEmpty ? null : professional.photoUrl,
@@ -450,13 +457,17 @@ class _SearchProfessional {
     required this.services,
     required this.isOnline,
     required this.photoUrl,
+    this.specialties = const [],
+    this.rating = 0,
     this.bookable = true,
   });
 
   final String uid;
   final String name;
   final String specialty;
+  final List<String> specialties;
   final int priceCents;
+  final double rating;
   final List<String> services;
   final bool isOnline;
   final String photoUrl;
@@ -469,26 +480,28 @@ class _SearchProfessional {
     final specialty = RedGlowServiceCatalog.normalizeLabel(
       data['specialty'] as String?,
     );
+    final rawSpecialties = data['specialties'];
+    final specialties = RedGlowServiceCatalog.normalizeLabels(
+      rawSpecialties is List
+          ? rawSpecialties.whereType<String>()
+          : <String>[specialty],
+    );
+    final effectiveSpecialties =
+        specialties.isEmpty ? <String>[specialty] : specialties;
     final category = RedGlowServiceCatalog.byLabel(specialty);
     final rawServices = data['services'];
-    final services = rawServices is List
-        ? rawServices
-            .whereType<String>()
-            .where(
-              (service) =>
-                  RedGlowServiceCatalog.isServiceAllowedForCategory(
-                specialty,
-                service,
-              ),
-            )
-            .toList(growable: false)
-        : const <String>[];
+    final services = RedGlowServiceCatalog.validServicesForCategories(
+      effectiveSpecialties,
+      rawServices is List ? rawServices.whereType<String>() : const <String>[],
+    );
     return _SearchProfessional(
       uid: document.id,
       name: data['name'] as String? ?? 'Profissional REDGLOW',
       specialty: specialty,
+      specialties: effectiveSpecialties,
       priceCents:
           data['priceCents'] as int? ?? category.recommendedHomeCents,
+      rating: (data['rating'] as num?)?.toDouble() ?? 0,
       services: services,
       isOnline: data['isOnline'] as bool? ?? false,
       photoUrl: data['photoUrl'] as String? ?? '',

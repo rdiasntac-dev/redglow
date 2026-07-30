@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../models/service_catalog.dart';
 import '../models/user_role.dart';
+import '../services/device_location_service.dart';
 import '../services/firebase_marketplace_service.dart';
 
 enum DemoBookingStatus {
@@ -36,6 +37,7 @@ class DemoAppState extends ChangeNotifier {
   static const pointsRedemptionCost = 3000;
 
   FirebaseMarketplaceService? _marketplaceService;
+  DeviceLocationService? _locationService;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _profileSubscription;
   StreamSubscription<List<MarketplaceProfessional>>? _professionalsSubscription;
   StreamSubscription<List<MarketplaceBooking>>? _bookingsSubscription;
@@ -47,18 +49,31 @@ class DemoAppState extends ChangeNotifier {
 
   FirebaseMarketplaceService get _marketplace =>
       _marketplaceService ??= FirebaseMarketplaceService();
+  DeviceLocationService get _location =>
+      _locationService ??= const DeviceLocationService();
 
   UserRole activeRole = UserRole.client;
   bool isDemoSession = true;
   String? accountName;
   String? accountEmail;
   String? accountPhone;
+  String? accountPhotoUrl;
+  double? accountLatitude;
+  double? accountLongitude;
+  double? locationAccuracy;
+  DateTime? locationUpdatedAt;
+  bool locationLoading = false;
+  String? locationError;
   String demoProviderSpecialty = 'Manicure';
+  List<String> demoProviderSpecialties = const ['Manicure', 'Pedicure'];
   int demoProviderPriceCents = 6000;
   List<String> demoProviderServices = const [
     'Manicure tradicional',
     'Esmaltação em gel',
     'Spa das mãos',
+    'Pedicure tradicional',
+    'Spa dos pés',
+    'Manicure e pedicure',
   ];
   String? currentUserId;
   MarketplaceProfessional? selectedProfessional;
@@ -97,11 +112,64 @@ class DemoAppState extends ChangeNotifier {
   String get providerSpecialty =>
       selectedProfessional?.specialty ?? demoProviderSpecialty;
 
+  List<String> get providerSpecialties =>
+      selectedProfessional?.specialties ?? demoProviderSpecialties;
+
   int get providerPriceCents =>
       selectedProfessional?.priceCents ?? demoProviderPriceCents;
 
   List<String> get providerServices =>
       selectedProfessional?.services ?? demoProviderServices;
+
+  String get professionalIdStatus =>
+      isDemoSession
+          ? providerIdentityVerified
+              ? 'verified'
+              : 'pending'
+          : selectedProfessional?.professionalIdStatus ?? 'pending';
+
+  bool get professionalIdVerified =>
+      professionalIdStatus == 'verified';
+
+  String get profilePhotoUrl {
+    final professionalPhoto = selectedProfessional?.photoUrl?.trim();
+    if (activeRole == UserRole.provider &&
+        professionalPhoto != null &&
+        professionalPhoto.isNotEmpty) {
+      return professionalPhoto;
+    }
+    return accountPhotoUrl?.trim() ?? '';
+  }
+
+  bool get hasCurrentLocation =>
+      accountLatitude != null && accountLongitude != null;
+
+  String get locationSummary {
+    if (locationLoading) return 'Obtendo sua localização...';
+    if (hasCurrentLocation) {
+      return 'Localização atual confirmada · precisão de ${locationAccuracy?.round() ?? 0} m';
+    }
+    return locationError ?? 'Toque para permitir a localização durante o uso.';
+  }
+
+  List<MarketplaceBooking> get visibleActiveBookings => bookingHistory
+      .where((booking) => {
+            'requested',
+            'accepted',
+            'onTheWay',
+            'inProgress',
+          }.contains(booking.status))
+      .toList(growable: false);
+
+  List<MarketplaceBooking> get pendingRatings => bookingHistory
+      .where(
+        (booking) =>
+            booking.status == 'completed' &&
+            (activeRole == UserRole.client
+                ? booking.clientRating == 0
+                : booking.providerRating == 0),
+      )
+      .toList(growable: false);
 
   String get selectedService =>
       selectedServiceName ??
@@ -139,6 +207,12 @@ class DemoAppState extends ChangeNotifier {
       currentUserId = null;
       accountEmail = null;
       accountPhone = null;
+      accountPhotoUrl = null;
+      accountLatitude = null;
+      accountLongitude = null;
+      locationAccuracy = null;
+      locationUpdatedAt = null;
+      locationError = null;
       selectedProfessional = null;
       selectedServiceName = null;
       currentBooking = null;
@@ -171,6 +245,12 @@ class DemoAppState extends ChangeNotifier {
       currentBooking = null;
       bookingHistory = [];
       isAdmin = false;
+      accountPhotoUrl = null;
+      accountLatitude = null;
+      accountLongitude = null;
+      locationAccuracy = null;
+      locationUpdatedAt = null;
+      locationError = null;
       _connectRealSession(_sessionVersion);
     }
     notifyListeners();
@@ -206,6 +286,8 @@ class DemoAppState extends ChangeNotifier {
         providerName: professional.name,
         serviceName: selectedService,
         paymentMethod: paymentMethod,
+        clientLatitude: accountLatitude,
+        clientLongitude: accountLongitude,
       );
     });
   }
@@ -225,11 +307,27 @@ class DemoAppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void selectBooking(MarketplaceBooking booking) {
+    currentBooking = booking;
+    bookingStatus = _statusFromBackend(booking.status);
+    clientToProviderRating = booking.clientRating;
+    providerToClientRating = booking.providerRating;
+    lastCancellationReason = booking.cancellationReason;
+    simulatedCancellationFeeCents = booking.simulatedFeeCents;
+    if (!isDemoSession) {
+      _watchBookingDetails(_sessionVersion, booking);
+    }
+    notifyListeners();
+  }
+
   Future<bool> acceptBooking() {
     return _changeBookingStatus(DemoBookingStatus.accepted, 'accepted');
   }
 
-  Future<bool> startTrip() {
+  Future<bool> startTrip() async {
+    if (!isDemoSession && activeRole == UserRole.provider) {
+      await refreshLocation(showPermissionError: false);
+    }
     return _changeBookingStatus(DemoBookingStatus.onTheWay, 'onTheWay');
   }
 
@@ -293,6 +391,7 @@ class DemoAppState extends ChangeNotifier {
     bool asProvider = false,
     List<String> tags = const [],
     String comment = '',
+    String? bookingId,
   }) async {
     if (isDemoSession) {
       if (asProvider) {
@@ -311,7 +410,15 @@ class DemoAppState extends ChangeNotifier {
     }
 
     final userId = currentUserId;
-    final booking = currentBooking;
+    MarketplaceBooking? booking = currentBooking;
+    if (bookingId != null) {
+      for (final candidate in bookingHistory) {
+        if (candidate.id == bookingId) {
+          booking = candidate;
+          break;
+        }
+      }
+    }
     if (userId == null || booking == null) {
       _setBackendError('O atendimento não foi encontrado para registrar a avaliação.');
       return false;
@@ -331,11 +438,94 @@ class DemoAppState extends ChangeNotifier {
     if (isDemoSession) return true;
     final userId = currentUserId;
     if (userId == null) return false;
+    if (value) {
+      await refreshLocation(showPermissionError: false);
+    }
     final succeeded = await _runBackendAction(
       () => _marketplace.setProviderOnline(userId, value),
     );
     if (!succeeded) {
       providerOnline = !value;
+      notifyListeners();
+    }
+    return succeeded;
+  }
+
+  Future<bool> refreshLocation({bool showPermissionError = true}) async {
+    if (locationLoading) return false;
+    locationLoading = true;
+    locationError = null;
+    notifyListeners();
+    try {
+      if (isDemoSession) {
+        accountLatitude = -25.5350;
+        accountLongitude = -49.2058;
+        locationAccuracy = 12;
+        locationUpdatedAt = DateTime.now();
+        return true;
+      }
+      final userId = currentUserId;
+      if (userId == null) {
+        locationError = 'A sessão expirou. Entre novamente.';
+        return false;
+      }
+      final result = await _location.current();
+      accountLatitude = result.latitude;
+      accountLongitude = result.longitude;
+      locationAccuracy = result.accuracy;
+      locationUpdatedAt = result.capturedAt;
+      await _marketplace.updateCurrentLocation(
+        uid: userId,
+        latitude: result.latitude,
+        longitude: result.longitude,
+        accuracy: result.accuracy,
+      );
+      return true;
+    } on LocationPermissionException catch (error) {
+      locationError = error.message;
+      if (showPermissionError) {
+        _setBackendError(error.message);
+      }
+      return false;
+    } on FirebaseException catch (error) {
+      locationError = _firebaseActionMessage(error);
+      if (showPermissionError) _setBackendError(locationError!);
+      return false;
+    } catch (_) {
+      locationError = 'Não foi possível obter sua localização agora.';
+      if (showPermissionError) _setBackendError(locationError!);
+      return false;
+    } finally {
+      locationLoading = false;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  Future<bool> updateProfilePhoto(String photoUrl) async {
+    final cleanUrl = photoUrl.trim();
+    if (cleanUrl.isEmpty) {
+      _setBackendError('Selecione uma foto válida.');
+      return false;
+    }
+    if (isDemoSession) {
+      accountPhotoUrl = cleanUrl;
+      notifyListeners();
+      return true;
+    }
+    final userId = currentUserId;
+    if (userId == null) {
+      _setBackendError('A sessão expirou. Entre novamente.');
+      return false;
+    }
+    final succeeded = await _runBackendAction(
+      () => _marketplace.updateProfilePhoto(
+        uid: userId,
+        role: activeRole,
+        photoUrl: cleanUrl,
+      ),
+    );
+    if (succeeded) {
+      accountPhotoUrl = cleanUrl;
       notifyListeners();
     }
     return succeeded;
@@ -400,27 +590,23 @@ class DemoAppState extends ChangeNotifier {
   }
 
   Future<bool> updateProviderServices({
-    required String specialty,
+    required List<String> specialties,
     required List<String> services,
   }) async {
-    final normalizedSpecialty =
-        RedGlowServiceCatalog.normalizeLabel(specialty);
-    final validServices = services
-        .where(
-          (service) => RedGlowServiceCatalog.isServiceAllowedForCategory(
-            normalizedSpecialty,
-            service,
-          ),
-        )
-        .toSet()
-        .toList(growable: false)
+    final normalizedSpecialties =
+        RedGlowServiceCatalog.normalizeLabels(specialties);
+    final validServices = RedGlowServiceCatalog.validServicesForCategories(
+      normalizedSpecialties,
+      services,
+    ).toList()
       ..sort();
-    if (validServices.isEmpty) {
-      _setBackendError('Selecione pelo menos um serviço válido.');
+    if (normalizedSpecialties.isEmpty || validServices.isEmpty) {
+      _setBackendError('Selecione pelo menos um nicho e um serviço válido.');
       return false;
     }
     if (isDemoSession) {
-      demoProviderSpecialty = normalizedSpecialty;
+      demoProviderSpecialty = normalizedSpecialties.first;
+      demoProviderSpecialties = List.unmodifiable(normalizedSpecialties);
       demoProviderServices = List.unmodifiable(validServices);
       selectedServiceName = validServices.first;
       notifyListeners();
@@ -434,7 +620,7 @@ class DemoAppState extends ChangeNotifier {
     return _runBackendAction(
       () => _marketplace.updateProviderServices(
         uid: userId,
-        specialty: normalizedSpecialty,
+        specialties: normalizedSpecialties,
         services: validServices,
       ),
     );
@@ -529,6 +715,19 @@ class DemoAppState extends ChangeNotifier {
         accountName = data?['name'] as String? ?? user.displayName;
         accountEmail = data?['email'] as String? ?? user.email;
         accountPhone = data?['phone'] as String?;
+        accountPhotoUrl =
+            data?['photoUrl'] as String? ?? user.photoURL ?? accountPhotoUrl;
+        final rawLocation = data?['location'];
+        final location =
+            rawLocation is Map ? Map<String, dynamic>.from(rawLocation) : null;
+        accountLatitude =
+            (location?['latitude'] as num?)?.toDouble() ?? accountLatitude;
+        accountLongitude =
+            (location?['longitude'] as num?)?.toDouble() ?? accountLongitude;
+        locationAccuracy =
+            (location?['accuracy'] as num?)?.toDouble() ?? locationAccuracy;
+        final updatedAt = location?['updatedAt'];
+        if (updatedAt is Timestamp) locationUpdatedAt = updatedAt.toDate();
         isAdmin = data?['isAdmin'] == true;
         points = data?['points'] as int? ?? 0;
         final verified = data?['identityStatus'] == 'verified';
@@ -562,6 +761,9 @@ class DemoAppState extends ChangeNotifier {
             if (professional.uid == user.uid) {
               selectedProfessional = professional;
               providerOnline = professional.isOnline;
+              if ((professional.photoUrl ?? '').isNotEmpty) {
+                accountPhotoUrl = professional.photoUrl;
+              }
               break;
             }
           }
@@ -581,7 +783,11 @@ class DemoAppState extends ChangeNotifier {
       (bookings) {
         if (!_isCurrentSession(version)) return;
         bookingHistory = List.unmodifiable(bookings);
-        final booking = _currentBookingFrom(bookings);
+        final booking = _currentBookingFrom(
+          bookings,
+          activeRole,
+          currentBooking,
+        );
         final changedBooking = currentBooking?.id != booking?.id;
         if (changedBooking) _clearRatingDetails();
         currentBooking = booking;
@@ -599,6 +805,8 @@ class DemoAppState extends ChangeNotifier {
       },
       onError: (Object error) => _handleRealtimeError(version, error),
     );
+
+    unawaited(refreshLocation(showPermissionError: false));
   }
 
   Future<void> _ensureProfessional(int version, String uid, String name) async {
@@ -677,7 +885,14 @@ class DemoAppState extends ChangeNotifier {
       return false;
     }
     return _runBackendAction(
-      () => _marketplace.updateBookingStatus(bookingId, backendStatus),
+      () => _marketplace.updateBookingStatus(
+        bookingId,
+        backendStatus,
+        providerLatitude:
+            activeRole == UserRole.provider ? accountLatitude : null,
+        providerLongitude:
+            activeRole == UserRole.provider ? accountLongitude : null,
+      ),
     );
   }
 
@@ -741,18 +956,31 @@ class DemoAppState extends ChangeNotifier {
 
   static MarketplaceBooking? _currentBookingFrom(
     List<MarketplaceBooking> bookings,
+    UserRole role,
+    MarketplaceBooking? selected,
   ) {
-    const activeStatuses = {
-      'requested',
-      'accepted',
-      'onTheWay',
-      'inProgress',
-      'completed',
-    };
-    for (final booking in bookings) {
-      if (activeStatuses.contains(booking.status)) {
-        return booking;
+    bool needsAction(MarketplaceBooking booking) {
+      if ({
+        'requested',
+        'accepted',
+        'onTheWay',
+        'inProgress',
+      }.contains(booking.status)) {
+        return true;
       }
+      return booking.status == 'completed' &&
+          (role == UserRole.client
+              ? booking.clientRating == 0
+              : booking.providerRating == 0);
+    }
+
+    if (selected != null) {
+      for (final booking in bookings) {
+        if (booking.id == selected.id && needsAction(booking)) return booking;
+      }
+    }
+    for (final booking in bookings) {
+      if (needsAction(booking)) return booking;
     }
     return bookings.isEmpty ? null : bookings.first;
   }
@@ -777,6 +1005,8 @@ class DemoAppState extends ChangeNotifier {
             'Este perfil ainda não está pronto para receber o pedido.',
         'unavailable' => 'Sem conexão com o Firebase. Tente novamente.',
         'not-found' => 'O registro solicitado não foi encontrado.',
+        'already-exists' =>
+          error.message ?? 'Esta avaliação já foi registrada.',
         _ => 'Não foi possível sincronizar com o Firebase (${error.code}).',
       };
 

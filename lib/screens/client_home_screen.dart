@@ -31,7 +31,15 @@ class HomeScreen extends StatelessWidget {
       DemoBookingStatus.onTheWay,
       DemoBookingStatus.inProgress,
     }.contains(state.bookingStatus);
-    final canReview = state.bookingStatus == DemoBookingStatus.completed;
+    final ratingBooking = state.pendingRatings.isNotEmpty
+        ? state.pendingRatings.first
+        : state.bookingStatus == DemoBookingStatus.completed
+            ? state.currentBooking
+            : null;
+    final canReview =
+        state.isDemoSession
+            ? state.bookingStatus == DemoBookingStatus.completed
+            : ratingBooking != null;
 
     return ConstrainedMobileBody(
       child: SafeArea(
@@ -40,7 +48,7 @@ class HomeScreen extends StatelessWidget {
           key: const Key('home-scroll'),
           padding: const EdgeInsets.fromLTRB(14, 8, 14, 26),
           children: [
-            const _HomeHeader(),
+            _HomeHeader(state: state),
             const SizedBox(height: 14),
             _PointsCard(points: state.points, isDemo: state.isDemoSession),
             const SizedBox(height: 20),
@@ -86,9 +94,18 @@ class HomeScreen extends StatelessWidget {
                 title: 'Avaliar atendimento',
                 subtitle: 'Conte como foi sua experiência',
                 status: 'PÓS-SERVIÇO',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const RatingScreen()),
-                ),
+                onTap: () {
+                  if (ratingBooking != null) {
+                    state.selectBooking(ratingBooking);
+                  }
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => RatingScreen(
+                        bookingId: ratingBooking?.id,
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
             const SizedBox(height: 10),
@@ -134,7 +151,9 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _HomeHeader extends StatelessWidget {
-  const _HomeHeader();
+  const _HomeHeader({required this.state});
+
+  final DemoAppState state;
 
   @override
   Widget build(BuildContext context) {
@@ -148,33 +167,48 @@ class _HomeHeader extends StatelessWidget {
         const SizedBox(width: 7),
         Expanded(
           child: InkWell(
-            onTap: () => _showInfo(
-              context,
-              'Área inicial do beta',
-              'O REDGLOW está sendo preparado para operar inicialmente apenas em São José dos Pinhais. O endereço poderá ser confirmado manualmente antes de cada atendimento.',
-            ),
+            onTap: () async {
+              final succeeded = await state.refreshLocation();
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    succeeded
+                        ? 'Localização atualizada com segurança.'
+                        : state.locationSummary,
+                  ),
+                ),
+              );
+            },
             borderRadius: BorderRadius.circular(10),
-            child: const Column(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'SUA LOCALIZAÇÃO · BETA',
+                const Text(
+                  'SUA LOCALIZAÇÃO',
                   style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 8,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
-                  'R. Izabel A Redentora, 1000',
+                  state.hasCurrentLocation
+                      ? 'Local atual confirmado'
+                      : 'Permitir localização durante o uso',
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
                 Text(
-                  'Centro — São José dos Pinhais, PR',
+                  state.hasCurrentLocation
+                      ? '${state.accountLatitude!.toStringAsFixed(5)}, ${state.accountLongitude!.toStringAsFixed(5)} · toque para atualizar'
+                      : state.locationSummary,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 9,
                   ),
@@ -198,19 +232,12 @@ class _HomeHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 7),
-        Container(
-          width: 39,
-          height: 39,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceRaised,
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.border),
-          ),
-          child: const Icon(
-            Icons.person_outline_rounded,
-            color: AppColors.textSecondary,
-            size: 21,
-          ),
+        ProfileAvatar(
+          key: const Key('client-home-avatar'),
+          imageUrl: state.profilePhotoUrl,
+          fallbackText: state.accountName ?? 'Cliente',
+          size: 39,
+          borderColor: AppColors.primary,
         ),
       ],
     );
@@ -754,7 +781,9 @@ class _AvailableProfessionalCard extends StatelessWidget {
               uid: 'demo-lari',
               name: name,
               specialty: specialty,
+              specialties: state.demoProviderSpecialties,
               priceCents: priceCents,
+              rating: 4.9,
               services: state.demoProviderServices,
               isOnline: true,
               photoUrl: photoUrl,

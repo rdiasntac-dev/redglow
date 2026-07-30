@@ -4,9 +4,11 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import '../models/service_catalog.dart';
+import '../models/user_role.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import 'edit_profile_screen.dart';
 
 class ProviderServicesScreen extends StatefulWidget {
   const ProviderServicesScreen({super.key});
@@ -20,11 +22,8 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
   bool _loading = true;
   bool _saving = false;
   String? _error;
-  String _selectedCategory = RedGlowServiceCatalog.categories.first.label;
+  final Set<String> _selectedCategories = {};
   final Set<String> _selectedServices = {};
-
-  RedGlowServiceCategory get _category =>
-      RedGlowServiceCatalog.byLabel(_selectedCategory);
 
   @override
   void initState() {
@@ -35,14 +34,13 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
   Future<void> _load() async {
     final state = DemoAppScope.of(context, listen: false);
     if (state.isDemoSession) {
-      final category = RedGlowServiceCatalog.byLabel(state.providerSpecialty);
       setState(() {
-        _selectedCategory = category.label;
+        _selectedCategories
+          ..clear()
+          ..addAll(state.providerSpecialties);
         _selectedServices
           ..clear()
-          ..addAll(
-            state.demoProviderServices.where(category.services.contains),
-          );
+          ..addAll(state.demoProviderServices);
         _loading = false;
       });
       return;
@@ -71,16 +69,28 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
           .doc(user.uid)
           .get();
       final data = snapshot.data() ?? const <String, dynamic>{};
-      final category = RedGlowServiceCatalog.byLabel(
+      final primaryCategory = RedGlowServiceCatalog.byLabel(
         data['specialty'] as String?,
       );
+      final rawSpecialties = data['specialties'];
+      final specialties = RedGlowServiceCatalog.normalizeLabels(
+        rawSpecialties is List
+            ? rawSpecialties.whereType<String>()
+            : <String>[primaryCategory.label],
+      );
+      final effectiveSpecialties = specialties.isEmpty
+          ? <String>[primaryCategory.label]
+          : specialties;
       final rawServices = data['services'];
-      final services = rawServices is List
-          ? rawServices.whereType<String>().where(category.services.contains)
-          : const Iterable<String>.empty();
+      final services = RedGlowServiceCatalog.validServicesForCategories(
+        effectiveSpecialties,
+        rawServices is List ? rawServices.whereType<String>() : const <String>[],
+      );
       if (!mounted) return;
       setState(() {
-        _selectedCategory = category.label;
+        _selectedCategories
+          ..clear()
+          ..addAll(effectiveSpecialties);
         _selectedServices
           ..clear()
           ..addAll(services);
@@ -95,18 +105,12 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
     }
   }
 
-  void _changeCategory(String? value) {
-    if (value == null) return;
-    setState(() {
-      _selectedCategory = value;
-      _selectedServices.clear();
-      _error = null;
-    });
-  }
-
   Future<void> _save() async {
-    if (_selectedServices.isEmpty) {
-      setState(() => _error = 'Selecione pelo menos um serviço que você realiza.');
+    if (_selectedCategories.isEmpty || _selectedServices.isEmpty) {
+      setState(
+        () => _error =
+            'Selecione pelo menos um nicho e um serviço que você realiza.',
+      );
       return;
     }
 
@@ -118,7 +122,7 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
 
     try {
       final updated = await state.updateProviderServices(
-        specialty: _selectedCategory,
+        specialties: _selectedCategories.toList(growable: false),
         services: _selectedServices.toList(growable: false),
       );
       if (!mounted) return;
@@ -196,6 +200,50 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
                 ],
               ),
               const SizedBox(height: 16),
+              GlowCard(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const EditProfileScreen(
+                      role: UserRole.provider,
+                    ),
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.manage_accounts_outlined,
+                      color: AppColors.primary,
+                    ),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Foto e dados profissionais',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          Text(
+                            'Edite foto, nome, telefone e valor de referência',
+                            style: TextStyle(
+                              fontSize: 8,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppColors.textMuted,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
               if (_loading)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 50),
@@ -207,67 +255,48 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'NICHO PRINCIPAL',
+                        'NICHOS E ESPECIALIDADES',
                         style: Theme.of(context).textTheme.labelSmall,
                       ),
-                      const SizedBox(height: 7),
-                      DropdownButtonFormField<String>(
-                        initialValue: _selectedCategory,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          prefixIcon: Icon(Icons.auto_awesome_rounded),
+                      const SizedBox(height: 5),
+                      const Text(
+                        'Você pode atuar em mais de um nicho. Marque apenas os serviços que consegue comprovar e executar.',
+                        style: TextStyle(
+                          fontSize: 9,
+                          height: 1.4,
+                          color: AppColors.textSecondary,
                         ),
-                        items: RedGlowServiceCatalog.labels
-                            .map(
-                              (label) => DropdownMenuItem<String>(
-                                value: label,
-                                child: Text(label),
-                              ),
-                            )
-                            .toList(growable: false),
-                        onChanged: _changeCategory,
                       ),
-                      const SizedBox(height: 15),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'SELECIONE OS SERVIÇOS',
-                              style: Theme.of(context).textTheme.labelSmall,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () => setState(() {
-                              _selectedServices
-                                ..clear()
-                                ..addAll(_category.services);
-                            }),
-                            child: const Text('Marcar todos'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _category.services
-                            .map(
-                              (service) => FilterChip(
-                                key: Key('provider-service-${service.toLowerCase()}'),
-                                label: Text(service),
-                                selected: _selectedServices.contains(service),
-                                onSelected: (selected) => setState(() {
-                                  if (selected) {
-                                    _selectedServices.add(service);
-                                  } else {
-                                    _selectedServices.remove(service);
-                                  }
-                                  _error = null;
-                                }),
-                              ),
-                            )
-                            .toList(growable: false),
-                      ),
+                      const SizedBox(height: 12),
+                      for (final category
+                          in RedGlowServiceCatalog.categories) ...[
+                        _CategoryServiceSelector(
+                          category: category,
+                          enabled:
+                              _selectedCategories.contains(category.label),
+                          selectedServices: _selectedServices,
+                          onCategoryChanged: (enabled) => setState(() {
+                            if (enabled) {
+                              _selectedCategories.add(category.label);
+                            } else {
+                              _selectedCategories.remove(category.label);
+                              _selectedServices.removeAll(category.services);
+                            }
+                            _error = null;
+                          }),
+                          onServiceChanged: (service, selected) =>
+                              setState(() {
+                            if (selected) {
+                              _selectedCategories.add(category.label);
+                              _selectedServices.add(service);
+                            } else {
+                              _selectedServices.remove(service);
+                            }
+                            _error = null;
+                          }),
+                        ),
+                        const SizedBox(height: 9),
+                      ],
                       const SizedBox(height: 14),
                       Container(
                         width: double.infinity,
@@ -280,7 +309,7 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
                           ),
                         ),
                         child: Text(
-                          '${_selectedServices.length} serviço(s) selecionado(s). A cliente verá apenas os serviços informados no seu perfil.',
+                          '${_selectedCategories.length} nicho(s) e ${_selectedServices.length} serviço(s) selecionado(s). A cliente verá somente o que foi informado e aprovado.',
                           style: const TextStyle(
                             fontSize: 9,
                             height: 1.4,
@@ -329,6 +358,100 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _CategoryServiceSelector extends StatelessWidget {
+  const _CategoryServiceSelector({
+    required this.category,
+    required this.enabled,
+    required this.selectedServices,
+    required this.onCategoryChanged,
+    required this.onServiceChanged,
+  });
+
+  final RedGlowServiceCategory category;
+  final bool enabled;
+  final Set<String> selectedServices;
+  final ValueChanged<bool> onCategoryChanged;
+  final void Function(String service, bool selected) onServiceChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedCount =
+        category.services.where(selectedServices.contains).length;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: enabled
+            ? AppColors.primary.withValues(alpha: .07)
+            : AppColors.surfaceRaised,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: enabled
+              ? AppColors.primary.withValues(alpha: .45)
+              : AppColors.border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      category.label,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      enabled
+                          ? '$selectedCount serviço(s) marcado(s)'
+                          : 'Ativar este nicho',
+                      style: const TextStyle(
+                        fontSize: 8,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                key: Key('provider-category-${category.id}'),
+                value: enabled,
+                onChanged: onCategoryChanged,
+              ),
+            ],
+          ),
+          if (enabled) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: category.services
+                  .map(
+                    (service) => FilterChip(
+                      key: Key(
+                        'provider-service-${category.id}-${service.toLowerCase()}',
+                      ),
+                      label: Text(service),
+                      selected: selectedServices.contains(service),
+                      onSelected: (selected) =>
+                          onServiceChanged(service, selected),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          ],
+        ],
       ),
     );
   }

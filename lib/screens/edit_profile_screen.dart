@@ -1,8 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../models/service_catalog.dart';
 import '../models/user_role.dart';
+import '../services/profile_media_service.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
@@ -22,6 +26,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _priceController = TextEditingController();
   bool _initialized = false;
   bool _saving = false;
+  bool _uploadingPhoto = false;
+  String _photoUrl = '';
+  Uint8List? _photoBytes;
   String _selectedCategory = RedGlowServiceCatalog.categories.first.label;
 
   RedGlowServiceCategory get _category =>
@@ -41,6 +48,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             : '');
     _phoneController.text =
         state.accountPhone ?? (state.isDemoSession ? '(41) 99999-9999' : '');
+    _photoUrl = state.profilePhotoUrl;
     _selectedCategory = RedGlowServiceCatalog.normalizeLabel(
       state.providerSpecialty,
     );
@@ -49,6 +57,59 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         : _category.recommendedHomeCents;
     _priceController.text = _formatPriceForField(currentPrice);
     _initialized = true;
+  }
+
+  Future<void> _pickPhoto() async {
+    final state = DemoAppScope.of(context, listen: false);
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 82,
+      maxWidth: 1200,
+      maxHeight: 1200,
+    );
+    if (file == null || !mounted) return;
+    final bytes = await file.readAsBytes();
+    setState(() {
+      _photoBytes = bytes;
+      _uploadingPhoto = !state.isDemoSession;
+    });
+    if (state.isDemoSession) {
+      setState(() => _uploadingPhoto = false);
+      return;
+    }
+    final uid = state.currentUserId;
+    if (uid == null) {
+      setState(() => _uploadingPhoto = false);
+      return;
+    }
+    try {
+      final url = await ProfileMediaService().uploadProfilePhoto(
+        uid: uid,
+        bytes: bytes,
+      );
+      final saved = await state.updateProfilePhoto(url);
+      if (!mounted) return;
+      if (!saved) {
+        throw StateError('Não foi possível vincular a foto ao perfil.');
+      }
+      setState(() {
+        _photoUrl = url;
+        _uploadingPhoto = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Foto de perfil atualizada.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _uploadingPhoto = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Não foi possível enviar a foto. Verifique o armazenamento do Firebase.',
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -171,53 +232,77 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
               const SizedBox(height: 18),
               Center(
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      width: 82,
-                      height: 82,
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceRaised,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: AppColors.primary,
-                          width: 2,
-                        ),
-                      ),
-                      child: Icon(
-                        isProvider
-                            ? Icons.badge_outlined
-                            : Icons.person_outline_rounded,
-                        color: AppColors.textSecondary,
-                        size: 34,
-                      ),
-                    ),
-                    Positioned(
-                      right: -3,
-                      bottom: -3,
-                      child: Container(
-                        width: 30,
-                        height: 30,
-                        decoration: const BoxDecoration(
-                          color: AppColors.primary,
+                child: InkWell(
+                  key: const Key('profile-photo-picker'),
+                  onTap: _uploadingPhoto ? null : _pickPhoto,
+                  customBorder: const CircleBorder(),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 82,
+                        height: 82,
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceRaised,
                           shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.primary,
+                            width: 2,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.camera_alt_outlined,
-                          color: Colors.white,
-                          size: 15,
+                        child: ClipOval(
+                          child: _photoBytes != null
+                              ? Image.memory(_photoBytes!, fit: BoxFit.cover)
+                              : Image.network(
+                                  _photoUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => Icon(
+                                    isProvider
+                                        ? Icons.badge_outlined
+                                        : Icons.person_outline_rounded,
+                                    color: AppColors.textSecondary,
+                                    size: 34,
+                                  ),
+                                ),
                         ),
                       ),
-                    ),
-                  ],
+                      Positioned(
+                        right: -3,
+                        bottom: -3,
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: const BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          child: _uploadingPhoto
+                              ? const Padding(
+                                  padding: EdgeInsets.all(8),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.camera_alt_outlined,
+                                  color: Colors.white,
+                                  size: 15,
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 9),
-              const Text(
-                'O envio de foto será conectado ao armazenamento seguro antes do beta público.',
+              Text(
+                state.isDemoSession
+                    ? 'A foto escolhida será apenas uma prévia nesta demonstração.'
+                    : 'Toque na foto para escolher uma imagem da galeria.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 8, color: AppColors.textMuted),
+                style: const TextStyle(fontSize: 8, color: AppColors.textMuted),
               ),
               const SizedBox(height: 18),
               GlowCard(
@@ -252,7 +337,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                     if (isProvider) ...[
                       const SizedBox(height: 13),
-                      const _FieldLabel('NICHO PRINCIPAL'),
+                      const _FieldLabel('REFERÊNCIA PRINCIPAL DE PREÇO'),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
                         key: const Key('profile-specialty-field'),
@@ -270,6 +355,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             )
                             .toList(growable: false),
                         onChanged: _selectCategory,
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Os demais nichos e serviços são configurados em “Perfil profissional”.',
+                        style: TextStyle(
+                          fontSize: 8,
+                          color: AppColors.textMuted,
+                        ),
                       ),
                       const SizedBox(height: 10),
                       _CategoryReferenceCard(category: _category),

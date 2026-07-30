@@ -12,12 +12,13 @@ import '../widgets/account_deletion_action.dart';
 import '../widgets/cancellation_flow.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/emergency_action.dart';
+import '../widgets/gps_map.dart';
 import 'booking_history_screen.dart';
-import 'edit_profile_screen.dart';
 import 'identity_verification_screen.dart';
 import 'notifications_screen.dart';
 import 'provider_analytics_screen.dart';
 import 'provider_services_screen.dart';
+import 'professional_credentials_screen.dart';
 import 'rating_screen.dart';
 import 'report_issue_screen.dart';
 import 'reviews_screen.dart';
@@ -32,11 +33,215 @@ class ProviderHomeScreen extends StatefulWidget {
 
 class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   bool _demoOnline = true;
+  int _currentIndex = 0;
+
+  void _selectTab(int index) {
+    setState(() => _currentIndex = index);
+  }
+
+  Widget _list(List<Widget> children) {
+    return ConstrainedMobileBody(
+      child: SafeArea(
+        bottom: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(14, 8, 14, 96),
+          children: children,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final state = DemoAppScope.of(context);
     final isOnline = state.isDemoSession ? _demoOnline : state.providerOnline;
+    final header = _Header(
+      name: state.accountName ?? 'Profissional REDGLOW',
+      photoUrl: state.profilePhotoUrl,
+      onProfile: () => _selectTab(3),
+      onNotifications: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const NotificationsScreen(
+            role: UserRole.provider,
+          ),
+        ),
+      ),
+    );
+
+    final screens = <Widget>[
+      _list([
+        header,
+        const SizedBox(height: 12),
+        _OnlineCard(
+          isOnline: isOnline,
+          onChanged: (value) {
+            if (state.isDemoSession) {
+              setState(() => _demoOnline = value);
+            } else {
+              state.setProviderOnline(value);
+            }
+          },
+        ),
+        const SizedBox(height: 12),
+        _ProviderLocationCard(state: state, isOnline: isOnline),
+        const SizedBox(height: 12),
+        _ProviderBookingQueue(state: state),
+        _BookingStatusCard(state: state, isOnline: isOnline),
+        const SizedBox(height: 12),
+        _SingleDashboardCard(
+          state: state,
+          onTap: () => _selectTab(2),
+        ),
+      ]),
+      _list([
+        header,
+        const SizedBox(height: 14),
+        Text(
+          'Atendimentos',
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
+        const SizedBox(height: 5),
+        const Text(
+          'Selecione um pedido e avance cada etapa em tempo real.',
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 9,
+          ),
+        ),
+        const SizedBox(height: 14),
+        _ProviderBookingQueue(state: state),
+        _BookingStatusCard(state: state, isOnline: isOnline),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const BookingHistoryScreen(
+                role: UserRole.provider,
+              ),
+            ),
+          ),
+          icon: const Icon(Icons.history_rounded),
+          label: const Text('Abrir histórico completo'),
+        ),
+      ]),
+      const ProviderAnalyticsScreen(embedded: true),
+      _list([
+        header,
+        const SizedBox(height: 14),
+        Text(
+          'Perfil profissional',
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
+        const SizedBox(height: 12),
+        _ProviderProfileStatus(state: state),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _ShortcutCard(
+                icon: Icons.verified_user_outlined,
+                title: 'ID profissional',
+                subtitle: state.professionalIdVerified
+                    ? 'Verificado'
+                    : _professionalIdLabel(state.professionalIdStatus),
+                color: state.professionalIdVerified
+                    ? AppColors.green
+                    : AppColors.primary,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        const ProfessionalCredentialsScreen(),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _ShortcutCard(
+                icon: Icons.workspace_premium_outlined,
+                title: 'Plano profissional',
+                subtitle: state.professionalPlanActive
+                    ? 'Ativo'
+                    : 'Conhecer plano',
+                color: state.professionalPlanActive
+                    ? AppColors.green
+                    : AppColors.purple,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const SubscriptionScreen(),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 9),
+        _MenuCard(
+          icon: Icons.fact_check_outlined,
+          color: AppColors.green,
+          title: 'Verificação de identidade',
+          subtitle: 'Documento oficial e prova de vida',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const IdentityVerificationScreen(),
+            ),
+          ),
+        ),
+        const SizedBox(height: 9),
+        _MenuCard(
+          icon: Icons.reviews_outlined,
+          color: AppColors.purple,
+          title: 'Avaliações e relatos',
+          subtitle: 'Acompanhe o retorno dos atendimentos',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const ReviewsScreen(
+                viewingAsProvider: true,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 9),
+        _MenuCard(
+          icon: Icons.report_outlined,
+          color: AppColors.yellow,
+          title: 'Relatar uma situação',
+          subtitle: 'Conduta, segurança ou problema técnico',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const ReportIssueScreen(),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        OutlinedButton.icon(
+          key: const Key('provider-logout'),
+          onPressed: () => endCurrentSession(context),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            side: BorderSide(
+              color: AppColors.primary.withValues(alpha: .5),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+          ),
+          icon: const Icon(Icons.logout_rounded, size: 18),
+          label: Text(
+            state.isDemoSession
+                ? 'Sair da conta demonstrativa'
+                : 'Sair da conta',
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        const AccountDeletionButton(),
+      ]),
+    ];
 
     return PopScope(
       canPop: false,
@@ -52,161 +257,9 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
         body: Stack(
           children: [
             Positioned.fill(
-              child: ConstrainedMobileBody(
-                child: SafeArea(
-                  bottom: false,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(14, 8, 14, 100),
-                    children: [
-                      _Header(
-                        name: state.accountName ?? 'Profissional REDGLOW',
-                        onNotifications: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const NotificationsScreen(
-                              role: UserRole.provider,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _OnlineCard(
-                        isOnline: isOnline,
-                        onChanged: (value) {
-                          if (state.isDemoSession) {
-                            setState(() => _demoOnline = value);
-                          } else {
-                            state.setProviderOnline(value);
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      _ProviderProfileStatus(state: state),
-                      const SizedBox(height: 12),
-                      _BookingStatusCard(state: state, isOnline: isOnline),
-                      const SizedBox(height: 12),
-                      _SingleDashboardCard(state: state),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _ShortcutCard(
-                              icon: Icons.verified_user_outlined,
-                              title: 'ID profissional',
-                              subtitle: state.identityVerified
-                                  ? 'Verificado'
-                                  : 'Pendente',
-                              color: state.identityVerified
-                                  ? AppColors.green
-                                  : AppColors.primary,
-                              onTap: () {
-                                if (state.identityVerified) {
-                                  _showInfo(
-                                    context,
-                                    'Identidade verificada',
-                                    'Seu perfil está marcado como verificado nesta sessão.',
-                                  );
-                                  return;
-                                }
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        const IdentityVerificationScreen(),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _ShortcutCard(
-                              icon: Icons.workspace_premium_outlined,
-                              title: 'Plano profissional',
-                              subtitle: state.professionalPlanActive
-                                  ? 'Ativo'
-                                  : 'Conhecer plano',
-                              color: state.professionalPlanActive
-                                  ? AppColors.green
-                                  : AppColors.purple,
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const SubscriptionScreen(),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      _MenuCard(
-                        icon: Icons.manage_accounts_outlined,
-                        color: AppColors.primary,
-                        title: 'Editar dados profissionais',
-                        subtitle: 'Nome, telefone, nicho principal e valor base',
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const EditProfileScreen(
-                              role: UserRole.provider,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 9),
-                      _MenuCard(
-                        icon: Icons.reviews_outlined,
-                        color: AppColors.purple,
-                        title: 'Avaliações e relatos',
-                        subtitle: 'Acompanhe o retorno dos atendimentos',
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const ReviewsScreen(
-                              viewingAsProvider: true,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 9),
-                      _MenuCard(
-                        icon: Icons.report_outlined,
-                        color: AppColors.yellow,
-                        title: 'Relatar uma situação',
-                        subtitle: 'Conduta, segurança ou problema técnico',
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const ReportIssueScreen(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      OutlinedButton.icon(
-                        key: const Key('provider-logout'),
-                        onPressed: () => endCurrentSession(context),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          side: BorderSide(
-                            color: AppColors.primary.withValues(alpha: .5),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppRadius.md),
-                          ),
-                        ),
-                        icon: const Icon(Icons.logout_rounded, size: 18),
-                        label: Text(
-                          state.isDemoSession
-                              ? 'Sair da conta demonstrativa'
-                              : 'Sair da conta',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const AccountDeletionButton(),
-                    ],
-                  ),
-                ),
+              child: IndexedStack(
+                index: _currentIndex,
+                children: screens,
               ),
             ),
             const Positioned(
@@ -219,15 +272,61 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
             ),
           ],
         ),
+        bottomNavigationBar: NavigationBarTheme(
+          data: NavigationBarThemeData(
+            backgroundColor: AppColors.surface,
+            indicatorColor: AppColors.primary.withValues(alpha: .15),
+            iconTheme: WidgetStateProperty.resolveWith((states) {
+              return IconThemeData(
+                color: states.contains(WidgetState.selected)
+                    ? AppColors.primary
+                    : AppColors.textMuted,
+                size: 21,
+              );
+            }),
+          ),
+          child: NavigationBar(
+            selectedIndex: _currentIndex,
+            height: 66,
+            labelBehavior:
+                NavigationDestinationLabelBehavior.alwaysHide,
+            onDestinationSelected: _selectTab,
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.home_rounded),
+                label: 'Painel',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.calendar_month_rounded),
+                label: 'Atendimentos',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.insights_rounded),
+                label: 'Desempenho',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.person_rounded),
+                label: 'Perfil',
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.name, required this.onNotifications});
+  const _Header({
+    required this.name,
+    required this.photoUrl,
+    required this.onProfile,
+    required this.onNotifications,
+  });
 
   final String name;
+  final String photoUrl;
+  final VoidCallback onProfile;
   final VoidCallback onNotifications;
 
   @override
@@ -258,6 +357,18 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
+        InkWell(
+          onTap: onProfile,
+          customBorder: const CircleBorder(),
+          child: ProfileAvatar(
+            key: const Key('provider-home-avatar'),
+            imageUrl: photoUrl,
+            fallbackText: name,
+            size: 42,
+            borderColor: AppColors.purple,
+          ),
+        ),
+        const SizedBox(width: 8),
         IconButton(
           onPressed: onNotifications,
           icon: const Icon(Icons.notifications_none_rounded),
@@ -295,7 +406,7 @@ class _OnlineCard extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              isOnline ? Icons.wifi_tethering_rounded : Icons.pause_rounded,
+              isOnline ? Icons.wifi_tethering_rounded : Icons.wifi_off_rounded,
               color: isOnline ? AppColors.green : AppColors.textMuted,
             ),
           ),
@@ -305,7 +416,7 @@ class _OnlineCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isOnline ? 'Disponível para receber pedidos' : 'Pausada',
+                  isOnline ? 'Online' : 'Offline',
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w900,
@@ -313,8 +424,8 @@ class _OnlineCard extends StatelessWidget {
                 ),
                 Text(
                   isOnline
-                      ? 'Seu perfil pode aparecer na busca da cliente.'
-                      : 'Você não aparecerá como disponível.',
+                      ? 'Disponível para receber pedidos e compartilhar sua posição durante o uso.'
+                      : 'Perfil oculto das buscas e localização não compartilhada.',
                   style: const TextStyle(
                     fontSize: 8,
                     color: AppColors.textSecondary,
@@ -338,9 +449,8 @@ class _ProviderProfileStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (state.isDemoSession) {
-      final category = RedGlowServiceCatalog.byLabel(state.providerSpecialty);
       return _ServicesProfileCard(
-        category: category.label,
+        categories: state.providerSpecialties,
         services: state.demoProviderServices,
         demo: true,
       );
@@ -348,7 +458,7 @@ class _ProviderProfileStatus extends StatelessWidget {
 
     if (Firebase.apps.isEmpty || FirebaseAuth.instance.currentUser == null) {
       return const _ServicesProfileCard(
-        category: 'Perfil indisponível',
+        categories: ['Perfil indisponível'],
         services: [],
         demo: false,
       );
@@ -365,12 +475,18 @@ class _ProviderProfileStatus extends StatelessWidget {
         final category = RedGlowServiceCatalog.normalizeLabel(
           data['specialty'] as String?,
         );
+        final rawSpecialties = data['specialties'];
+        final categories = RedGlowServiceCatalog.normalizeLabels(
+          rawSpecialties is List
+              ? rawSpecialties.whereType<String>()
+              : <String>[category],
+        );
         final rawServices = data['services'];
         final services = rawServices is List
             ? rawServices.whereType<String>().toList(growable: false)
             : const <String>[];
         return _ServicesProfileCard(
-          category: category,
+          categories: categories.isEmpty ? <String>[category] : categories,
           services: services,
           demo: false,
         );
@@ -381,12 +497,12 @@ class _ProviderProfileStatus extends StatelessWidget {
 
 class _ServicesProfileCard extends StatelessWidget {
   const _ServicesProfileCard({
-    required this.category,
+    required this.categories,
     required this.services,
     required this.demo,
   });
 
-  final String category;
+  final List<String> categories;
   final List<String> services;
   final bool demo;
 
@@ -419,8 +535,8 @@ class _ServicesProfileCard extends StatelessWidget {
                   children: [
                     Text(
                       incomplete
-                          ? 'Complete os serviços que você realiza'
-                          : '$category · ${services.length} serviço(s)',
+                          ? 'Complete seus dados e serviços profissionais'
+                          : 'Dados, nichos e serviços profissionais',
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w900,
@@ -429,7 +545,7 @@ class _ServicesProfileCard extends StatelessWidget {
                     Text(
                       incomplete
                           ? 'A cliente precisa saber exatamente o que pode contratar.'
-                          : services.take(3).join(' · '),
+                          : '${categories.join(' · ')}\n${services.take(3).join(' · ')}',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -461,6 +577,227 @@ class _ServicesProfileCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ProviderLocationCard extends StatelessWidget {
+  const _ProviderLocationCard({
+    required this.state,
+    required this.isOnline,
+  });
+
+  final DemoAppState state;
+  final bool isOnline;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlowCard(
+      key: const Key('provider-location-card'),
+      borderColor: isOnline
+          ? AppColors.route.withValues(alpha: .45)
+          : AppColors.border,
+      onTap: () async {
+        final succeeded = await state.refreshLocation();
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              succeeded
+                  ? 'Localização atualizada.'
+                  : state.locationSummary,
+            ),
+          ),
+        );
+      },
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.route.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.my_location_rounded,
+                  color: AppColors.route,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isOnline
+                          ? 'Localização compartilhada durante o uso'
+                          : 'Localização não compartilhada',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      state.locationSummary,
+                      style: const TextStyle(
+                        fontSize: 8,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    if (state.hasCurrentLocation)
+                      Text(
+                        '${state.accountLatitude!.toStringAsFixed(5)}, '
+                        '${state.accountLongitude!.toStringAsFixed(5)}',
+                        style: const TextStyle(
+                          fontSize: 8,
+                          color: AppColors.route,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              state.locationLoading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(
+                      Icons.refresh_rounded,
+                      color: AppColors.textMuted,
+                    ),
+            ],
+          ),
+          if (isOnline && state.hasCurrentLocation) ...[
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: const SizedBox(
+                height: 150,
+                child: UrbanGpsMap(
+                  showEtaChip: false,
+                  compactRoute: true,
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Prévia da área de deslocamento. A rota e o ETA são calculados quando uma cliente solicita o serviço.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 7,
+                color: AppColors.textMuted,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ProviderBookingQueue extends StatelessWidget {
+  const _ProviderBookingQueue({required this.state});
+
+  final DemoAppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    if (state.isDemoSession) return const SizedBox.shrink();
+    final bookings = state.bookingHistory
+        .where(
+          (booking) =>
+              {
+                'requested',
+                'accepted',
+                'onTheWay',
+                'inProgress',
+              }.contains(booking.status) ||
+              booking.status == 'completed' &&
+                  booking.providerRating == 0,
+        )
+        .toList(growable: false);
+    if (bookings.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (bookings.length > 1) ...[
+          Text(
+            'FILA ATIVA (${bookings.length})',
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
+          const SizedBox(height: 7),
+          for (final booking in bookings)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 7),
+              child: GlowCard(
+                key: Key('provider-booking-${booking.id}'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 10,
+                ),
+                borderColor: state.currentBooking?.id == booking.id
+                    ? AppColors.primary
+                    : AppColors.border,
+                onTap: () => state.selectBooking(booking),
+                child: Row(
+                  children: [
+                    Icon(
+                      booking.status == 'completed'
+                          ? Icons.star_outline_rounded
+                          : Icons.assignment_outlined,
+                      color: booking.status == 'completed'
+                          ? AppColors.yellow
+                          : AppColors.primary,
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            booking.clientName,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          Text(
+                            '${booking.serviceName} · '
+                            '${_bookingStatusText(booking.status)}',
+                            style: const TextStyle(
+                              fontSize: 8,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      RedGlowServiceCatalog.formatCurrency(
+                        booking.priceCents,
+                      ),
+                      style: const TextStyle(
+                        fontSize: 9,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppColors.textMuted,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: 5),
+        ],
+      ],
     );
   }
 }
@@ -536,6 +873,15 @@ class _BookingStatusCard extends StatelessWidget {
               style: const TextStyle(fontSize: 8, color: Colors.redAccent),
             ),
           ],
+          if (hasRealBooking &&
+              !{
+                DemoBookingStatus.idle,
+                DemoBookingStatus.cancelled,
+                DemoBookingStatus.reviewed,
+              }.contains(status)) ...[
+            const SizedBox(height: 12),
+            _ProviderLifecycleTimeline(state: state),
+          ],
           const SizedBox(height: 12),
           _BookingAction(state: state, isOnline: isOnline),
         ],
@@ -568,7 +914,12 @@ class _BookingAction extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: FilledButton(
-                onPressed: state.acceptBooking,
+                onPressed: state.backendLoading
+                    ? null
+                    : () => _executeBookingAction(
+                          context,
+                          state.acceptBooking(),
+                        ),
                 child: const Text('Aceitar'),
               ),
             ),
@@ -580,7 +931,11 @@ class _BookingAction extends StatelessWidget {
             GradientButton(
               label: 'Iniciar deslocamento',
               icon: Icons.route_rounded,
-              onPressed: state.startTrip,
+              enabled: !state.backendLoading,
+              onPressed: () => _executeBookingAction(
+                context,
+                state.startTrip(),
+              ),
             ),
             const SizedBox(height: 6),
             TextButton(
@@ -596,27 +951,63 @@ class _BookingAction extends StatelessWidget {
         return GradientButton(
           label: 'Iniciar atendimento',
           icon: Icons.play_arrow_rounded,
-          onPressed: state.startService,
+          enabled: !state.backendLoading,
+          onPressed: () => _executeBookingAction(
+            context,
+            state.startService(),
+          ),
         );
       case DemoBookingStatus.inProgress:
         return GradientButton(
           label: 'Concluir atendimento',
           icon: Icons.check_circle_outline_rounded,
-          onPressed: state.completeService,
+          enabled: !state.backendLoading,
+          onPressed: () => _executeBookingAction(
+            context,
+            state.completeService(),
+          ),
           gradient: const LinearGradient(
             colors: [Color(0xFF0FBF8B), Color(0xFF0E9F75)],
           ),
         );
       case DemoBookingStatus.completed:
-      case DemoBookingStatus.reviewed:
+        if (!state.isDemoSession &&
+            (state.currentBooking?.providerRating ?? 0) > 0) {
+          return OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const ReviewsScreen(
+                  viewingAsProvider: true,
+                ),
+              ),
+            ),
+            icon: const Icon(Icons.hourglass_top_rounded),
+            label: const Text('Avaliação enviada · aguardar cliente'),
+          );
+        }
         return OutlinedButton.icon(
           onPressed: () => Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => const RatingScreen(reviewingClient: true),
+              builder: (_) => RatingScreen(
+                reviewingClient: true,
+                bookingId: state.currentBooking?.id,
+              ),
             ),
           ),
           icon: const Icon(Icons.star_outline_rounded),
           label: const Text('Avaliar cliente'),
+        );
+      case DemoBookingStatus.reviewed:
+        return OutlinedButton.icon(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const ReviewsScreen(
+                viewingAsProvider: true,
+              ),
+            ),
+          ),
+          icon: const Icon(Icons.reviews_outlined),
+          label: const Text('Ver avaliações'),
         );
       case DemoBookingStatus.cancelled:
       case DemoBookingStatus.idle:
@@ -637,10 +1028,140 @@ class _BookingAction extends StatelessWidget {
   }
 }
 
-class _SingleDashboardCard extends StatelessWidget {
-  const _SingleDashboardCard({required this.state});
+class _ProviderLifecycleTimeline extends StatelessWidget {
+  const _ProviderLifecycleTimeline({required this.state});
 
   final DemoAppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentIndex = switch (state.bookingStatus) {
+      DemoBookingStatus.requested => 0,
+      DemoBookingStatus.accepted => 1,
+      DemoBookingStatus.onTheWay => 2,
+      DemoBookingStatus.inProgress => 3,
+      DemoBookingStatus.completed || DemoBookingStatus.reviewed => 4,
+      _ => -1,
+    };
+    const labels = ['Aceitar', 'Trajeto', 'Iniciar', 'Concluir', 'Avaliar'];
+
+    Future<bool>? nextAction(int index) {
+      if (index != currentIndex) return null;
+      return switch (state.bookingStatus) {
+        DemoBookingStatus.requested => state.acceptBooking(),
+        DemoBookingStatus.accepted => state.startTrip(),
+        DemoBookingStatus.onTheWay => state.startService(),
+        DemoBookingStatus.inProgress => state.completeService(),
+        _ => null,
+      };
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'ETAPAS DO ATENDIMENTO · TOQUE NA PRÓXIMA AÇÃO',
+          style: TextStyle(
+            fontSize: 7,
+            color: AppColors.textMuted,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            for (var index = 0; index < labels.length; index++) ...[
+              Expanded(
+                child: InkWell(
+                  key: Key('provider-step-$index'),
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: index == currentIndex &&
+                          index < 4 &&
+                          !state.backendLoading
+                      ? () {
+                          final action = nextAction(index);
+                          if (action != null) {
+                            _executeBookingAction(context, action);
+                          }
+                        }
+                      : null,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Column(
+                      children: [
+                        Icon(
+                          index < currentIndex
+                              ? Icons.check_circle_rounded
+                              : index == currentIndex
+                                  ? Icons.touch_app_rounded
+                                  : Icons.circle_outlined,
+                          size: 18,
+                          color: index < currentIndex
+                              ? AppColors.green
+                              : index == currentIndex
+                                  ? AppColors.primary
+                                  : AppColors.textMuted,
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          labels[index],
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 6.5,
+                            color: index == currentIndex
+                                ? AppColors.primary
+                                : AppColors.textMuted,
+                            fontWeight: index == currentIndex
+                                ? FontWeight.w900
+                                : FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (index < labels.length - 1)
+                Container(
+                  width: 5,
+                  height: 1,
+                  color: index < currentIndex
+                      ? AppColors.green
+                      : AppColors.border,
+                ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+Future<void> _executeBookingAction(
+  BuildContext context,
+  Future<bool> action,
+) async {
+  final state = DemoAppScope.of(context, listen: false);
+  final succeeded = await action;
+  if (!context.mounted || succeeded) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        state.backendError ??
+            'Não foi possível avançar esta etapa.',
+      ),
+    ),
+  );
+}
+
+class _SingleDashboardCard extends StatelessWidget {
+  const _SingleDashboardCard({
+    required this.state,
+    required this.onTap,
+  });
+
+  final DemoAppState state;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -655,9 +1176,7 @@ class _SingleDashboardCard extends StatelessWidget {
     return GlowCard(
       key: const Key('provider-main-dashboard'),
       borderColor: AppColors.purple.withValues(alpha: .45),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const ProviderAnalyticsScreen()),
-      ),
+      onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -932,6 +1451,24 @@ Color _bookingColor(DemoBookingStatus status) => switch (status) {
       DemoBookingStatus.completed || DemoBookingStatus.reviewed =>
         AppColors.green,
       DemoBookingStatus.cancelled => Colors.redAccent,
+    };
+
+String _bookingStatusText(String status) => switch (status) {
+      'requested' => 'Novo pedido',
+      'accepted' => 'Aceito',
+      'onTheWay' => 'A caminho',
+      'inProgress' => 'Em atendimento',
+      'completed' => 'Avaliação pendente',
+      'reviewed' => 'Avaliado',
+      'cancelled' => 'Cancelado',
+      _ => status,
+    };
+
+String _professionalIdLabel(String status) => switch (status) {
+      'reviewing' => 'Em análise',
+      'rejected' => 'Revisão necessária',
+      'verified' => 'Verificado',
+      _ => 'Certificados pendentes',
     };
 
 void _showInfo(BuildContext context, String title, String message) {
