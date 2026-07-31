@@ -152,8 +152,10 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                     paymentMethod: _paymentMethod,
                     providerName: state.providerName,
                     providerSpecialty: state.providerSpecialty,
-                    serviceName: state.selectedService,
-                    providerPriceCents: state.providerPriceCents,
+                    serviceNames: state.selectedServices,
+                    providerPriceCents: state.selectedPriceCents,
+                    durationMinutes: state.selectedDurationMinutes,
+                    pointsEarned: state.selectedPointsEarned,
                     providerPhotoUrl: photoUrl,
                     onConfirm: _handleConfirm,
                     onSelectPayment: _selectPayment,
@@ -176,8 +178,10 @@ class _OrderSheet extends StatelessWidget {
     required this.paymentMethod,
     required this.providerName,
     required this.providerSpecialty,
-    required this.serviceName,
+    required this.serviceNames,
     required this.providerPriceCents,
+    required this.durationMinutes,
+    required this.pointsEarned,
     required this.providerPhotoUrl,
     required this.onConfirm,
     required this.onSelectPayment,
@@ -189,8 +193,10 @@ class _OrderSheet extends StatelessWidget {
   final String paymentMethod;
   final String providerName;
   final String providerSpecialty;
-  final String serviceName;
+  final List<String> serviceNames;
   final int providerPriceCents;
+  final int durationMinutes;
+  final int pointsEarned;
   final String providerPhotoUrl;
   final VoidCallback onConfirm;
   final VoidCallback onSelectPayment;
@@ -297,8 +303,10 @@ class _OrderSheet extends StatelessWidget {
             ),
             const SizedBox(height: 9),
             _SummaryCard(
-              serviceName: serviceName,
+              serviceNames: serviceNames,
               priceCents: providerPriceCents,
+              durationMinutes: durationMinutes,
+              pointsEarned: pointsEarned,
             ),
             const SizedBox(height: 9),
             _PaymentCard(
@@ -344,14 +352,20 @@ class _OrderSheet extends StatelessWidget {
 }
 
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.serviceName, required this.priceCents});
+  const _SummaryCard({
+    required this.serviceNames,
+    required this.priceCents,
+    required this.durationMinutes,
+    required this.pointsEarned,
+  });
 
-  final String serviceName;
+  final List<String> serviceNames;
   final int priceCents;
+  final int durationMinutes;
+  final int pointsEarned;
 
   @override
   Widget build(BuildContext context) {
-    final category = RedGlowServiceCatalog.byServiceOrLabel(serviceName);
     return GlowCard(
       padding: const EdgeInsets.all(10),
       radius: 14,
@@ -375,15 +389,19 @@ class _SummaryCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      serviceName,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w900,
+                    for (final service in serviceNames)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text(
+                          service,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
                       ),
-                    ),
                     Text(
-                      'Duração de referência: ${category.estimatedMinutes} min',
+                      'Duração estimada: $durationMinutes min · +$pointsEarned pontos após concluir',
                       style: const TextStyle(
                         fontSize: 8,
                         color: AppColors.textSecondary,

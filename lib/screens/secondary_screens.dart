@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 import '../widgets/account_deletion_action.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/cancellation_flow.dart';
+import '../widgets/service_selection_sheet.dart';
 import 'identity_verification_screen.dart';
 import '../models/user_role.dart';
 import 'edit_profile_screen.dart';
@@ -195,9 +196,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     ({String name, String specialty, String price, String image, bool bookable}) professional,
   ) {
     if (professional.bookable) {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const OrderConfirmationScreen()),
-      );
+      _openBookingSelection(context);
       return;
     }
     _showInfoSheet(
@@ -206,6 +205,42 @@ class _ExploreScreenState extends State<ExploreScreen> {
       '${professional.specialty} · ${professional.price}. Esta profissional ainda faz parte somente da vitrine demonstrativa.',
     );
   }
+}
+
+Future<void> _openBookingSelection(BuildContext context) async {
+  final state = DemoAppScope.of(context, listen: false);
+  final professional = state.selectedProfessional ??
+      (state.isDemoSession
+          ? MarketplaceProfessional(
+              uid: 'demo-lari',
+              name: 'Lari (Manicure)',
+              specialty: state.demoProviderSpecialty,
+              specialties: state.demoProviderSpecialties,
+              priceCents: state.demoProviderPriceCents,
+              rating: 4.9,
+              services: state.demoProviderServices,
+              servicePricesCents: state.demoProviderServicePricesCents,
+              isOnline: true,
+            )
+          : null);
+  if (professional == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Busque uma profissional online antes de agendar.'),
+      ),
+    );
+    return;
+  }
+  final selected = await showServiceSelectionSheet(
+    context,
+    professional: professional,
+    initialServices: state.selectedServiceNames,
+  );
+  if (!context.mounted || selected == null) return;
+  state.selectProfessional(professional, serviceNames: selected);
+  Navigator.of(context).push(
+    MaterialPageRoute(builder: (_) => const OrderConfirmationScreen()),
+  );
 }
 
 String _formatMarketplaceCurrency(int cents) {
@@ -289,7 +324,7 @@ class BookingsScreen extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                booking.serviceName,
+                                booking.serviceNames.join(' + '),
                                 style: const TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w900,
@@ -345,8 +380,8 @@ class BookingsScreen extends StatelessWidget {
                           children: [
                             Text(state.providerName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
                             Text(
-                              '${selectedBooking?.serviceName ?? state.selectedService} · '
-                              '${_formatMarketplaceCurrency(selectedBooking?.priceCents ?? state.providerPriceCents)}',
+                              '${selectedBooking?.serviceNames.join(' + ') ?? state.selectedService} · '
+                              '${_formatMarketplaceCurrency(selectedBooking?.priceCents ?? state.selectedPriceCents)}',
                               style: const TextStyle(
                                 fontSize: 9,
                                 color: AppColors.textSecondary,
@@ -401,9 +436,7 @@ class BookingsScreen extends StatelessWidget {
                       key: const Key('booking-start'),
                       label: 'Agendar com ${state.providerName}',
                       icon: Icons.calendar_month_rounded,
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const OrderConfirmationScreen()),
-                      ),
+                      onPressed: () => _openBookingSelection(context),
                     )
                   else if (status == DemoBookingStatus.requested)
                     OutlinedButton.icon(
@@ -488,11 +521,7 @@ class BookingsScreen extends StatelessWidget {
                     )
                   else
                     OutlinedButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const OrderConfirmationScreen(),
-                        ),
-                      ),
+                      onPressed: () => _openBookingSelection(context),
                       icon: const Icon(Icons.add_rounded),
                       label: const Text('Iniciar novo atendimento'),
                     ),

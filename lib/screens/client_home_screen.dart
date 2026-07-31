@@ -8,10 +8,13 @@ import '../services/firebase_marketplace_service.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/brand_logo.dart';
+import '../widgets/service_selection_sheet.dart';
 import 'identity_verification_screen.dart';
 import 'notifications_screen.dart';
 import 'order_confirmation_screen.dart';
 import 'rating_screen.dart';
+import 'rewards_screen.dart';
 import 'trip_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -50,7 +53,7 @@ class HomeScreen extends StatelessWidget {
           children: [
             _HomeHeader(state: state),
             const SizedBox(height: 14),
-            _PointsCard(points: state.points, isDemo: state.isDemoSession),
+            _PointsCard(points: state.points),
             const SizedBox(height: 20),
             SectionTitle(
               title: 'Atendimentos REDGLOW',
@@ -159,11 +162,7 @@ class _HomeHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Icon(
-          Icons.location_on_rounded,
-          size: 19,
-          color: AppColors.primary,
-        ),
+        const RedGlowBrandMark(size: 34),
         const SizedBox(width: 7),
         Expanded(
           child: InkWell(
@@ -245,10 +244,9 @@ class _HomeHeader extends StatelessWidget {
 }
 
 class _PointsCard extends StatelessWidget {
-  const _PointsCard({required this.points, required this.isDemo});
+  const _PointsCard({required this.points});
 
   final int points;
-  final bool isDemo;
 
   String get formattedPoints => points.toString().replaceAllMapped(
         RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
@@ -327,7 +325,7 @@ class _PointsCard extends StatelessWidget {
                       style: TextStyle(fontSize: 8, color: Colors.white70),
                     ),
                     Text(
-                      '3.000 pts',
+                      '10 pts',
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                     ),
                   ],
@@ -350,33 +348,15 @@ class _PointsCard extends StatelessWidget {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () {
-                    final state = DemoAppScope.of(context, listen: false);
-                    if (!isDemo) {
-                      _showInfo(
-                        context,
-                        'Catálogo em validação',
-                        'O saldo real já é exibido. O resgate será ativado no beta após o catálogo de recompensas e os parceiros serem cadastrados.',
-                      );
-                      return;
-                    }
-                    final success = state.redeemPoints();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          success
-                              ? 'Resgate demonstrativo concluído.'
-                              : 'Você ainda não atingiu 3.000 pontos.',
-                        ),
-                      ),
-                    );
-                  },
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const RewardsScreen()),
+                  ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
                     side: const BorderSide(color: Colors.white38),
                   ),
                   icon: const Icon(Icons.redeem_rounded, size: 16),
-                  label: const Text('Testar resgate'),
+                  label: const Text('Ver recompensas'),
                 ),
               ),
               const SizedBox(width: 9),
@@ -385,7 +365,7 @@ class _PointsCard extends StatelessWidget {
                   onPressed: () => _showInfo(
                     context,
                     'Como ganhar pontos',
-                    'No beta, os pontos serão testados após atendimentos concluídos e avaliados. Recompensas reais dependerão do catálogo dos parceiros.',
+                    'Os pontos entram após a conclusão do atendimento. Cancelamentos não pontuam. A reserva do produto ainda é um teste sem entrega ou cobrança real.',
                   ),
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.white,
@@ -767,28 +747,36 @@ class _AvailableProfessionalCard extends StatelessWidget {
     final specialty = state.isDemoSession
         ? 'Manicure'
         : realProfessional?.specialty ?? state.providerSpecialty;
-    final priceCents = state.isDemoSession
-        ? state.demoProviderPriceCents
-        : realProfessional?.priceCents ?? state.providerPriceCents;
     final photoUrl = state.isDemoSession
         ? 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=240'
         : realProfessional?.photoUrl ?? '';
+    final startingPriceCents = state.isDemoSession
+        ? state.demoProviderServicePricesCents.values.reduce(
+            (current, next) => current < next ? current : next,
+          )
+        : realProfessional?.startingPriceCents ?? state.providerPriceCents;
 
     return GlowCard(
-      onTap: () {
+      onTap: () async {
         final professional = realProfessional ??
             MarketplaceProfessional(
               uid: 'demo-lari',
               name: name,
               specialty: specialty,
               specialties: state.demoProviderSpecialties,
-              priceCents: priceCents,
+              priceCents: state.demoProviderPriceCents,
               rating: 4.9,
               services: state.demoProviderServices,
+              servicePricesCents: state.demoProviderServicePricesCents,
               isOnline: true,
               photoUrl: photoUrl,
             );
-        state.selectProfessional(professional);
+        final selected = await showServiceSelectionSheet(
+          context,
+          professional: professional,
+        );
+        if (!context.mounted || selected == null) return;
+        state.selectProfessional(professional, serviceNames: selected);
         Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const OrderConfirmationScreen()),
         );
@@ -837,8 +825,12 @@ class _AvailableProfessionalCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
+              const Text(
+                'A partir de',
+                style: TextStyle(fontSize: 7, color: AppColors.textMuted),
+              ),
               Text(
-                RedGlowServiceCatalog.formatCurrency(priceCents),
+                RedGlowServiceCatalog.formatCurrency(startingPriceCents),
                 style: const TextStyle(
                   color: AppColors.primary,
                   fontSize: 12,

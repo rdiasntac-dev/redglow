@@ -178,7 +178,7 @@ class BookingHistoryScreen extends StatelessWidget {
     final value = (booking.priceCents / 100).toStringAsFixed(2).replaceAll('.', ',');
     return _HistoryEntry(
       counterpart: role == UserRole.provider ? booking.clientName : booking.providerName,
-      service: booking.serviceName,
+      service: booking.serviceNames.join(' + '),
       price: 'R\$ $value',
       date: '${booking.createdAt.day.toString().padLeft(2, '0')}/${booking.createdAt.month.toString().padLeft(2, '0')}',
       status: status,

@@ -419,14 +419,12 @@ class _ProviderAnalyticsScreenState extends State<ProviderAnalyticsScreen> {
     }
     final counts = <String, int>{};
     for (final booking in state.bookingHistory) {
-      if ((booking.status == 'completed' ||
-              booking.status == 'reviewed') &&
-          state.providerServices.contains(booking.serviceName)) {
-        counts.update(
-          booking.serviceName,
-          (value) => value + 1,
-          ifAbsent: () => 1,
-        );
+      if (booking.status != 'completed' && booking.status != 'reviewed') {
+        continue;
+      }
+      for (final service in booking.serviceNames) {
+        if (!state.providerServices.contains(service)) continue;
+        counts.update(service, (value) => value + 1, ifAbsent: () => 1);
       }
     }
     final entries = counts.entries.toList()

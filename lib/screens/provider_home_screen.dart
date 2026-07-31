@@ -11,6 +11,7 @@ import '../theme/app_theme.dart';
 import '../widgets/account_deletion_action.dart';
 import '../widgets/cancellation_flow.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/brand_logo.dart';
 import '../widgets/emergency_action.dart';
 import '../widgets/gps_map.dart';
 import 'booking_history_screen.dart';
@@ -333,6 +334,8 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
+        const RedGlowBrandMark(size: 34),
+        const SizedBox(width: 8),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -767,7 +770,7 @@ class _ProviderBookingQueue extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            '${booking.serviceName} · '
+                            '${booking.serviceNames.join(' + ')} · '
                             '${_bookingStatusText(booking.status)}',
                             style: const TextStyle(
                               fontSize: 8,

@@ -58,4 +58,53 @@ void main() {
       isFalse,
     );
   });
+
+  test('each service has its own minimum, quote, duration and points', () {
+    expect(
+      RedGlowServiceCatalog.referencePriceCents('Manicure tradicional'),
+      6000,
+    );
+    expect(
+      RedGlowServiceCatalog.referencePriceCents('Esmaltação em gel'),
+      7500,
+    );
+    expect(
+      RedGlowServiceCatalog.minimumPriceCents('Manicure tradicional'),
+      lessThanOrEqualTo(6000),
+    );
+    expect(
+      RedGlowServiceCatalog.estimatedMinutesForService(
+        'Manicure tradicional',
+      ),
+      60,
+    );
+    expect(
+      RedGlowServiceCatalog.pointsForService('Manicure tradicional'),
+      10,
+    );
+  });
+
+  test('combined services add their individual prices', () {
+    final prices = RedGlowServiceCatalog.defaultPricesForServices(const [
+      'Manicure tradicional',
+      'Spa das mãos',
+    ]);
+    expect(
+      RedGlowServiceCatalog.totalPriceCents(
+        const ['Manicure tradicional', 'Spa das mãos'],
+        prices,
+      ),
+      12500,
+    );
+  });
+
+  test('price input accepts Brazilian and Android decimal separators', () {
+    expect(RedGlowServiceCatalog.parseCurrencyInputToCents('60'), 6000);
+    expect(RedGlowServiceCatalog.parseCurrencyInputToCents('60,00'), 6000);
+    expect(RedGlowServiceCatalog.parseCurrencyInputToCents('60.00'), 6000);
+    expect(
+      RedGlowServiceCatalog.parseCurrencyInputToCents('R\$ 1.200,50'),
+      120050,
+    );
+  });
 }

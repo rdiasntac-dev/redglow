@@ -210,6 +210,9 @@ service cloud.firestore {
         && data.rating <= 5
         && validProfessionalSpecialties(data)
         && validProfessionalServices(data)
+        && data.servicePricesCents is map
+        && data.servicePricesCents.keys().hasOnly(data.services)
+        && data.servicePricesCents.keys().hasAll(data.services)
         && data.isOnline is bool
         && (
           data.photoUrl == null
@@ -226,7 +229,13 @@ service cloud.firestore {
         && request.resource.data.clientName == resource.data.clientName
         && request.resource.data.providerName == resource.data.providerName
         && request.resource.data.serviceName == resource.data.serviceName
+        && request.resource.data.get(
+          'serviceNames',
+          [request.resource.data.serviceName]
+        ) == resource.data.get('serviceNames', [resource.data.serviceName])
         && request.resource.data.priceCents == resource.data.priceCents
+        && request.resource.data.get('pointsEarned', 0)
+          == resource.data.get('pointsEarned', 0)
         && request.resource.data.address == resource.data.address
         && request.resource.data.paymentMethod == resource.data.paymentMethod
         && request.resource.data.clientLocation == resource.data.clientLocation
@@ -402,6 +411,7 @@ service cloud.firestore {
           'priceCents',
           'rating',
           'services',
+          'servicePricesCents',
           'isOnline',
           'photoUrl',
           'professionalIdStatus',
@@ -417,6 +427,7 @@ service cloud.firestore {
           'priceCents',
           'rating',
           'services',
+          'servicePricesCents',
           'isOnline',
           'photoUrl',
           'professionalIdStatus',
@@ -448,6 +459,7 @@ service cloud.firestore {
             'photoUrl',
             'isOnline',
             'services',
+            'servicePricesCents',
             'professionalIdStatus',
             'location',
             'updatedAt'
@@ -481,7 +493,9 @@ service cloud.firestore {
           'clientName',
           'providerName',
           'serviceName',
+          'serviceNames',
           'priceCents',
+          'pointsEarned',
           'address',
           'clientLocation',
           'providerLocation',
@@ -497,14 +511,33 @@ service cloud.firestore {
         ])
         && request.resource.data.providerName
           == selectedProfessional(request.resource.data.providerId).data.name
-        && request.resource.data.priceCents
-          == selectedProfessional(request.resource.data.providerId).data.priceCents
+        && request.resource.data.priceCents is int
+        && request.resource.data.priceCents >= 4000
+        && request.resource.data.priceCents <= 1000000
         && request.resource.data.serviceName is string
         && request.resource.data.serviceName.size() > 0
         && selectedProfessional(request.resource.data.providerId).data.services
           is list
         && request.resource.data.serviceName
           in selectedProfessional(request.resource.data.providerId).data.services
+        && (
+          !('servicePricesCents' in
+            selectedProfessional(request.resource.data.providerId).data)
+          || request.resource.data.priceCents >=
+            selectedProfessional(request.resource.data.providerId)
+              .data.servicePricesCents[request.resource.data.serviceName]
+        )
+        && request.resource.data.serviceNames is list
+        && request.resource.data.serviceNames.size() > 0
+        && request.resource.data.serviceNames.size() <= 8
+        && request.resource.data.serviceNames[0]
+          == request.resource.data.serviceName
+        && request.resource.data.serviceNames.hasOnly(
+          selectedProfessional(request.resource.data.providerId).data.services
+        )
+        && request.resource.data.pointsEarned is int
+        && request.resource.data.pointsEarned >= 5
+        && request.resource.data.pointsEarned <= 480
         && request.resource.data.clientName is string
         && request.resource.data.clientName.size() >= 2
         && request.resource.data.clientName.size() <= 80
@@ -590,6 +623,35 @@ service cloud.firestore {
     match /subscriptions/{uid} {
       allow read: if isSelf(uid);
       allow write: if false;
+    }
+
+    match /rewardRedemptions/{redemptionId} {
+      allow create: if hasRole('client')
+        && request.resource.data.clientId == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'clientId',
+          'rewardId',
+          'rewardName',
+          'partnerName',
+          'pointsCost',
+          'status',
+          'voucherCode',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.rewardId == 'earrings-demo'
+        && request.resource.data.rewardName == 'Par de brincos Glow'
+        && request.resource.data.partnerName == 'Parceira Bella Acessórios'
+        && request.resource.data.pointsCost == 10
+        && request.resource.data.status == 'reserved'
+        && request.resource.data.voucherCode is string
+        && request.resource.data.voucherCode.size() >= 8
+        && request.resource.data.voucherCode.size() <= 24
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow read: if signedIn()
+        && (resource.data.clientId == request.auth.uid || isAdmin());
+      allow update, delete: if false;
     }
 
     match /professionalCredentials/{uid} {

@@ -34,7 +34,7 @@ extension DemoBookingStatusLabel on DemoBookingStatus {
 }
 
 class DemoAppState extends ChangeNotifier {
-  static const pointsRedemptionCost = 3000;
+  static const pointsRedemptionCost = 10;
 
   FirebaseMarketplaceService? _marketplaceService;
   DeviceLocationService? _locationService;
@@ -44,6 +44,8 @@ class DemoAppState extends ChangeNotifier {
   StreamSubscription<String?>? _quickMessageSubscription;
   StreamSubscription<MarketplaceRating?>? _clientRatingSubscription;
   StreamSubscription<MarketplaceRating?>? _providerRatingSubscription;
+  StreamSubscription<List<MarketplaceRewardRedemption>>?
+      _rewardRedemptionsSubscription;
   int _sessionVersion = 0;
   bool _disposed = false;
 
@@ -75,16 +77,30 @@ class DemoAppState extends ChangeNotifier {
     'Spa dos pés',
     'Manicure e pedicure',
   ];
+  Map<String, int> demoProviderServicePricesCents =
+      RedGlowServiceCatalog.defaultPricesForServices(const [
+    'Manicure tradicional',
+    'Esmaltação em gel',
+    'Spa das mãos',
+    'Pedicure tradicional',
+    'Spa dos pés',
+    'Manicure e pedicure',
+  ]);
   String? currentUserId;
   MarketplaceProfessional? selectedProfessional;
   String? selectedServiceName;
+  List<String> selectedServiceNames = [];
   MarketplaceBooking? currentBooking;
   List<MarketplaceBooking> bookingHistory = [];
   bool backendLoading = false;
   String? backendError;
   bool providerOnline = true;
   DemoBookingStatus bookingStatus = DemoBookingStatus.idle;
-  int points = 2480;
+  int points = 0;
+  int _legacyPoints = 0;
+  int _earnedPoints = 0;
+  int _redeemedPoints = 0;
+  List<MarketplaceRewardRedemption> rewardRedemptions = [];
   bool clientIdentityVerified = false;
   bool providerIdentityVerified = false;
   bool professionalPlanActive = false;
@@ -117,6 +133,10 @@ class DemoAppState extends ChangeNotifier {
 
   int get providerPriceCents =>
       selectedProfessional?.priceCents ?? demoProviderPriceCents;
+
+  Map<String, int> get providerServicePricesCents =>
+      selectedProfessional?.servicePricesCents ??
+      demoProviderServicePricesCents;
 
   List<String> get providerServices =>
       selectedProfessional?.services ?? demoProviderServices;
@@ -172,8 +192,27 @@ class DemoAppState extends ChangeNotifier {
       .toList(growable: false);
 
   String get selectedService =>
-      selectedServiceName ??
-      (providerServices.isNotEmpty ? providerServices.first : providerSpecialty);
+      selectedServices.join(' + ');
+
+  List<String> get selectedServices {
+    if (selectedServiceNames.isNotEmpty) {
+      return List.unmodifiable(selectedServiceNames);
+    }
+    final fallback = selectedServiceName ??
+        (providerServices.isNotEmpty ? providerServices.first : providerSpecialty);
+    return <String>[fallback];
+  }
+
+  int get selectedPriceCents => RedGlowServiceCatalog.totalPriceCents(
+        selectedServices,
+        providerServicePricesCents,
+      );
+
+  int get selectedDurationMinutes =>
+      RedGlowServiceCatalog.totalMinutes(selectedServices);
+
+  int get selectedPointsEarned =>
+      RedGlowServiceCatalog.totalPoints(selectedServices);
 
   bool get hasActiveBooking => !{
         DemoBookingStatus.idle,
@@ -215,11 +254,16 @@ class DemoAppState extends ChangeNotifier {
       locationError = null;
       selectedProfessional = null;
       selectedServiceName = null;
+      selectedServiceNames = [];
       currentBooking = null;
       bookingHistory = [];
       isAdmin = false;
       if (!previousSessionWasDemo) {
-        points = 2480;
+        points = 0;
+        _legacyPoints = 0;
+        _earnedPoints = 0;
+        _redeemedPoints = 0;
+        rewardRedemptions = [];
         bookingStatus = DemoBookingStatus.idle;
         clientIdentityVerified = false;
         providerIdentityVerified = false;
@@ -242,8 +286,13 @@ class DemoAppState extends ChangeNotifier {
       simulatedCancellationFeeCents = 0;
       selectedProfessional = null;
       selectedServiceName = null;
+      selectedServiceNames = [];
       currentBooking = null;
       bookingHistory = [];
+      rewardRedemptions = [];
+      _legacyPoints = 0;
+      _earnedPoints = 0;
+      _redeemedPoints = 0;
       isAdmin = false;
       accountPhotoUrl = null;
       accountLatitude = null;
@@ -258,6 +307,29 @@ class DemoAppState extends ChangeNotifier {
 
   Future<bool> requestBooking({String paymentMethod = 'Pix'}) async {
     if (isDemoSession) {
+      final now = DateTime.now();
+      currentBooking = MarketplaceBooking(
+        id: 'demo-${now.microsecondsSinceEpoch}',
+        clientId: 'demo-client',
+        providerId: selectedProfessional?.uid ?? 'demo-lari',
+        clientName: accountName ?? 'Cliente REDGLOW',
+        providerName: providerName,
+        status: 'requested',
+        serviceName: selectedServices.first,
+        serviceNames: selectedServices,
+        priceCents: selectedPriceCents,
+        pointsEarned: selectedPointsEarned,
+        address: 'R. Izabel A Redentora, 1000 — Centro, SJP',
+        paymentMethod: paymentMethod,
+        createdAt: now,
+        updatedAt: now,
+        clientRating: 0,
+        providerRating: 0,
+        cancellationReason: '',
+        cancelledBy: '',
+        simulatedFeeCents: 0,
+      );
+      bookingHistory = [currentBooking!];
       bookingStatus = DemoBookingStatus.requested;
       lastQuickMessage = null;
       lastCancellationReason = '';
@@ -284,7 +356,7 @@ class DemoAppState extends ChangeNotifier {
         providerId: professional.uid,
         clientName: accountName ?? 'Cliente REDGLOW',
         providerName: professional.name,
-        serviceName: selectedService,
+        serviceNames: selectedServices,
         paymentMethod: paymentMethod,
         clientLatitude: accountLatitude,
         clientLongitude: accountLongitude,
@@ -295,15 +367,22 @@ class DemoAppState extends ChangeNotifier {
   void selectProfessional(
     MarketplaceProfessional professional, {
     String? serviceName,
+    List<String>? serviceNames,
   }) {
     selectedProfessional = professional;
-    final requestedService = serviceName?.trim();
-    selectedServiceName = requestedService != null &&
-            professional.services.contains(requestedService)
-        ? requestedService
+    final requestedServices = (serviceNames ??
+            (serviceName == null ? const <String>[] : <String>[serviceName]))
+        .map((service) => service.trim())
+        .where(professional.services.contains)
+        .toSet()
+        .toList(growable: false);
+    selectedServiceNames = requestedServices.isNotEmpty
+        ? requestedServices
         : professional.services.isNotEmpty
-            ? professional.services.first
-            : null;
+            ? <String>[professional.services.first]
+            : <String>[];
+    selectedServiceName =
+        selectedServiceNames.isEmpty ? null : selectedServiceNames.first;
     notifyListeners();
   }
 
@@ -335,8 +414,18 @@ class DemoAppState extends ChangeNotifier {
     return _changeBookingStatus(DemoBookingStatus.inProgress, 'inProgress');
   }
 
-  Future<bool> completeService() {
-    return _changeBookingStatus(DemoBookingStatus.completed, 'completed');
+  Future<bool> completeService() async {
+    final shouldCreditDemoPoints =
+        isDemoSession && bookingStatus != DemoBookingStatus.completed;
+    final completed = await _changeBookingStatus(
+      DemoBookingStatus.completed,
+      'completed',
+    );
+    if (completed && shouldCreditDemoPoints) {
+      points += currentBooking?.pointsEarned ?? selectedPointsEarned;
+      notifyListeners();
+    }
+    return completed;
   }
 
   Future<bool> cancelBooking({String reason = 'Outro motivo'}) async {
@@ -399,7 +488,6 @@ class DemoAppState extends ChangeNotifier {
         providerToClientTags = List.of(tags);
         providerToClientComment = comment.trim();
       } else {
-        if (clientToProviderRating == 0) points += 60;
         clientToProviderRating = rating;
         clientToProviderTags = List.of(tags);
         clientToProviderComment = comment.trim();
@@ -535,8 +623,6 @@ class DemoAppState extends ChangeNotifier {
   Future<bool> updateProfile({
     required String name,
     required String phone,
-    String? specialty,
-    int? priceCents,
   }) async {
     final cleanName = name.trim();
     final cleanPhone = phone.trim();
@@ -548,27 +634,9 @@ class DemoAppState extends ChangeNotifier {
       _setBackendError('Informe um celular válido.');
       return false;
     }
-    if (activeRole == UserRole.provider &&
-        (priceCents == null || priceCents < 1000)) {
-      _setBackendError('Informe um valor de serviço válido.');
-      return false;
-    }
-
     if (isDemoSession) {
       accountName = cleanName;
       accountPhone = cleanPhone;
-      if (activeRole == UserRole.provider) {
-        final previousSpecialty = demoProviderSpecialty;
-        demoProviderSpecialty = RedGlowServiceCatalog.normalizeLabel(
-          specialty ?? demoProviderSpecialty,
-        );
-        demoProviderPriceCents = priceCents ?? demoProviderPriceCents;
-        if (previousSpecialty != demoProviderSpecialty) {
-          demoProviderServices = List.of(
-            RedGlowServiceCatalog.byLabel(demoProviderSpecialty).services,
-          );
-        }
-      }
       notifyListeners();
       return true;
     }
@@ -584,8 +652,6 @@ class DemoAppState extends ChangeNotifier {
         role: activeRole,
         name: cleanName,
         phone: cleanPhone,
-        specialty: specialty,
-        priceCents: priceCents,
       ),
     );
   }
@@ -593,6 +659,7 @@ class DemoAppState extends ChangeNotifier {
   Future<bool> updateProviderServices({
     required List<String> specialties,
     required List<String> services,
+    Map<String, int> servicePricesCents = const {},
   }) async {
     final normalizedSpecialties =
         RedGlowServiceCatalog.normalizeLabels(specialties);
@@ -605,11 +672,20 @@ class DemoAppState extends ChangeNotifier {
       _setBackendError('Selecione pelo menos um nicho e um serviço válido.');
       return false;
     }
+    final validPrices = RedGlowServiceCatalog.sanitizeServicePrices(
+      validServices,
+      servicePricesCents,
+    );
     if (isDemoSession) {
       demoProviderSpecialty = normalizedSpecialties.first;
       demoProviderSpecialties = List.unmodifiable(normalizedSpecialties);
       demoProviderServices = List.unmodifiable(validServices);
+      demoProviderServicePricesCents = validPrices;
+      demoProviderPriceCents = validPrices.values.reduce(
+        (current, next) => current < next ? current : next,
+      );
       selectedServiceName = validServices.first;
+      selectedServiceNames = [validServices.first];
       notifyListeners();
       return true;
     }
@@ -623,6 +699,7 @@ class DemoAppState extends ChangeNotifier {
         uid: userId,
         specialties: normalizedSpecialties,
         services: validServices,
+        servicePricesCents: validPrices,
       ),
     );
   }
@@ -678,6 +755,55 @@ class DemoAppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<String?> redeemReward({
+    required String rewardId,
+    required String rewardName,
+    required String partnerName,
+    required int pointsCost,
+  }) async {
+    if (points < pointsCost) {
+      _setBackendError('Você ainda não possui pontos suficientes para esta troca.');
+      return null;
+    }
+    if (isDemoSession) {
+      points -= pointsCost;
+      final code = 'RG-DEMO-${rewardRedemptions.length + 1}';
+      rewardRedemptions = [
+        MarketplaceRewardRedemption(
+          id: 'demo-${rewardRedemptions.length + 1}',
+          clientId: 'demo-client',
+          rewardId: rewardId,
+          rewardName: rewardName,
+          partnerName: partnerName,
+          pointsCost: pointsCost,
+          status: 'reserved',
+          voucherCode: code,
+          createdAt: DateTime.now(),
+        ),
+        ...rewardRedemptions,
+      ];
+      notifyListeners();
+      return code;
+    }
+    final userId = currentUserId;
+    if (userId == null) {
+      _setBackendError('A sessão expirou. Entre novamente.');
+      return null;
+    }
+    String? voucher;
+    final success = await _runBackendAction(() async {
+      voucher = await _marketplace.redeemReward(
+        clientId: userId,
+        rewardId: rewardId,
+        rewardName: rewardName,
+        partnerName: partnerName,
+        pointsCost: pointsCost,
+      );
+    });
+    return success ? voucher : null;
+  }
+
+  /// Compatibilidade com a vitrine antiga. O fluxo atual usa [redeemReward].
   bool redeemPoints() {
     if (!isDemoSession || points < pointsRedemptionCost) return false;
     points -= pointsRedemptionCost;
@@ -730,7 +856,8 @@ class DemoAppState extends ChangeNotifier {
         final updatedAt = location?['updatedAt'];
         if (updatedAt is Timestamp) locationUpdatedAt = updatedAt.toDate();
         isAdmin = data?['isAdmin'] == true;
-        points = data?['points'] as int? ?? 0;
+        _legacyPoints = data?['points'] as int? ?? 0;
+        _refreshPointsBalance();
         final verified = data?['identityStatus'] == 'verified';
         if (activeRole == UserRole.client) {
           clientIdentityVerified = verified;
@@ -752,10 +879,15 @@ class DemoAppState extends ChangeNotifier {
             selectedProfessional,
           );
           if (selectedProfessional != null &&
-              !selectedProfessional!.services.contains(selectedServiceName)) {
-            selectedServiceName = selectedProfessional!.services.isNotEmpty
-                ? selectedProfessional!.services.first
-                : null;
+              selectedServiceNames.any(
+                (service) => !selectedProfessional!.services.contains(service),
+              )) {
+            selectedServiceNames = selectedProfessional!.services.isNotEmpty
+                ? <String>[selectedProfessional!.services.first]
+                : <String>[];
+            selectedServiceName = selectedServiceNames.isEmpty
+                ? null
+                : selectedServiceNames.first;
           }
         } else {
           for (final professional in professionals) {
@@ -784,6 +916,13 @@ class DemoAppState extends ChangeNotifier {
       (bookings) {
         if (!_isCurrentSession(version)) return;
         bookingHistory = List.unmodifiable(bookings);
+        if (activeRole == UserRole.client) {
+          _earnedPoints = bookings
+              .where((booking) =>
+                  booking.status == 'completed' || booking.status == 'reviewed')
+              .fold(0, (total, booking) => total + booking.pointsEarned);
+          _refreshPointsBalance();
+        }
         final booking = _currentBookingFrom(
           bookings,
           activeRole,
@@ -806,6 +945,23 @@ class DemoAppState extends ChangeNotifier {
       },
       onError: (Object error) => _handleRealtimeError(version, error),
     );
+
+    if (activeRole == UserRole.client) {
+      _rewardRedemptionsSubscription =
+          _marketplace.watchRewardRedemptions(user.uid).listen(
+        (redemptions) {
+          if (!_isCurrentSession(version)) return;
+          rewardRedemptions = List.unmodifiable(redemptions);
+          _redeemedPoints = redemptions.fold(
+            0,
+            (total, redemption) => total + redemption.pointsCost,
+          );
+          _refreshPointsBalance();
+          notifyListeners();
+        },
+        onError: (Object error) => _handleRealtimeError(version, error),
+      );
+    }
 
     unawaited(refreshLocation(showPermissionError: false));
   }
@@ -869,6 +1025,11 @@ class DemoAppState extends ChangeNotifier {
     providerToClientTags = [];
     clientToProviderComment = '';
     providerToClientComment = '';
+  }
+
+  void _refreshPointsBalance() {
+    final balance = _legacyPoints + _earnedPoints - _redeemedPoints;
+    points = balance < 0 ? 0 : balance;
   }
 
   Future<bool> _changeBookingStatus(
@@ -1024,9 +1185,11 @@ class DemoAppState extends ChangeNotifier {
     unawaited(_profileSubscription?.cancel());
     unawaited(_professionalsSubscription?.cancel());
     unawaited(_bookingsSubscription?.cancel());
+    unawaited(_rewardRedemptionsSubscription?.cancel());
     _profileSubscription = null;
     _professionalsSubscription = null;
     _bookingsSubscription = null;
+    _rewardRedemptionsSubscription = null;
     _cancelBookingDetailSubscriptions();
   }
 

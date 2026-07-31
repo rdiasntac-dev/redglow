@@ -24,6 +24,7 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
   String? _error;
   final Set<String> _selectedCategories = {};
   final Set<String> _selectedServices = {};
+  final Map<String, int> _servicePricesCents = {};
 
   @override
   void initState() {
@@ -41,6 +42,9 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
         _selectedServices
           ..clear()
           ..addAll(state.demoProviderServices);
+        _servicePricesCents
+          ..clear()
+          ..addAll(state.demoProviderServicePricesCents);
         _loading = false;
       });
       return;
@@ -86,6 +90,10 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
         effectiveSpecialties,
         rawServices is List ? rawServices.whereType<String>() : const <String>[],
       );
+      final servicePrices = RedGlowServiceCatalog.sanitizeServicePrices(
+        services,
+        data['servicePricesCents'],
+      );
       if (!mounted) return;
       setState(() {
         _selectedCategories
@@ -94,6 +102,9 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
         _selectedServices
           ..clear()
           ..addAll(services);
+        _servicePricesCents
+          ..clear()
+          ..addAll(servicePrices);
         _loading = false;
       });
     } catch (_) {
@@ -113,6 +124,17 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
       );
       return;
     }
+    for (final service in _selectedServices) {
+      final price = _servicePricesCents[service] ?? 0;
+      final minimum = RedGlowServiceCatalog.minimumPriceCents(service);
+      if (price < minimum) {
+        setState(
+          () => _error =
+              '$service precisa respeitar o mínimo domiciliar de ${RedGlowServiceCatalog.formatCurrency(minimum)}.',
+        );
+        return;
+      }
+    }
 
     final state = DemoAppScope.of(context, listen: false);
     setState(() {
@@ -124,6 +146,7 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
       final updated = await state.updateProviderServices(
         specialties: _selectedCategories.toList(growable: false),
         services: _selectedServices.toList(growable: false),
+        servicePricesCents: _servicePricesCents,
       );
       if (!mounted) return;
       setState(() => _saving = false);
@@ -227,7 +250,7 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
                             ),
                           ),
                           Text(
-                            'Edite foto, nome, telefone e valor de referência',
+                            'Edite foto, nome e telefone de contato',
                             style: TextStyle(
                               fontSize: 8,
                               color: AppColors.textSecondary,
@@ -275,12 +298,16 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
                           enabled:
                               _selectedCategories.contains(category.label),
                           selectedServices: _selectedServices,
+                          servicePricesCents: _servicePricesCents,
                           onCategoryChanged: (enabled) => setState(() {
                             if (enabled) {
                               _selectedCategories.add(category.label);
                             } else {
                               _selectedCategories.remove(category.label);
                               _selectedServices.removeAll(category.services);
+                              for (final service in category.services) {
+                                _servicePricesCents.remove(service);
+                              }
                             }
                             _error = null;
                           }),
@@ -289,9 +316,20 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
                             if (selected) {
                               _selectedCategories.add(category.label);
                               _selectedServices.add(service);
+                              _servicePricesCents.putIfAbsent(
+                                service,
+                                () => RedGlowServiceCatalog.referencePriceCents(
+                                  service,
+                                ),
+                              );
                             } else {
                               _selectedServices.remove(service);
+                              _servicePricesCents.remove(service);
                             }
+                            _error = null;
+                          }),
+                          onPriceChanged: (service, priceCents) => setState(() {
+                            _servicePricesCents[service] = priceCents;
                             _error = null;
                           }),
                         ),
@@ -368,15 +406,19 @@ class _CategoryServiceSelector extends StatelessWidget {
     required this.category,
     required this.enabled,
     required this.selectedServices,
+    required this.servicePricesCents,
     required this.onCategoryChanged,
     required this.onServiceChanged,
+    required this.onPriceChanged,
   });
 
   final RedGlowServiceCategory category;
   final bool enabled;
   final Set<String> selectedServices;
+  final Map<String, int> servicePricesCents;
   final ValueChanged<bool> onCategoryChanged;
   final void Function(String service, bool selected) onServiceChanged;
+  final void Function(String service, int priceCents) onPriceChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -450,6 +492,35 @@ class _CategoryServiceSelector extends StatelessWidget {
                   )
                   .toList(growable: false),
             ),
+            for (final service
+                in category.services.where(selectedServices.contains)) ...[
+              const SizedBox(height: 8),
+              TextFormField(
+                key: Key('provider-price-$service'),
+                initialValue: ((servicePricesCents[service] ??
+                            RedGlowServiceCatalog.referencePriceCents(service)) /
+                        100)
+                    .toStringAsFixed(2)
+                    .replaceAll('.', ','),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: service,
+                  prefixText: 'R\$ ',
+                  helperText:
+                      'Mínimo domiciliar: ${RedGlowServiceCatalog.formatCurrency(RedGlowServiceCatalog.minimumPriceCents(service))}',
+                  suffixIcon: const Icon(Icons.edit_outlined, size: 17),
+                ),
+                onChanged: (value) {
+                  onPriceChanged(
+                    service,
+                    RedGlowServiceCatalog.parseCurrencyInputToCents(value) ??
+                        0,
+                  );
+                },
+              ),
+            ],
           ],
         ],
       ),

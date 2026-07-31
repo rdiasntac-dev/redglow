@@ -7,6 +7,7 @@ import '../services/firebase_marketplace_service.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/service_selection_sheet.dart';
 import 'order_confirmation_screen.dart';
 
 class FocusedExploreScreen extends StatefulWidget {
@@ -284,9 +285,16 @@ class _ProfessionalsList extends StatelessWidget {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
+                            const Text(
+                              'a partir de',
+                              style: TextStyle(
+                                fontSize: 7,
+                                color: AppColors.textMuted,
+                              ),
+                            ),
                             Text(
                               RedGlowServiceCatalog.formatCurrency(
-                                professional.priceCents,
+                                professional.startingPriceCents,
                               ),
                               style: const TextStyle(
                                 color: AppColors.primary,
@@ -294,7 +302,7 @@ class _ProfessionalsList extends StatelessWidget {
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
-                            const SizedBox(height: 5),
+                            const SizedBox(height: 3),
                             StatusPill(
                               label: !professional.bookable
                                   ? demo
@@ -382,65 +390,31 @@ class _ProfessionalsList extends StatelessWidget {
       return;
     }
 
-    var selectedService = service;
-    selectedService ??= await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: AppColors.surface,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 4, 18, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Escolha o serviço',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${professional.name} oferece ${professional.services.length} opção(ões) neste perfil.',
-                style: const TextStyle(
-                  fontSize: 9,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 10),
-              for (final item in professional.services)
-                ListTile(
-                  key: Key('book-service-${item.toLowerCase()}'),
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(
-                    Icons.auto_awesome_rounded,
-                    color: AppColors.primary,
-                  ),
-                  title: Text(item),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => Navigator.of(sheetContext).pop(item),
-                ),
-            ],
-          ),
-        ),
-      ),
+    final marketplaceProfessional = MarketplaceProfessional(
+      uid: professional.uid,
+      name: professional.name,
+      specialty: professional.specialty,
+      specialties: professional.specialties.isEmpty
+          ? <String>[professional.specialty]
+          : professional.specialties,
+      priceCents: professional.priceCents,
+      rating: professional.rating,
+      services: professional.services,
+      servicePricesCents: professional.servicePricesCents,
+      isOnline: professional.isOnline,
+      photoUrl: professional.photoUrl.isEmpty ? null : professional.photoUrl,
     );
-    if (!context.mounted || selectedService == null) return;
+    final selectedServices = await showServiceSelectionSheet(
+      context,
+      professional: marketplaceProfessional,
+      initialServices:
+          service == null ? const <String>[] : <String>[service!],
+    );
+    if (!context.mounted || selectedServices == null) return;
 
     state.selectProfessional(
-      MarketplaceProfessional(
-        uid: professional.uid,
-        name: professional.name,
-        specialty: professional.specialty,
-        specialties: professional.specialties.isEmpty
-            ? <String>[professional.specialty]
-            : professional.specialties,
-        priceCents: professional.priceCents,
-        rating: professional.rating,
-        services: professional.services,
-        isOnline: professional.isOnline,
-        photoUrl: professional.photoUrl.isEmpty ? null : professional.photoUrl,
-      ),
-      serviceName: selectedService,
+      marketplaceProfessional,
+      serviceNames: selectedServices,
     );
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const OrderConfirmationScreen()),
@@ -455,6 +429,7 @@ class _SearchProfessional {
     required this.specialty,
     required this.priceCents,
     required this.services,
+    this.servicePricesCents = const {},
     required this.isOnline,
     required this.photoUrl,
     this.specialties = const [],
@@ -469,9 +444,20 @@ class _SearchProfessional {
   final int priceCents;
   final double rating;
   final List<String> services;
+  final Map<String, int> servicePricesCents;
   final bool isOnline;
   final String photoUrl;
   final bool bookable;
+
+  int get startingPriceCents {
+    if (services.isEmpty) return priceCents;
+    return services
+        .map(
+          (service) => servicePricesCents[service] ??
+              RedGlowServiceCatalog.referencePriceCents(service),
+        )
+        .reduce((current, next) => current < next ? current : next);
+  }
 
   factory _SearchProfessional.fromDocument(
     QueryDocumentSnapshot<Map<String, dynamic>> document,
@@ -494,6 +480,10 @@ class _SearchProfessional {
       effectiveSpecialties,
       rawServices is List ? rawServices.whereType<String>() : const <String>[],
     );
+    final servicePrices = RedGlowServiceCatalog.sanitizeServicePrices(
+      services,
+      data['servicePricesCents'],
+    );
     return _SearchProfessional(
       uid: document.id,
       name: data['name'] as String? ?? 'Profissional REDGLOW',
@@ -503,6 +493,7 @@ class _SearchProfessional {
           data['priceCents'] as int? ?? category.recommendedHomeCents,
       rating: (data['rating'] as num?)?.toDouble() ?? 0,
       services: services,
+      servicePricesCents: servicePrices,
       isOnline: data['isOnline'] as bool? ?? false,
       photoUrl: data['photoUrl'] as String? ?? '',
       bookable: services.isNotEmpty,

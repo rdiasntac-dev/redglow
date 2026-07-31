@@ -98,6 +98,13 @@ void main() {
     await tester.tap(find.text('Lari (Manicure)').last);
     await tester.pumpAndSettle();
 
+    await tester.tap(
+      find.byKey(const Key('select-service-Manicure tradicional')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('continue-service-selection')));
+    await tester.pumpAndSettle();
+
     expect(find.text('Tudo certo para agendar!'), findsOneWidget);
     expect(find.text('Confirmar e Chamar Prestadora'), findsOneWidget);
     expect(find.text('BETA · SEM COBRANÇA'), findsOneWidget);
@@ -123,6 +130,9 @@ void main() {
     await tester.pumpAndSettle();
     await _scrollTo(tester, find.text('Lari (Manicure)'));
     await tester.tap(find.text('Lari (Manicure)').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('continue-service-selection')));
     await tester.pumpAndSettle();
 
     expect(find.text('Spa das mãos'), findsOneWidget);
@@ -248,8 +258,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('profile-name-field')), findsOneWidget);
-    expect(find.byKey(const Key('profile-specialty-field')), findsOneWidget);
-    expect(find.byKey(const Key('profile-price-field')), findsOneWidget);
+    expect(find.byKey(const Key('profile-phone-field')), findsOneWidget);
+    expect(
+      find.textContaining('Serviços que realizo'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('rating form remains visible on a desktop viewport',
@@ -315,7 +328,7 @@ void main() {
     await state.submitRating(5);
     expect(state.clientToProviderRating, 5);
     expect(state.bookingStatus, DemoBookingStatus.reviewed);
-    expect(state.points, 2540);
+    expect(state.points, 10);
 
     state.dispose();
   });
@@ -408,6 +421,41 @@ void main() {
     state.points = DemoAppState.pointsRedemptionCost;
     expect(state.redeemPoints(), isFalse);
     expect(state.points, DemoAppState.pointsRedemptionCost);
+
+    state.dispose();
+  });
+
+  test('completed manicure earns and redeems the earrings reward', () async {
+    final state = DemoAppState();
+    final professional = MarketplaceProfessional(
+      uid: 'demo-lari',
+      name: 'Lari (Manicure)',
+      specialty: 'Manicure',
+      specialties: const ['Manicure'],
+      priceCents: 6000,
+      rating: 4.9,
+      services: const ['Manicure tradicional'],
+      servicePricesCents: const {'Manicure tradicional': 6000},
+      isOnline: true,
+    );
+    state.selectProfessional(
+      professional,
+      serviceNames: const ['Manicure tradicional'],
+    );
+
+    await state.requestBooking();
+    await state.completeService();
+    expect(state.points, 10);
+
+    final voucher = await state.redeemReward(
+      rewardId: 'earrings-demo',
+      rewardName: 'Par de brincos Glow',
+      partnerName: 'Parceira Bella Acessórios',
+      pointsCost: 10,
+    );
+    expect(voucher, startsWith('RG-DEMO-'));
+    expect(state.points, 0);
+    expect(state.rewardRedemptions, hasLength(1));
 
     state.dispose();
   });

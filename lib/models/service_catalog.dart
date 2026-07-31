@@ -26,6 +26,103 @@ class RedGlowServiceCategory {
 /// A reserva de deslocamento evita que a profissional use como base apenas o valor
 /// praticado dentro de um estúdio e acabe absorvendo transporte e tempo de trajeto.
 abstract final class RedGlowServiceCatalog {
+  /// Preços de referência por procedimento para o beta local.
+  ///
+  /// A profissional pode cobrar acima destes valores. O valor mínimo evita que
+  /// deslocamento, material e tempo sejam ignorados no atendimento domiciliar.
+  static const Map<String, int> _referencePricesCents = {
+    'Manicure tradicional': 6000,
+    'Esmaltação em gel': 7500,
+    'Spa das mãos': 6500,
+    'Remoção de esmaltação em gel': 4500,
+    'Pedicure tradicional': 7000,
+    'Esmaltação em gel nos pés': 8500,
+    'Spa dos pés': 7500,
+    'Manicure e pedicure': 12000,
+    'Alongamento em gel': 15000,
+    'Alongamento em fibra': 18000,
+    'Molde F1': 16000,
+    'Banho de gel': 11000,
+    'Blindagem': 9000,
+    'Manutenção': 12000,
+    'Remoção': 6500,
+    'Maquiagem social': 14500,
+    'Maquiagem com cílios postiços': 16500,
+    'Maquiagem para eventos': 19000,
+    'Maquiagem de noiva': 35000,
+    'Design simples': 5000,
+    'Design com henna': 6500,
+    'Brow lamination': 12000,
+    'Manutenção de design': 4500,
+    'Fio a fio': 16000,
+    'Volume brasileiro': 18000,
+    'Volume fox eye': 20000,
+    'Volume glamour': 22000,
+    'Lash lifting': 14000,
+  };
+
+  static const Map<String, int> _minimumPricesCents = {
+    'Manicure tradicional': 4500,
+    'Esmaltação em gel': 5500,
+    'Spa das mãos': 5000,
+    'Remoção de esmaltação em gel': 4000,
+    'Pedicure tradicional': 5500,
+    'Esmaltação em gel nos pés': 6500,
+    'Spa dos pés': 5500,
+    'Manicure e pedicure': 9000,
+    'Alongamento em gel': 11000,
+    'Alongamento em fibra': 13000,
+    'Molde F1': 12000,
+    'Banho de gel': 8500,
+    'Blindagem': 7000,
+    'Manutenção': 9000,
+    'Remoção': 5000,
+    'Maquiagem social': 12000,
+    'Maquiagem com cílios postiços': 13500,
+    'Maquiagem para eventos': 15000,
+    'Maquiagem de noiva': 25000,
+    'Design simples': 4000,
+    'Design com henna': 5000,
+    'Brow lamination': 9000,
+    'Manutenção de design': 4000,
+    'Fio a fio': 13000,
+    'Volume brasileiro': 14500,
+    'Volume fox eye': 16000,
+    'Volume glamour': 18000,
+    'Lash lifting': 11000,
+  };
+
+  static const Map<String, int> _durationMinutes = {
+    'Manicure tradicional': 60,
+    'Esmaltação em gel': 75,
+    'Spa das mãos': 70,
+    'Remoção de esmaltação em gel': 35,
+    'Pedicure tradicional': 75,
+    'Esmaltação em gel nos pés': 90,
+    'Spa dos pés': 85,
+    'Manicure e pedicure': 120,
+    'Alongamento em gel': 150,
+    'Alongamento em fibra': 180,
+    'Molde F1': 160,
+    'Banho de gel': 110,
+    'Blindagem': 90,
+    'Manutenção': 120,
+    'Remoção': 60,
+    'Maquiagem social': 90,
+    'Maquiagem com cílios postiços': 105,
+    'Maquiagem para eventos': 120,
+    'Maquiagem de noiva': 180,
+    'Design simples': 45,
+    'Design com henna': 60,
+    'Brow lamination': 90,
+    'Manutenção de design': 40,
+    'Fio a fio': 150,
+    'Volume brasileiro': 180,
+    'Volume fox eye': 190,
+    'Volume glamour': 210,
+    'Lash lifting': 120,
+  };
+
   static const categories = <RedGlowServiceCategory>[
     RedGlowServiceCategory(
       id: 'manicure',
@@ -214,6 +311,98 @@ abstract final class RedGlowServiceCatalog {
       valid.add(clean);
     }
     return List.unmodifiable(valid);
+  }
+
+  static int referencePriceCents(String service) {
+    final clean = service.trim();
+    return _referencePricesCents[clean] ??
+        byServiceOrLabel(clean).recommendedHomeCents;
+  }
+
+  static int minimumPriceCents(String service) {
+    final clean = service.trim();
+    return _minimumPricesCents[clean] ??
+        byServiceOrLabel(clean).minimumHomeCents;
+  }
+
+  static int estimatedMinutesForService(String service) {
+    final clean = service.trim();
+    return _durationMinutes[clean] ?? byServiceOrLabel(clean).estimatedMinutes;
+  }
+
+  /// Pontos são creditados somente quando o atendimento é concluído.
+  static int pointsForService(String service) {
+    final price = referencePriceCents(service);
+    return (price / 600).round().clamp(5, 60).toInt();
+  }
+
+  static Map<String, int> defaultPricesForServices(
+    Iterable<String> services,
+  ) {
+    return Map.unmodifiable({
+      for (final service in services)
+        if (allServices.contains(service)) service: referencePriceCents(service),
+    });
+  }
+
+  static Map<String, int> sanitizeServicePrices(
+    Iterable<String> services,
+    Object? rawPrices,
+  ) {
+    final source = rawPrices is Map
+        ? Map<String, dynamic>.from(rawPrices)
+        : const <String, dynamic>{};
+    return Map.unmodifiable({
+      for (final service in services)
+        service: ((source[service] as num?)?.round() ??
+                referencePriceCents(service))
+            .clamp(minimumPriceCents(service), 1000000)
+            .toInt(),
+    });
+  }
+
+  static int totalPriceCents(
+    Iterable<String> services,
+    Map<String, int> prices,
+  ) => services.fold(
+        0,
+        (total, service) =>
+            total + (prices[service] ?? referencePriceCents(service)),
+      );
+
+  static int totalMinutes(Iterable<String> services) => services.fold(
+        0,
+        (total, service) => total + estimatedMinutesForService(service),
+      );
+
+  static int totalPoints(Iterable<String> services) => services.fold(
+        0,
+        (total, service) => total + pointsForService(service),
+      );
+
+  /// Converte valores digitados em teclados brasileiros ou internacionais.
+  /// Aceita, por exemplo, `60`, `60,00`, `60.00` e `1.200,50`.
+  static int? parseCurrencyInputToCents(String input) {
+    var clean = input.replaceAll(RegExp(r'[^0-9,.]'), '');
+    if (clean.isEmpty) return null;
+
+    final comma = clean.lastIndexOf(',');
+    final dot = clean.lastIndexOf('.');
+    final decimalIndex = comma > dot ? comma : dot;
+    final decimalDigits =
+        decimalIndex < 0 ? 0 : clean.length - decimalIndex - 1;
+    if (decimalIndex >= 0 && decimalDigits <= 2) {
+      final integerPart = clean
+          .substring(0, decimalIndex)
+          .replaceAll(RegExp(r'[,.]'), '');
+      final fractionPart = clean.substring(decimalIndex + 1);
+      clean = '$integerPart.$fractionPart';
+    } else {
+      clean = clean.replaceAll(RegExp(r'[,.]'), '');
+    }
+
+    final parsed = double.tryParse(clean);
+    return parsed == null ? null : (parsed * 100).round();
   }
 
   static String formatCurrency(int cents) {

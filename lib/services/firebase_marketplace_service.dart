@@ -14,6 +14,7 @@ class MarketplaceProfessional {
     required this.rating,
     required this.services,
     required this.isOnline,
+    this.servicePricesCents = const {},
     this.photoUrl,
     this.latitude,
     this.longitude,
@@ -28,12 +29,24 @@ class MarketplaceProfessional {
   final int priceCents;
   final double rating;
   final List<String> services;
+  final Map<String, int> servicePricesCents;
   final bool isOnline;
   final String? photoUrl;
   final double? latitude;
   final double? longitude;
   final DateTime? locationUpdatedAt;
   final String professionalIdStatus;
+
+  int priceForService(String service) =>
+      servicePricesCents[service] ??
+      RedGlowServiceCatalog.referencePriceCents(service);
+
+  int get startingPriceCents {
+    if (services.isEmpty) return priceCents;
+    return services
+        .map(priceForService)
+        .reduce((current, next) => current < next ? current : next);
+  }
 
   factory MarketplaceProfessional.fromDocument(
     QueryDocumentSnapshot<Map<String, dynamic>> document,
@@ -56,6 +69,10 @@ class MarketplaceProfessional {
       effectiveSpecialties,
       rawServices is List ? rawServices.whereType<String>() : const <String>[],
     );
+    final servicePrices = RedGlowServiceCatalog.sanitizeServicePrices(
+      services,
+      data['servicePricesCents'],
+    );
     final location = data['location'];
     final locationData =
         location is Map ? Map<String, dynamic>.from(location) : null;
@@ -69,6 +86,7 @@ class MarketplaceProfessional {
           data['priceCents'] as int? ?? category.recommendedHomeCents,
       rating: (data['rating'] as num?)?.toDouble() ?? 0,
       services: services,
+      servicePricesCents: servicePrices,
       isOnline: data['isOnline'] as bool? ?? false,
       photoUrl: data['photoUrl'] as String?,
       latitude: (locationData?['latitude'] as num?)?.toDouble(),
@@ -90,7 +108,9 @@ class MarketplaceBooking {
     required this.providerName,
     required this.status,
     required this.serviceName,
+    required this.serviceNames,
     required this.priceCents,
+    required this.pointsEarned,
     required this.address,
     required this.paymentMethod,
     required this.createdAt,
@@ -113,7 +133,9 @@ class MarketplaceBooking {
   final String providerName;
   final String status;
   final String serviceName;
+  final List<String> serviceNames;
   final int priceCents;
+  final int pointsEarned;
   final String address;
   final String paymentMethod;
   final DateTime createdAt;
@@ -145,6 +167,13 @@ class MarketplaceBooking {
     final updatedAt = updatedTimestamp is Timestamp
         ? updatedTimestamp.toDate()
         : DateTime.now();
+    final serviceName = data['serviceName'] as String? ?? 'Manicure tradicional';
+    final rawServiceNames = data['serviceNames'];
+    final serviceNames = rawServiceNames is List
+        ? rawServiceNames.whereType<String>().toList(growable: false)
+        : <String>[serviceName];
+    final effectiveServiceNames =
+        serviceNames.isEmpty ? <String>[serviceName] : serviceNames;
     return MarketplaceBooking(
       id: document.id,
       clientId: data['clientId'] as String? ?? '',
@@ -152,8 +181,11 @@ class MarketplaceBooking {
       clientName: data['clientName'] as String? ?? 'Cliente REDGLOW',
       providerName: data['providerName'] as String? ?? 'Prestadora REDGLOW',
       status: data['status'] as String? ?? 'requested',
-      serviceName: data['serviceName'] as String? ?? 'Manicure',
+      serviceName: serviceName,
+      serviceNames: effectiveServiceNames,
       priceCents: data['priceCents'] as int? ?? 4500,
+      pointsEarned: data['pointsEarned'] as int? ??
+          RedGlowServiceCatalog.totalPoints(effectiveServiceNames),
       address: data['address'] as String? ?? '',
       paymentMethod: data['paymentMethod'] as String? ?? 'Pix',
       createdAt:
@@ -203,6 +235,48 @@ class MarketplaceRating {
           .whereType<String>()
           .toList(growable: false),
       comment: data['comment'] as String? ?? '',
+    );
+  }
+}
+
+class MarketplaceRewardRedemption {
+  const MarketplaceRewardRedemption({
+    required this.id,
+    required this.clientId,
+    required this.rewardId,
+    required this.rewardName,
+    required this.partnerName,
+    required this.pointsCost,
+    required this.status,
+    required this.voucherCode,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String clientId;
+  final String rewardId;
+  final String rewardName;
+  final String partnerName;
+  final int pointsCost;
+  final String status;
+  final String voucherCode;
+  final DateTime createdAt;
+
+  factory MarketplaceRewardRedemption.fromDocument(
+    QueryDocumentSnapshot<Map<String, dynamic>> document,
+  ) {
+    final data = document.data();
+    final timestamp = data['createdAt'];
+    return MarketplaceRewardRedemption(
+      id: document.id,
+      clientId: data['clientId'] as String? ?? '',
+      rewardId: data['rewardId'] as String? ?? '',
+      rewardName: data['rewardName'] as String? ?? 'Recompensa REDGLOW',
+      partnerName: data['partnerName'] as String? ?? 'Parceiro REDGLOW',
+      pointsCost: data['pointsCost'] as int? ?? 0,
+      status: data['status'] as String? ?? 'reserved',
+      voucherCode: data['voucherCode'] as String? ?? '',
+      createdAt: timestamp is Timestamp ? timestamp.toDate() : DateTime.now(),
     );
   }
 }
@@ -262,12 +336,20 @@ class FirebaseMarketplaceService {
         effectiveSpecialties,
         rawServices is List ? rawServices.whereType<String>() : category.services,
       );
+      final effectiveServices = services.isEmpty ? category.services : services;
+      final servicePrices = RedGlowServiceCatalog.sanitizeServicePrices(
+        effectiveServices,
+        data['servicePricesCents'],
+      );
       await reference.update({
         'name': name.trim(),
         'specialty': specialty,
         'specialties': effectiveSpecialties,
-        'priceCents': data['priceCents'] as int? ?? category.recommendedHomeCents,
-        'services': services.isEmpty ? category.services : services,
+        'priceCents': servicePrices.values.reduce(
+          (current, next) => current < next ? current : next,
+        ),
+        'services': effectiveServices,
+        'servicePricesCents': servicePrices,
         'professionalIdStatus':
             data['professionalIdStatus'] as String? ?? 'pending',
         if (data.containsKey('location'))
@@ -285,6 +367,9 @@ class FirebaseMarketplaceService {
       'priceCents': defaultCategory.recommendedHomeCents,
       'rating': 0.0,
       'services': defaultCategory.services,
+      'servicePricesCents': RedGlowServiceCatalog.defaultPricesForServices(
+        defaultCategory.services,
+      ),
       'isOnline': true,
       'photoUrl': null,
       'professionalIdStatus': 'pending',
@@ -344,6 +429,7 @@ class FirebaseMarketplaceService {
     required String uid,
     required List<String> specialties,
     required List<String> services,
+    required Map<String, int> servicePricesCents,
   }) {
     final normalizedSpecialties =
         RedGlowServiceCatalog.normalizeLabels(specialties);
@@ -359,10 +445,18 @@ class FirebaseMarketplaceService {
         'Selecione pelo menos um nicho e um serviço válido.',
       );
     }
+    final validPrices = RedGlowServiceCatalog.sanitizeServicePrices(
+      validServices,
+      servicePricesCents,
+    );
     return _firestore.collection('professionals').doc(uid).update({
       'specialty': normalizedSpecialties.first,
       'specialties': normalizedSpecialties,
       'services': validServices,
+      'servicePricesCents': validPrices,
+      'priceCents': validPrices.values.reduce(
+        (current, next) => current < next ? current : next,
+      ),
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
@@ -372,8 +466,6 @@ class FirebaseMarketplaceService {
     required UserRole role,
     required String name,
     required String phone,
-    String? specialty,
-    int? priceCents,
   }) async {
     final batch = _firestore.batch();
     batch.update(_firestore.collection('users').doc(uid), {
@@ -382,49 +474,10 @@ class FirebaseMarketplaceService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
     if (role == UserRole.provider) {
-      final normalizedSpecialty =
-          RedGlowServiceCatalog.normalizeLabel(specialty);
-      final category = RedGlowServiceCatalog.byLabel(normalizedSpecialty);
-      final professionalReference =
-          _firestore.collection('professionals').doc(uid);
-      final currentProfessional = await professionalReference.get();
-      final currentData =
-          currentProfessional.data() ?? const <String, dynamic>{};
-      final currentSpecialty = RedGlowServiceCatalog.normalizeLabel(
-        currentData['specialty'] as String?,
-      );
-      final rawSpecialties = currentData['specialties'];
-      final currentSpecialties = RedGlowServiceCatalog.normalizeLabels(
-        rawSpecialties is List
-            ? rawSpecialties.whereType<String>()
-            : <String>[currentSpecialty],
-      );
-      final rawServices = currentData['services'];
-      final effectiveSpecialties = currentSpecialties.contains(
-        normalizedSpecialty,
-      )
-          ? currentSpecialties
-          : <String>[normalizedSpecialty, ...currentSpecialties];
-      final currentServices = RedGlowServiceCatalog.validServicesForCategories(
-        effectiveSpecialties,
-        rawServices is List ? rawServices.whereType<String>() : const <String>[],
-      );
-      final professionalUpdate = <String, dynamic>{
+      batch.update(_firestore.collection('professionals').doc(uid), {
         'name': name.trim(),
-        'specialty': normalizedSpecialty,
-        'specialties': effectiveSpecialties,
-        'priceCents': priceCents ?? category.recommendedHomeCents,
         'updatedAt': FieldValue.serverTimestamp(),
-      };
-      if (currentSpecialty != normalizedSpecialty ||
-          rawSpecialties is! List ||
-          rawServices is! List ||
-          currentServices.length != rawServices.length ||
-          currentServices.isEmpty) {
-        professionalUpdate['services'] =
-            currentServices.isEmpty ? category.services : currentServices;
-      }
-      batch.update(professionalReference, professionalUpdate);
+      });
     }
     await batch.commit();
     await _auth.currentUser?.updateDisplayName(name.trim());
@@ -472,12 +525,52 @@ class FirebaseMarketplaceService {
             : null);
   }
 
+  Stream<List<MarketplaceRewardRedemption>> watchRewardRedemptions(
+    String clientId,
+  ) {
+    return _firestore
+        .collection('rewardRedemptions')
+        .where('clientId', isEqualTo: clientId)
+        .snapshots()
+        .map((snapshot) {
+      final redemptions = snapshot.docs
+          .map(MarketplaceRewardRedemption.fromDocument)
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return redemptions;
+    });
+  }
+
+  Future<String> redeemReward({
+    required String clientId,
+    required String rewardId,
+    required String rewardName,
+    required String partnerName,
+    required int pointsCost,
+  }) async {
+    final reference = _firestore.collection('rewardRedemptions').doc();
+    final voucherCode =
+        'RG-${reference.id.substring(0, 6).toUpperCase()}';
+    await reference.set({
+      'clientId': clientId,
+      'rewardId': rewardId,
+      'rewardName': rewardName,
+      'partnerName': partnerName,
+      'pointsCost': pointsCost,
+      'status': 'reserved',
+      'voucherCode': voucherCode,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    return voucherCode;
+  }
+
   Future<String> createBooking({
     required String clientId,
     required String providerId,
     required String clientName,
     required String providerName,
-    required String serviceName,
+    required List<String> serviceNames,
     required String paymentMethod,
     double? clientLatitude,
     double? clientLongitude,
@@ -512,14 +605,18 @@ class FirebaseMarketplaceService {
     );
     final effectiveSpecialties =
         specialties.isEmpty ? <String>[specialty] : specialties;
-    final category = RedGlowServiceCatalog.byLabel(specialty);
-    final cleanServiceName = serviceName.trim();
+    final cleanServiceNames = serviceNames
+        .map((service) => service.trim())
+        .where((service) => service.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
     final rawServices = professional['services'];
     final availableServices = RedGlowServiceCatalog.validServicesForCategories(
       effectiveSpecialties,
       rawServices is List ? rawServices.whereType<String>() : const <String>[],
     );
-    if (!availableServices.contains(cleanServiceName)) {
+    if (cleanServiceNames.isEmpty ||
+        cleanServiceNames.any((service) => !availableServices.contains(service))) {
       throw FirebaseException(
         plugin: 'cloud_firestore',
         code: 'failed-precondition',
@@ -530,16 +627,27 @@ class FirebaseMarketplaceService {
         (professional['name'] as String?)?.trim().isNotEmpty == true
             ? (professional['name'] as String).trim()
             : providerName.trim();
-    final currentPrice =
-        professional['priceCents'] as int? ?? category.recommendedHomeCents;
+    final servicePrices = RedGlowServiceCatalog.sanitizeServicePrices(
+      availableServices,
+      professional['servicePricesCents'],
+    );
+    final currentPrice = RedGlowServiceCatalog.totalPriceCents(
+      cleanServiceNames,
+      servicePrices,
+    );
+    final pointsEarned = RedGlowServiceCatalog.totalPoints(cleanServiceNames);
     final reference = _firestore.collection('bookings').doc();
     await reference.set({
       'clientId': clientId,
       'providerId': providerId,
       'clientName': clientName,
       'providerName': currentProviderName,
-      'serviceName': cleanServiceName,
+      // serviceName permanece para compatibilidade com o beta anterior e com
+      // as regras; serviceNames é a fonte para pedidos combinados.
+      'serviceName': cleanServiceNames.first,
+      'serviceNames': cleanServiceNames,
       'priceCents': currentPrice,
+      'pointsEarned': pointsEarned,
       'address': 'R. Izabel A Redentora, 1000 — Centro, SJP',
       'clientLocation': clientLatitude != null && clientLongitude != null
           ? {

@@ -1,8 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../models/service_catalog.dart';
 import '../models/user_role.dart';
 import '../services/profile_media_service.dart';
 import '../state/demo_app_state.dart';
@@ -21,16 +21,11 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _priceController = TextEditingController();
   bool _initialized = false;
   bool _saving = false;
   bool _uploadingPhoto = false;
   String _photoUrl = '';
   Uint8List? _photoBytes;
-  String _selectedCategory = RedGlowServiceCatalog.categories.first.label;
-
-  RedGlowServiceCategory get _category =>
-      RedGlowServiceCatalog.byLabel(_selectedCategory);
 
   @override
   void didChangeDependencies() {
@@ -47,13 +42,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _phoneController.text =
         state.accountPhone ?? (state.isDemoSession ? '(41) 99999-9999' : '');
     _photoUrl = state.profilePhotoUrl;
-    _selectedCategory = RedGlowServiceCatalog.normalizeLabel(
-      state.providerSpecialty,
-    );
-    final currentPrice = state.providerPriceCents > 0
-        ? state.providerPriceCents
-        : _category.recommendedHomeCents;
-    _priceController.text = _formatPriceForField(currentPrice);
     _initialized = true;
   }
 
@@ -114,64 +102,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
-    _priceController.dispose();
     super.dispose();
   }
 
-  String _formatPriceForField(int cents) =>
-      (cents / 100).toStringAsFixed(2).replaceAll('.', ',');
-
-  int? _parsePriceCents() {
-    final rawPrice = _priceController.text.trim();
-    final priceDigits = rawPrice.replaceAll(RegExp(r'\D'), '');
-    final parsedPrice = int.tryParse(priceDigits);
-    if (parsedPrice == null) return null;
-    return rawPrice.contains(',') || rawPrice.contains('.')
-        ? parsedPrice
-        : parsedPrice * 100;
-  }
-
-  Future<bool> _confirmBelowReference(int priceCents) async {
-    if (priceCents >= _category.minimumHomeCents) return true;
-    return await showDialog<bool>(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('Valor abaixo da referência'),
-            content: Text(
-              'Para atendimento domiciliar em São José dos Pinhais, o valor mínimo sugerido para ${_category.label} é '
-              '${RedGlowServiceCatalog.formatCurrency(_category.minimumHomeCents)}. '
-              'Um valor menor pode não cobrir material, tempo e deslocamento. Deseja salvar mesmo assim?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('Revisar valor'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: const Text('Salvar mesmo assim'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-  }
-
   Future<void> _save() async {
-    final priceCents = _parsePriceCents();
-    if (widget.role == UserRole.provider &&
-        priceCents != null &&
-        !await _confirmBelowReference(priceCents)) {
-      return;
-    }
-    if (!mounted) return;
     setState(() => _saving = true);
     final state = DemoAppScope.of(context, listen: false);
     final succeeded = await state.updateProfile(
       name: _nameController.text,
       phone: _phoneController.text,
-      specialty: widget.role == UserRole.provider ? _selectedCategory : null,
-      priceCents: widget.role == UserRole.provider ? priceCents : null,
     );
     if (!mounted) return;
     setState(() => _saving = false);
@@ -187,17 +126,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       const SnackBar(content: Text('Perfil atualizado com sucesso.')),
     );
     Navigator.of(context).pop();
-  }
-
-  void _selectCategory(String? value) {
-    if (value == null) return;
-    final category = RedGlowServiceCatalog.byLabel(value);
-    setState(() {
-      _selectedCategory = category.label;
-      _priceController.text = _formatPriceForField(
-        category.recommendedHomeCents,
-      );
-    });
   }
 
   @override
@@ -335,53 +263,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                     if (isProvider) ...[
                       const SizedBox(height: 13),
-                      const _FieldLabel('REFERÊNCIA PRINCIPAL DE PREÇO'),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<String>(
-                        key: const Key('profile-specialty-field'),
-                        initialValue: _selectedCategory,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          prefixIcon: Icon(Icons.auto_awesome_rounded),
-                        ),
-                        items: RedGlowServiceCatalog.labels
-                            .map(
-                              (label) => DropdownMenuItem<String>(
-                                value: label,
-                                child: Text(label),
+                      const GlowCard(
+                        padding: EdgeInsets.all(10),
+                        color: AppColors.surfaceRaised,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.design_services_outlined,
+                              color: AppColors.primary,
+                            ),
+                            SizedBox(width: 9),
+                            Expanded(
+                              child: Text(
+                                'Nichos, procedimentos e preços individuais são configurados em “Serviços que realizo”.',
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  height: 1.4,
+                                  color: AppColors.textSecondary,
+                                ),
                               ),
-                            )
-                            .toList(growable: false),
-                        onChanged: _selectCategory,
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Os demais nichos e serviços são configurados em “Perfil profissional”.',
-                        style: TextStyle(
-                          fontSize: 8,
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      _CategoryReferenceCard(category: _category),
-                      const SizedBox(height: 13),
-                      const _FieldLabel('VALOR BASE DO ATENDIMENTO'),
-                      const SizedBox(height: 6),
-                      TextField(
-                        key: const Key('profile-price-field'),
-                        controller: _priceController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'[0-9,.]'),
-                          ),
-                        ],
-                        decoration: InputDecoration(
-                          hintText: _formatPriceForField(
-                            _category.recommendedHomeCents,
-                          ),
-                          prefixText: 'R\$ ',
-                          prefixIcon: const Icon(Icons.payments_outlined),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -421,81 +323,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _CategoryReferenceCard extends StatelessWidget {
-  const _CategoryReferenceCard({required this.category});
-
-  final RedGlowServiceCategory category;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(11),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: .08),
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: AppColors.primary.withValues(alpha: .35)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.route_outlined,
-                color: AppColors.primary,
-                size: 17,
-              ),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  'Referência domiciliar em São José dos Pinhais',
-                  style: Theme.of(context).textTheme.labelSmall,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 7),
-          Text(
-            '${RedGlowServiceCatalog.formatCurrency(category.recommendedHomeCents)} sugeridos · '
-            '${RedGlowServiceCatalog.formatCurrency(category.travelReserveCents)} reservados para deslocamento · '
-            '${category.estimatedMinutes} min estimados',
-            style: const TextStyle(
-              fontSize: 9,
-              color: AppColors.textSecondary,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: category.services
-                .map(
-                  (service) => Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(99),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Text(
-                      service,
-                      style: const TextStyle(fontSize: 8),
-                    ),
-                  ),
-                )
-                .toList(growable: false),
-          ),
-        ],
       ),
     );
   }

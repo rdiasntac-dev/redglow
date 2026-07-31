@@ -7,6 +7,7 @@ import '../services/firebase_auth_service.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/brand_logo.dart';
 import 'main_shell.dart';
 import 'provider_home_screen.dart';
 
@@ -423,36 +424,7 @@ class _AuthHero extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(
-          width: 72,
-          height: 72,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            gradient: pinkGradient,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withValues(alpha: .3),
-                blurRadius: 28,
-              ),
-            ],
-          ),
-          child: const Icon(Icons.auto_awesome_rounded, size: 35, color: Colors.white),
-        ),
-        const SizedBox(height: 13),
-        const Text(
-          'REDGLOW',
-          style: TextStyle(
-            fontSize: 25,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 2.2,
-          ),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Beleza que chega até você, com segurança.',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
-        ),
+        const RedGlowBrandLockup(),
       ],
     );
   }
