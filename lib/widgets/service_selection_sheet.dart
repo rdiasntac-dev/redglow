@@ -83,7 +83,7 @@ class _ServiceSelectionSheetState extends State<_ServiceSelectionSheet> {
               Expanded(
                 child: ListView.separated(
                   itemCount: widget.professional.services.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 7),
+                  separatorBuilder: (_, _) => const SizedBox(height: 7),
                   itemBuilder: (context, index) {
                     final service = widget.professional.services[index];
                     final category =
@@ -166,7 +166,7 @@ class _ServiceSelectionSheetState extends State<_ServiceSelectionSheet> {
                       child: Text(
                         ordered.isEmpty
                             ? 'Selecione pelo menos um serviço'
-                            : '${ordered.length} serviço(s) · ~${duration} min · +$points pts',
+                            : '${ordered.length} serviço(s) · ~$duration min · +$points pts',
                         style: const TextStyle(
                           fontSize: 9,
                           color: AppColors.textSecondary,
