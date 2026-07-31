@@ -199,15 +199,10 @@ void main() {
     expect(find.text('Serviços que realizo'), findsOneWidget);
     expect(find.text('Manicure tradicional'), findsWidgets);
     expect(find.text('Esmaltação em gel'), findsWidgets);
-    for (var index = 0; index < 7; index++) {
-      await tester.drag(
-        find.byType(Scrollable).last,
-        const Offset(0, -600),
-      );
-      await tester.pump();
-    }
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('save-provider-services')), findsOneWidget);
+    final saveServices =
+        find.byKey(const Key('save-provider-services'));
+    await _scrollTo(tester, saveServices);
+    expect(saveServices, findsOneWidget);
   });
 
   testWidgets('provider can log out of the demonstrative account',
