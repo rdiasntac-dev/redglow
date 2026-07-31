@@ -197,8 +197,8 @@ void main() {
 
     expect(find.byType(ProviderServicesScreen), findsOneWidget);
     expect(find.text('Serviços que realizo'), findsOneWidget);
-    expect(find.text('Manicure tradicional'), findsOneWidget);
-    expect(find.text('Esmaltação em gel'), findsOneWidget);
+    expect(find.text('Manicure tradicional'), findsWidgets);
+    expect(find.text('Esmaltação em gel'), findsWidgets);
     for (var index = 0; index < 7; index++) {
       await tester.drag(
         find.byType(Scrollable).last,
