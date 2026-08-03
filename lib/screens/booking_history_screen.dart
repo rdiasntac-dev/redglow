@@ -4,6 +4,7 @@ import '../models/user_role.dart';
 import '../services/firebase_marketplace_service.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
+import '../widgets/cancellation_flow.dart';
 import '../widgets/common_widgets.dart';
 import 'rating_screen.dart';
 import 'reviews_screen.dart';
@@ -65,6 +66,20 @@ class BookingHistoryScreen extends StatelessWidget {
                 for (final entry in entries)
                   _HistoryCard(
                     entry: entry,
+                    onCancel: entry.cancellable
+                        ? () async {
+                            for (final booking in state.bookingHistory) {
+                              if (booking.id == entry.bookingId) {
+                                state.selectBooking(booking);
+                                break;
+                              }
+                            }
+                            await showCancellationFlow(
+                              context,
+                              asProvider: role == UserRole.provider,
+                            );
+                          }
+                        : null,
                     onReview: entry.pendingReview
                         ? () {
                             MarketplaceBooking? booking;
@@ -138,6 +153,11 @@ class BookingHistoryScreen extends StatelessWidget {
           pendingReview:
               state.bookingStatus == DemoBookingStatus.completed,
           providerCode: state.selectedProviderCode,
+          cancellable: const {
+            DemoBookingStatus.requested,
+            DemoBookingStatus.accepted,
+            DemoBookingStatus.onTheWay,
+          }.contains(state.bookingStatus),
         ),
       const _HistoryEntry(
         counterpart: 'Atendimento demonstrativo',
@@ -186,11 +206,15 @@ class BookingHistoryScreen extends StatelessWidget {
       color: booking.status == 'cancelled' ? Colors.redAccent : AppColors.green,
       reviewed: booking.status == 'reviewed',
       pendingReview: booking.status == 'completed' &&
+          booking.isRatingEligible &&
           (role == UserRole.client
               ? booking.clientRating == 0
               : booking.providerRating == 0),
       bookingId: booking.id,
       providerCode: booking.providerPublicCode,
+      cancellable: booking.isCancellable,
+      cancellationReason: booking.cancellationReason,
+      legacy: !booking.isCurrentCycle,
     );
   }
 
@@ -214,6 +238,9 @@ class _HistoryEntry {
     required this.pendingReview,
     this.bookingId,
     this.providerCode,
+    this.cancellable = false,
+    this.cancellationReason = '',
+    this.legacy = false,
   });
   final String counterpart;
   final String service;
@@ -225,15 +252,20 @@ class _HistoryEntry {
   final bool pendingReview;
   final String? bookingId;
   final String? providerCode;
+  final bool cancellable;
+  final String cancellationReason;
+  final bool legacy;
 }
 
 class _HistoryCard extends StatelessWidget {
   const _HistoryCard({
     required this.entry,
+    this.onCancel,
     this.onReview,
     this.onReviews,
   });
   final _HistoryEntry entry;
+  final VoidCallback? onCancel;
   final VoidCallback? onReview;
   final VoidCallback? onReviews;
 
@@ -260,6 +292,20 @@ class _HistoryCard extends StatelessWidget {
               color: AppColors.textSecondary,
             ),
           ),
+          if (entry.legacy) ...[
+            const SizedBox(height: 5),
+            const Text(
+              'Registro anterior ao ciclo auditável · sem pontos ou pendência de avaliação',
+              style: TextStyle(fontSize: 8, color: AppColors.textMuted),
+            ),
+          ],
+          if (entry.cancellationReason.isNotEmpty) ...[
+            const SizedBox(height: 5),
+            Text(
+              'Motivo: ${entry.cancellationReason}',
+              style: const TextStyle(fontSize: 8, color: AppColors.textSecondary),
+            ),
+          ],
           const Divider(height: 18),
           Row(
             children: [
@@ -287,6 +333,24 @@ class _HistoryCard extends StatelessWidget {
                 onPressed: onReview,
                 icon: const Icon(Icons.star_outline_rounded, size: 17),
                 label: const Text('Avaliar este atendimento'),
+              ),
+            ),
+          ],
+          if (onCancel != null) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                key: Key('cancel-booking-${entry.bookingId ?? 'demo'}'),
+                onPressed: onCancel,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.redAccent,
+                  side: BorderSide(
+                    color: Colors.redAccent.withValues(alpha: .65),
+                  ),
+                ),
+                icon: const Icon(Icons.cancel_outlined, size: 17),
+                label: const Text('Cancelar atendimento'),
               ),
             ),
           ],

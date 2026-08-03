@@ -11,6 +11,17 @@ String redGlowPublicCode(String uid) {
 }
 
 class MarketplaceProfessional {
+  static const onlinePresenceTtl = Duration(minutes: 20);
+
+  static bool hasFreshAvailability(
+    DateTime? availabilityUpdatedAt, {
+    DateTime? now,
+  }) {
+    if (availabilityUpdatedAt == null) return false;
+    return (now ?? DateTime.now()).difference(availabilityUpdatedAt).abs() <
+        onlinePresenceTtl;
+  }
+
   const MarketplaceProfessional({
     required this.uid,
     required this.name,
@@ -93,9 +104,7 @@ class MarketplaceProfessional {
     final availabilityUpdatedAt = availabilityTimestamp is Timestamp
         ? availabilityTimestamp.toDate()
         : null;
-    final availableRecently = availabilityUpdatedAt != null &&
-        DateTime.now().difference(availabilityUpdatedAt).abs() <
-            const Duration(minutes: 20);
+    final availableRecently = hasFreshAvailability(availabilityUpdatedAt);
     return MarketplaceProfessional(
       uid: document.id,
       name: data['name'] as String? ?? 'Prestadora REDGLOW',
@@ -141,6 +150,8 @@ class MarketplaceBooking {
     required this.cancellationReason,
     required this.cancelledBy,
     required this.simulatedFeeCents,
+    this.schemaVersion = 1,
+    this.completedAt,
     this.clientLatitude,
     this.clientLongitude,
     this.providerLatitude,
@@ -166,6 +177,8 @@ class MarketplaceBooking {
   final String cancellationReason;
   final String cancelledBy;
   final int simulatedFeeCents;
+  final int schemaVersion;
+  final DateTime? completedAt;
   final double? clientLatitude;
   final double? clientLongitude;
   final double? providerLatitude;
@@ -173,12 +186,28 @@ class MarketplaceBooking {
 
   String get providerPublicCode => redGlowPublicCode(providerId);
 
+  bool get isCurrentCycle => schemaVersion >= 2;
+
+  bool get isCancellable => const {
+        'requested',
+        'accepted',
+        'onTheWay',
+      }.contains(status);
+
+  bool get isRewardEligible =>
+      isCurrentCycle &&
+      completedAt != null &&
+      const {'completed', 'reviewed'}.contains(status);
+
+  bool get isRatingEligible => isRewardEligible;
+
   factory MarketplaceBooking.fromDocument(
     QueryDocumentSnapshot<Map<String, dynamic>> document,
   ) {
     final data = document.data();
     final createdTimestamp = data['createdAt'];
     final updatedTimestamp = data['updatedAt'];
+    final completedTimestamp = data['completedAt'];
     final clientLocation = data['clientLocation'];
     final providerLocation = data['providerLocation'];
     final clientLocationData = clientLocation is Map
@@ -219,6 +248,10 @@ class MarketplaceBooking {
       cancellationReason: data['cancellationReason'] as String? ?? '',
       cancelledBy: data['cancelledBy'] as String? ?? '',
       simulatedFeeCents: data['simulatedFeeCents'] as int? ?? 0,
+      schemaVersion: data['schemaVersion'] as int? ?? 1,
+      completedAt: completedTimestamp is Timestamp
+          ? completedTimestamp.toDate()
+          : null,
       clientLatitude:
           (clientLocationData?['latitude'] as num?)?.toDouble(),
       clientLongitude:
@@ -717,6 +750,8 @@ class FirebaseMarketplaceService {
       'cancellationReason': '',
       'cancelledBy': '',
       'simulatedFeeCents': 0,
+      'schemaVersion': 2,
+      'completedAt': null,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -731,6 +766,8 @@ class FirebaseMarketplaceService {
   }) {
     return _firestore.collection('bookings').doc(bookingId).update({
       'status': status,
+      if (status == 'completed')
+        'completedAt': FieldValue.serverTimestamp(),
       if (providerLatitude != null && providerLongitude != null)
         'providerLocation': {
           'latitude': providerLatitude,

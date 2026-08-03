@@ -36,6 +36,14 @@ extension DemoBookingStatusLabel on DemoBookingStatus {
 class DemoAppState extends ChangeNotifier {
   static const pointsRedemptionCost = 10;
 
+  static int auditedPointsForBookings(
+    Iterable<MarketplaceBooking> bookings,
+  ) {
+    return bookings
+        .where((booking) => booking.isRewardEligible)
+        .fold(0, (total, booking) => total + booking.pointsEarned);
+  }
+
   FirebaseMarketplaceService? _marketplaceService;
   DeviceLocationService? _locationService;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _profileSubscription;
@@ -202,12 +210,27 @@ class DemoAppState extends ChangeNotifier {
   List<MarketplaceBooking> get pendingRatings => bookingHistory
       .where(
         (booking) =>
-            booking.status == 'completed' &&
+            booking.isRatingEligible &&
             (activeRole == UserRole.client
                 ? booking.clientRating == 0
                 : booking.providerRating == 0),
       )
       .toList(growable: false);
+
+  List<MarketplaceBooking> get rewardEligibleBookings => bookingHistory
+      .where((booking) => booking.isRewardEligible)
+      .toList(growable: false);
+
+  int get ignoredLegacyPoints {
+    final legacyCompleted = bookingHistory
+        .where(
+          (booking) =>
+              !booking.isCurrentCycle &&
+              const {'completed', 'reviewed'}.contains(booking.status),
+        )
+        .fold(0, (total, booking) => total + booking.pointsEarned);
+    return _legacyPoints + legacyCompleted;
+  }
 
   String get selectedService =>
       selectedServices.join(' + ');
@@ -356,6 +379,8 @@ class DemoAppState extends ChangeNotifier {
         cancellationReason: '',
         cancelledBy: '',
         simulatedFeeCents: 0,
+        schemaVersion: 2,
+        completedAt: null,
       );
       bookingHistory = [currentBooking!];
       bookingStatus = DemoBookingStatus.requested;
@@ -972,10 +997,7 @@ class DemoAppState extends ChangeNotifier {
         if (!_isCurrentSession(version)) return;
         bookingHistory = List.unmodifiable(bookings);
         if (activeRole == UserRole.client) {
-          _earnedPoints = bookings
-              .where((booking) =>
-                  booking.status == 'completed' || booking.status == 'reviewed')
-              .fold(0, (total, booking) => total + booking.pointsEarned);
+          _earnedPoints = auditedPointsForBookings(bookings);
           _refreshPointsBalance();
         }
         final booking = _currentBookingFrom(
@@ -1094,7 +1116,10 @@ class DemoAppState extends ChangeNotifier {
   }
 
   void _refreshPointsBalance() {
-    final balance = _legacyPoints + _earnedPoints - _redeemedPoints;
+    // O campo `users.points` e atendimentos anteriores à versão do ciclo
+    // auditável são mantidos apenas para diagnóstico. O saldo exibido nasce
+    // exclusivamente de conclusões REDGLOW 7.0.8+ e das trocas registradas.
+    final balance = _earnedPoints - _redeemedPoints;
     points = balance < 0 ? 0 : balance;
   }
 
@@ -1244,6 +1269,7 @@ class DemoAppState extends ChangeNotifier {
         return true;
       }
       return booking.status == 'completed' &&
+          booking.isRatingEligible &&
           (role == UserRole.client
               ? booking.clientRating == 0
               : booking.providerRating == 0);
@@ -1257,7 +1283,7 @@ class DemoAppState extends ChangeNotifier {
     for (final booking in bookings) {
       if (needsAction(booking)) return booking;
     }
-    return bookings.isEmpty ? null : bookings.first;
+    return null;
   }
 
   static DemoBookingStatus _statusFromBackend(String? status) => switch (status) {

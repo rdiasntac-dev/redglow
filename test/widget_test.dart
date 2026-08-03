@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:redglow/app.dart';
 import 'package:redglow/models/user_role.dart';
 import 'package:redglow/screens/edit_profile_screen.dart';
+import 'package:redglow/screens/booking_history_screen.dart';
 import 'package:redglow/screens/focused_explore_screen.dart';
 import 'package:redglow/screens/identity_verification_screen.dart';
 import 'package:redglow/screens/provider_analytics_screen.dart';
@@ -302,6 +303,32 @@ void main() {
     expect(find.text('Central de Segurança'), findsOneWidget);
     expect(find.byKey(const Key('emergency-call-190')), findsOneWidget);
     expect(find.byKey(const Key('emergency-call-153')), findsOneWidget);
+  });
+
+  testWidgets('history allows cancelling a pending booking with a reason',
+      (tester) async {
+    final state = DemoAppState();
+    addTearDown(state.dispose);
+    await state.requestBooking();
+    await tester.pumpWidget(
+      DemoAppScope(
+        controller: state,
+        child: MaterialApp(
+          theme: AppTheme.dark,
+          home: const BookingHistoryScreen(role: UserRole.client),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('cancel-booking-demo')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-cancellation')));
+    await tester.pumpAndSettle();
+
+    expect(state.bookingStatus, DemoBookingStatus.cancelled);
+    expect(state.lastCancellationReason, 'Mudei de ideia');
+    expect(find.text('CANCELADO'), findsOneWidget);
   });
 
   test('shared demo state follows the bilateral service lifecycle', () async {

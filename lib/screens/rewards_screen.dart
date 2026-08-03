@@ -103,6 +103,59 @@ class RewardsScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 18),
+              const SectionTitle(title: 'Extrato de pontos'),
+              const SizedBox(height: 9),
+              if (state.rewardEligibleBookings.isEmpty &&
+                  state.rewardRedemptions.isEmpty)
+                const GlowCard(
+                  child: Row(
+                    children: [
+                      Icon(Icons.receipt_long_outlined, color: AppColors.textMuted),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Nenhum lançamento válido. Os pontos aparecerão aqui somente após um atendimento 7.0.8+ ser concluído.',
+                          style: TextStyle(fontSize: 9, color: AppColors.textSecondary),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else ...[
+                for (final booking in state.rewardEligibleBookings)
+                  _PointLedgerCard(
+                    icon: Icons.check_circle_outline_rounded,
+                    color: AppColors.green,
+                    title: booking.serviceNames.join(' + '),
+                    subtitle:
+                        'Atendimento concluído · ${_shortDate(booking.completedAt!)}',
+                    points: booking.pointsEarned,
+                  ),
+                for (final redemption in state.rewardRedemptions)
+                  _PointLedgerCard(
+                    icon: Icons.redeem_outlined,
+                    color: AppColors.primary,
+                    title: redemption.rewardName,
+                    subtitle: 'Reserva beta · ${_shortDate(redemption.createdAt)}',
+                    points: -redemption.pointsCost,
+                  ),
+              ],
+              if (state.ignoredLegacyPoints > 0) ...[
+                const SizedBox(height: 4),
+                GlowCard(
+                  color: AppColors.yellow.withValues(alpha: .06),
+                  borderColor: AppColors.yellow.withValues(alpha: .35),
+                  child: Text(
+                    '${state.ignoredLegacyPoints} ponto(s) de registros antigos foram desconsiderados porque não possuem conclusão auditável. Eles permanecem apenas no histórico.',
+                    style: const TextStyle(
+                      fontSize: 8.5,
+                      height: 1.4,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 18),
               const SectionTitle(title: 'Recompensas de parceiros'),
               const SizedBox(height: 9),
               for (final reward in RedGlowRewardCatalog.rewards)
@@ -158,6 +211,63 @@ class RewardsScreen extends StatelessWidget {
               ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+String _shortDate(DateTime date) =>
+    '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
+
+class _PointLedgerCard extends StatelessWidget {
+  const _PointLedgerCard({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.points,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final int points;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GlowCard(
+        child: Row(
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 8, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              '${points > 0 ? '+' : ''}$points pts',
+              style: TextStyle(
+                color: points > 0 ? AppColors.green : AppColors.primary,
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
         ),
       ),
     );

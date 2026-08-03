@@ -19,7 +19,7 @@ class FocusedExploreScreen extends StatefulWidget {
 
 class _FocusedExploreScreenState extends State<FocusedExploreScreen> {
   final _searchController = TextEditingController();
-  String _category = 'Todos';
+  String _category = 'Todas';
   String? _service;
 
   @override
@@ -72,26 +72,23 @@ class _FocusedExploreScreenState extends State<FocusedExploreScreen> {
             const SizedBox(height: 14),
             Text('NICHOS REDGLOW', style: Theme.of(context).textTheme.labelSmall),
             const SizedBox(height: 8),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final category in [
-                    'Todos',
-                    ...RedGlowServiceCatalog.labels,
-                  ]) ...[
-                    ChoiceChip(
-                      key: Key('niche-${category.toLowerCase()}'),
-                      label: Text(category),
-                      selected: _category == category,
-                      onSelected: (_) => _selectCategory(category),
-                    ),
-                    const SizedBox(width: 7),
-                  ],
-                ],
-              ),
+            Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: [
+                for (final category in [
+                  'Todas',
+                  ...RedGlowServiceCatalog.labels,
+                ])
+                  ChoiceChip(
+                    key: Key('niche-${category.toLowerCase()}'),
+                    label: Text(category),
+                    selected: _category == category,
+                    onSelected: (_) => _selectCategory(category),
+                  ),
+              ],
             ),
-            if (_category != 'Todos') ...[
+            if (_category != 'Todas') ...[
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -168,8 +165,9 @@ class _FocusedExploreScreenState extends State<FocusedExploreScreen> {
                     return const Center(child: CircularProgressIndicator());
                   }
                   final professionals = snapshot.data!.docs
-                      .map(_SearchProfessional.fromDocument)
+                      .map(MarketplaceProfessional.fromDocument)
                       .where((professional) => professional.isOnline)
+                      .map(_SearchProfessional.fromMarketplace)
                       .toList()
                     ..sort((a, b) => a.name.compareTo(b.name));
                   return _ProfessionalsList(
@@ -209,7 +207,7 @@ class _ProfessionalsList extends StatelessWidget {
     final normalizedQuery = query.trim().toLowerCase();
     final results = professionals.where((professional) {
       final matchesCategory =
-          category == 'Todos' || professional.specialties.contains(category);
+          category == 'Todas' || professional.specialties.contains(category);
       final matchesService = service == null ||
           professional.services.any(
             (item) => item.toLowerCase() == service!.toLowerCase(),
@@ -239,7 +237,7 @@ class _ProfessionalsList extends StatelessWidget {
           _InfoCard(
             icon: Icons.person_search_outlined,
             title: 'Nenhuma profissional disponível',
-            message: category == 'Todos'
+            message: category == 'Todas'
                 ? 'Ainda não há profissionais reais online para esta busca.'
                 : 'O nicho e seus serviços continuam disponíveis, mas ainda não existe uma profissional online com esse perfil.',
           )
@@ -326,7 +324,6 @@ class _ProfessionalsList extends StatelessWidget {
                       spacing: 6,
                       runSpacing: 6,
                       children: professional.services
-                          .take(4)
                           .map(
                             (item) => Container(
                               padding: const EdgeInsets.symmetric(
@@ -459,44 +456,21 @@ class _SearchProfessional {
         .reduce((current, next) => current < next ? current : next);
   }
 
-  factory _SearchProfessional.fromDocument(
-    QueryDocumentSnapshot<Map<String, dynamic>> document,
+  factory _SearchProfessional.fromMarketplace(
+    MarketplaceProfessional professional,
   ) {
-    final data = document.data();
-    final specialty = RedGlowServiceCatalog.normalizeLabel(
-      data['specialty'] as String?,
-    );
-    final rawSpecialties = data['specialties'];
-    final specialties = RedGlowServiceCatalog.normalizeLabels(
-      rawSpecialties is List
-          ? rawSpecialties.whereType<String>()
-          : <String>[specialty],
-    );
-    final effectiveSpecialties =
-        specialties.isEmpty ? <String>[specialty] : specialties;
-    final category = RedGlowServiceCatalog.byLabel(specialty);
-    final rawServices = data['services'];
-    final services = RedGlowServiceCatalog.validServicesForCategories(
-      effectiveSpecialties,
-      rawServices is List ? rawServices.whereType<String>() : const <String>[],
-    );
-    final servicePrices = RedGlowServiceCatalog.sanitizeServicePrices(
-      services,
-      data['servicePricesCents'],
-    );
     return _SearchProfessional(
-      uid: document.id,
-      name: data['name'] as String? ?? 'Profissional REDGLOW',
-      specialty: specialty,
-      specialties: effectiveSpecialties,
-      priceCents:
-          data['priceCents'] as int? ?? category.recommendedHomeCents,
-      rating: (data['rating'] as num?)?.toDouble() ?? 0,
-      services: services,
-      servicePricesCents: servicePrices,
-      isOnline: data['isOnline'] as bool? ?? false,
-      photoUrl: data['photoUrl'] as String? ?? '',
-      bookable: services.isNotEmpty,
+      uid: professional.uid,
+      name: professional.name,
+      specialty: professional.specialty,
+      specialties: professional.specialties,
+      priceCents: professional.priceCents,
+      rating: professional.rating,
+      services: professional.services,
+      servicePricesCents: professional.servicePricesCents,
+      isOnline: professional.isOnline,
+      photoUrl: professional.photoUrl ?? '',
+      bookable: professional.services.isNotEmpty,
     );
   }
 }

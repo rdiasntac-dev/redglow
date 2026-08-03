@@ -36,13 +36,19 @@ class HomeScreen extends StatelessWidget {
     }.contains(state.bookingStatus);
     final ratingBooking = state.pendingRatings.isNotEmpty
         ? state.pendingRatings.first
-        : state.bookingStatus == DemoBookingStatus.completed
+        : state.isDemoSession &&
+                state.bookingStatus == DemoBookingStatus.completed
             ? state.currentBooking
             : null;
     final canReview =
         state.isDemoSession
             ? state.bookingStatus == DemoBookingStatus.completed
             : ratingBooking != null;
+    final hasActiveBooking = state.isDemoSession
+        ? state.hasActiveBooking
+        : state.visibleActiveBookings.isNotEmpty;
+    final showContinueSection =
+        hasActiveBooking || canReview || !state.identityVerified;
 
     return ConstrainedMobileBody(
       child: SafeArea(
@@ -71,77 +77,69 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 9),
             const _PartnerCarousel(),
             const SizedBox(height: 20),
-            const SectionTitle(title: 'Acessos rápidos'),
-            const SizedBox(height: 9),
-            if (canTrack)
-              _ActionCard(
-                icon: Icons.route_rounded,
-                color: AppColors.route,
-                title: 'Acompanhar atendimento',
-                subtitle: state.bookingStatus.label,
-                status: 'EM ANDAMENTO',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const TripScreen()),
-                ),
-              )
-            else
-              _ActionCard(
-                icon: Icons.calendar_month_outlined,
-                color: AppColors.purple,
-                title: 'Meus atendimentos',
-                subtitle: state.bookingStatus.label,
-                status: 'CLIENTE',
-                onTap: onBookings ?? () {},
-              ),
-            if (canReview) ...[
-              const SizedBox(height: 10),
-              _ActionCard(
-                icon: Icons.star_outline_rounded,
-                color: AppColors.yellow,
-                title: 'Avaliar atendimento',
-                subtitle: 'Conte como foi sua experiência',
-                status: 'PÓS-SERVIÇO',
-                onTap: () {
-                  if (ratingBooking != null) {
-                    state.selectBooking(ratingBooking);
-                  }
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => RatingScreen(
-                        bookingId: ratingBooking?.id,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
-            const SizedBox(height: 10),
-            _ActionCard(
-              key: const Key('identity-check-entry'),
-              icon: Icons.verified_user_outlined,
-              color: state.identityVerified
-                  ? AppColors.green
-                  : AppColors.primary,
-              title: 'Verificar identidade',
-              subtitle: 'Mais confiança para clientes e profissionais',
-              status: state.identityVerified ? 'VERIFICADO' : 'PENDENTE',
-              onTap: () {
-                if (state.identityVerified) {
-                  _showInfo(
-                    context,
-                    'Identidade verificada',
-                    'Seu perfil consta como verificado no cadastro REDGLOW.',
-                  );
-                  return;
-                }
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const IdentityVerificationScreen(),
+            if (showContinueSection) ...[
+              const SectionTitle(title: 'Continuar agora'),
+              const SizedBox(height: 9),
+              if (canTrack)
+                _ActionCard(
+                  icon: Icons.route_rounded,
+                  color: AppColors.route,
+                  title: 'Acompanhar atendimento',
+                  subtitle: state.bookingStatus.label,
+                  status: 'EM ANDAMENTO',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const TripScreen()),
                   ),
-                );
-              },
-            ),
-            const SizedBox(height: 20),
+                )
+              else if (hasActiveBooking)
+                _ActionCard(
+                  icon: Icons.calendar_month_outlined,
+                  color: AppColors.purple,
+                  title: 'Continuar pedido',
+                  subtitle: state.bookingStatus.label,
+                  status: 'ATIVO',
+                  onTap: onBookings ?? () {},
+                ),
+              if (canReview) ...[
+                if (hasActiveBooking || canTrack) const SizedBox(height: 10),
+                _ActionCard(
+                  icon: Icons.star_outline_rounded,
+                  color: AppColors.yellow,
+                  title: 'Avaliar atendimento',
+                  subtitle: 'Conte como foi sua experiência',
+                  status: 'PÓS-SERVIÇO',
+                  onTap: () {
+                    if (ratingBooking != null) {
+                      state.selectBooking(ratingBooking);
+                    }
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => RatingScreen(
+                          bookingId: ratingBooking?.id,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+              if (!state.identityVerified) ...[
+                if (hasActiveBooking || canReview) const SizedBox(height: 10),
+                _ActionCard(
+                  key: const Key('identity-check-entry'),
+                  icon: Icons.verified_user_outlined,
+                  color: AppColors.primary,
+                  title: 'Verificar identidade',
+                  subtitle: 'Mais confiança para clientes e profissionais',
+                  status: 'PENDENTE',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const IdentityVerificationScreen(),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+            ],
             SectionTitle(
               title: 'Profissionais disponíveis',
               action: 'Buscar  ›',

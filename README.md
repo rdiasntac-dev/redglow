@@ -3,6 +3,21 @@
 Aplicativo Flutter para contratação segura de profissionais de beleza em
 domicílio. Esta base implementa a interface aprovada na versão 7 do Figma.
 
+### Atualização 7.0.8
+
+- todos os seis nichos ficam visíveis no filtro, sem depender de rolagem
+  horizontal, e cada perfil mostra a lista completa de serviços oferecidos;
+- a busca exclui perfis cuja presença online esteja ausente ou vencida, evitando
+  contas antigas como se ainda estivessem disponíveis;
+- solicitações pendentes podem ser canceladas diretamente no histórico, com
+  motivo, situação `Cancelado` e cobrança beta de R\$ 0,00;
+- pontos são calculados apenas para ciclos 7.0.8+ que possuam conclusão
+  auditável; pedidos solicitados, cancelados e registros antigos não pontuam;
+- extrato explica cada crédito e débito de pontos e identifica valores legados
+  desconsiderados;
+- avaliações antigas sem ciclo auditável deixam de aparecer como pendentes e a
+  home passa a mostrar apenas atalhos contextuais em `Continuar agora`.
+
 ### Atualização 7.0.7
 
 - marca escolhida pelo coautor aplicada sem redesenhar o símbolo, preservando
@@ -151,7 +166,7 @@ firebase.cmd deploy --only storage
 ## APK de beta interno
 
 Cada atualização da branch gera, após análise e testes, um APK Android
-instalável chamado `redglow-v7.0.7-android` nos artefatos do GitHub Actions.
+instalável chamado `redglow-v7.0.8-android` nos artefatos do GitHub Actions.
 Ele usa assinatura de desenvolvimento e serve somente para testes em aparelhos
 autorizados. A assinatura definitiva para Play Store será criada separadamente
 antes da distribuição pública.

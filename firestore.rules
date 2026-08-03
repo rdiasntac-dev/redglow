@@ -257,9 +257,12 @@ service cloud.firestore {
         && request.resource.data.priceCents == resource.data.priceCents
         && request.resource.data.get('pointsEarned', 0)
           == resource.data.get('pointsEarned', 0)
+        && request.resource.data.get('schemaVersion', 1)
+          == resource.data.get('schemaVersion', 1)
         && request.resource.data.address == resource.data.address
         && request.resource.data.paymentMethod == resource.data.paymentMethod
-        && request.resource.data.clientLocation == resource.data.clientLocation
+        && request.resource.data.get('clientLocation', null)
+          == resource.data.get('clientLocation', null)
         && request.resource.data.createdAt == resource.data.createdAt;
     }
 
@@ -286,6 +289,8 @@ service cloud.firestore {
         && (
           validCancellationUpdate()
           || resource.data.status in ['completed', 'reviewed']
+            && resource.data.get('schemaVersion', 1) >= 2
+            && resource.data.completedAt is timestamp
             && request.resource.data.status
               == (resource.data.providerRating > 0 ? 'reviewed' : 'completed')
             && resource.data.clientRating == 0
@@ -330,11 +335,19 @@ service cloud.firestore {
           || resource.data.status == 'inProgress'
             && request.resource.data.status == 'completed'
             && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['status', 'providerLocation', 'updatedAt'])
+              .hasOnly([
+                'status',
+                'providerLocation',
+                'completedAt',
+                'updatedAt'
+              ])
+            && request.resource.data.completedAt == request.time
             && validBookingLocation(
               request.resource.data.get('providerLocation', null)
             )
           || resource.data.status in ['completed', 'reviewed']
+            && resource.data.get('schemaVersion', 1) >= 2
+            && resource.data.completedAt is timestamp
             && request.resource.data.status
               == (resource.data.clientRating > 0 ? 'reviewed' : 'completed')
             && resource.data.providerRating == 0
@@ -534,6 +547,8 @@ service cloud.firestore {
           'cancellationReason',
           'cancelledBy',
           'simulatedFeeCents',
+          'schemaVersion',
+          'completedAt',
           'createdAt',
           'updatedAt'
         ])
@@ -580,6 +595,8 @@ service cloud.firestore {
         && request.resource.data.cancellationReason == ''
         && request.resource.data.cancelledBy == ''
         && request.resource.data.simulatedFeeCents == 0
+        && request.resource.data.schemaVersion == 2
+        && request.resource.data.completedAt == null
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
       allow read: if isBookingParticipant(resource.data) || isAdmin();
@@ -620,6 +637,8 @@ service cloud.firestore {
         && request.resource.data.fromUid == request.auth.uid
         && isBookingParticipant(relatedBooking().data)
         && relatedBooking().data.status in ['completed', 'reviewed']
+        && relatedBooking().data.get('schemaVersion', 1) >= 2
+        && relatedBooking().data.completedAt is timestamp
         && request.resource.data.toUid
           in [relatedBooking().data.clientId, relatedBooking().data.providerId]
         && request.resource.data.toUid != request.resource.data.fromUid

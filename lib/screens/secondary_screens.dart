@@ -256,6 +256,14 @@ class BookingsScreen extends StatelessWidget {
     final state = DemoAppScope.of(context);
     final status = state.bookingStatus;
     final selectedBooking = state.currentBooking;
+    MarketplaceBooking? latestResolvedBooking;
+    for (final booking in state.bookingHistory) {
+      if (const {'cancelled', 'completed', 'reviewed'}
+          .contains(booking.status)) {
+        latestResolvedBooking = booking;
+        break;
+      }
+    }
     final openBookings = state.isDemoSession
         ? const <MarketplaceBooking>[]
         : state.bookingHistory
@@ -268,6 +276,7 @@ class BookingsScreen extends StatelessWidget {
                     'inProgress',
                   }.contains(booking.status) ||
                   booking.status == 'completed' &&
+                      booking.isRatingEligible &&
                       booking.clientRating == 0,
             )
             .toList(growable: false);
@@ -528,6 +537,61 @@ class BookingsScreen extends StatelessWidget {
                 ],
               ),
             ),
+            if (!state.isDemoSession && latestResolvedBooking != null) ...[
+              const SizedBox(height: 10),
+              GlowCard(
+                key: const Key('latest-resolved-booking'),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const BookingHistoryScreen(
+                      role: UserRole.client,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      latestResolvedBooking.status == 'cancelled'
+                          ? Icons.event_busy_outlined
+                          : Icons.history_rounded,
+                      color: latestResolvedBooking.status == 'cancelled'
+                          ? Colors.redAccent
+                          : AppColors.green,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Último registro',
+                            style: TextStyle(fontSize: 8, color: AppColors.textMuted),
+                          ),
+                          Text(
+                            latestResolvedBooking.serviceNames.join(' + '),
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
+                          ),
+                        ],
+                      ),
+                    ),
+                    StatusPill(
+                      label: (latestResolvedBooking.status == 'completed' &&
+                              !latestResolvedBooking.isRatingEligible
+                          ? 'Concluído'
+                          : _bookingStatusLabel(
+                              latestResolvedBooking.status,
+                            ))
+                          .toUpperCase(),
+                      color: latestResolvedBooking.status == 'cancelled'
+                          ? Colors.redAccent
+                          : AppColors.green,
+                    ),
+                    const SizedBox(width: 3),
+                    const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 14),
             GlowCard(
               child: Row(

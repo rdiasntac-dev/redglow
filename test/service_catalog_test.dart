@@ -1,6 +1,40 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:redglow/models/service_catalog.dart';
 import 'package:redglow/services/firebase_marketplace_service.dart';
+import 'package:redglow/state/demo_app_state.dart';
+
+MarketplaceBooking _booking({
+  required String id,
+  required String status,
+  int schemaVersion = 2,
+  DateTime? completedAt,
+  int clientRating = 0,
+}) {
+  final now = DateTime(2026, 8, 3, 12);
+  return MarketplaceBooking(
+    id: id,
+    clientId: 'client',
+    providerId: 'provider',
+    clientName: 'Cliente',
+    providerName: 'Prestadora',
+    status: status,
+    serviceName: 'Manicure tradicional',
+    serviceNames: const ['Manicure tradicional'],
+    priceCents: 6000,
+    pointsEarned: 10,
+    address: 'São José dos Pinhais',
+    paymentMethod: 'Pix',
+    createdAt: now,
+    updatedAt: now,
+    clientRating: clientRating,
+    providerRating: 0,
+    cancellationReason: '',
+    cancelledBy: '',
+    simulatedFeeCents: 0,
+    schemaVersion: schemaVersion,
+    completedAt: completedAt,
+  );
+}
 
 void main() {
   test('REDGLOW beta exposes only the six approved niches', () {
@@ -114,5 +148,69 @@ void main() {
 
     expect(redGlowPublicCode(uid), 'RG-UW4YZ6');
     expect(redGlowPublicCode(uid), isNot(contains(uid)));
+  });
+
+  test('provider presence expires and profiles without heartbeat stay hidden',
+      () {
+    final now = DateTime(2026, 8, 3, 12);
+
+    expect(
+      MarketplaceProfessional.hasFreshAvailability(
+        now.subtract(const Duration(minutes: 5)),
+        now: now,
+      ),
+      isTrue,
+    );
+    expect(
+      MarketplaceProfessional.hasFreshAvailability(
+        now.subtract(const Duration(minutes: 21)),
+        now: now,
+      ),
+      isFalse,
+    );
+    expect(
+      MarketplaceProfessional.hasFreshAvailability(null, now: now),
+      isFalse,
+    );
+  });
+
+  test('only audited completion earns points', () {
+    final completedAt = DateTime(2026, 8, 3, 13);
+    final bookings = [
+      _booking(
+        id: 'valid',
+        status: 'completed',
+        completedAt: completedAt,
+      ),
+      _booking(id: 'requested', status: 'requested'),
+      _booking(id: 'cancelled', status: 'cancelled'),
+      _booking(
+        id: 'legacy',
+        status: 'completed',
+        schemaVersion: 1,
+        completedAt: completedAt,
+      ),
+    ];
+
+    expect(DemoAppState.auditedPointsForBookings(bookings), 10);
+    expect(bookings.first.isRatingEligible, isTrue);
+    expect(bookings.last.isRatingEligible, isFalse);
+  });
+
+  test('legacy completion never becomes a pending rating', () {
+    final state = DemoAppState()
+      ..isDemoSession = false
+      ..bookingHistory = [
+        _booking(
+          id: 'old-lari',
+          status: 'completed',
+          schemaVersion: 1,
+          completedAt: DateTime(2026, 7, 20),
+        ),
+      ];
+    addTearDown(state.dispose);
+
+    expect(state.pendingRatings, isEmpty);
+    expect(state.ignoredLegacyPoints, 10);
   });
 }
