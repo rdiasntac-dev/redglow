@@ -328,7 +328,7 @@ void main() {
 
     expect(state.bookingStatus, DemoBookingStatus.cancelled);
     expect(state.lastCancellationReason, 'Mudei de ideia');
-    expect(find.text('CANCELADO'), findsOneWidget);
+    expect(find.text('PEDIDO CANCELADO'), findsOneWidget);
   });
 
   test('shared demo state follows the bilateral service lifecycle', () async {
