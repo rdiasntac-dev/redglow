@@ -31,6 +31,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Generate branded launcher icons
+        run: dart run flutter_launcher_icons
+
       - name: Analyze source
         run: |
           set +e
@@ -88,13 +91,16 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Generate branded launcher icons
+        run: dart run flutter_launcher_icons
+
       - name: Build installable beta APK
         run: flutter build apk --debug
 
       - name: Upload beta APK
         uses: actions/upload-artifact@v4
         with:
-          name: redglow-v7.0.5-android
+          name: redglow-v7.0.6-android
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14
