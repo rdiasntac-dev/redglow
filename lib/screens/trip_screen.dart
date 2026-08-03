@@ -79,6 +79,15 @@ class _TripScreenState extends State<TripScreen> {
                     providerPhotoUrl: providerPhotoUrl,
                     etaMinutes: etaMinutes,
                     liveLocation: booking?.providerLatitude != null,
+                    providerLatitude: booking?.providerLatitude ??
+                        demoState.selectedProfessional?.latitude,
+                    providerLongitude: booking?.providerLongitude ??
+                        demoState.selectedProfessional?.longitude,
+                    destinationLatitude:
+                        booking?.clientLatitude ?? demoState.accountLatitude,
+                    destinationLongitude:
+                        booking?.clientLongitude ?? demoState.accountLongitude,
+                    destinationLabel: booking?.address ?? demoState.locationSummary,
                   ),
                 ),
                 Positioned(

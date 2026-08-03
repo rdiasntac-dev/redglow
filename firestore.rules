@@ -26,7 +26,10 @@ service cloud.firestore {
 
     function isBookingParticipant(data) {
       return signedIn()
-        && request.auth.uid in [data.clientId, data.providerId];
+        && (
+          request.auth.uid == data.clientId
+          || request.auth.uid == data.providerId
+        );
     }
 
     function selectedProfessional(providerId) {
@@ -165,6 +168,7 @@ service cloud.firestore {
             'latitude',
             'longitude',
             'accuracy',
+            'address',
             'updatedAt'
           ])
           && location.latitude is number
@@ -176,6 +180,12 @@ service cloud.firestore {
           && (
             !('accuracy' in location)
             || location.accuracy is number && location.accuracy >= 0
+          )
+          && (
+            !('address' in location)
+            || location.address is string
+              && location.address.size() > 0
+              && location.address.size() <= 160
           );
     }
 
@@ -186,6 +196,7 @@ service cloud.firestore {
             'latitude',
             'longitude',
             'accuracy',
+            'address',
             'updatedAt'
           ])
           && location.latitude is number
@@ -193,7 +204,13 @@ service cloud.firestore {
           && location.latitude <= 90
           && location.longitude is number
           && location.longitude >= -180
-          && location.longitude <= 180;
+          && location.longitude <= 180
+          && (
+            !('address' in location)
+            || location.address is string
+              && location.address.size() > 0
+              && location.address.size() <= 160
+          );
     }
 
     function validProfessionalProfile(data) {
@@ -214,6 +231,10 @@ service cloud.firestore {
         && data.servicePricesCents.keys().hasOnly(data.services)
         && data.servicePricesCents.keys().hasAll(data.services)
         && data.isOnline is bool
+        && (
+          !('availabilityUpdatedAt' in data)
+          || data.availabilityUpdatedAt is timestamp
+        )
         && (
           data.photoUrl == null
           || data.photoUrl is string && data.photoUrl.size() <= 2048
@@ -280,6 +301,11 @@ service cloud.firestore {
       return request.auth.uid == resource.data.providerId
         && (
           validCancellationUpdate()
+          || resource.data.status in ['accepted', 'onTheWay', 'inProgress']
+            && request.resource.data.status == resource.data.status
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['providerLocation', 'updatedAt'])
+            && validBookingLocation(request.resource.data.providerLocation)
           || resource.data.status == 'requested'
             && request.resource.data.status == 'accepted'
             && request.resource.data.diff(resource.data).affectedKeys()
@@ -413,6 +439,7 @@ service cloud.firestore {
           'services',
           'servicePricesCents',
           'isOnline',
+          'availabilityUpdatedAt',
           'photoUrl',
           'professionalIdStatus',
           'location',
@@ -446,10 +473,6 @@ service cloud.firestore {
           || !('professionalIdStatus' in resource.data)
             && request.resource.data.professionalIdStatus == 'pending'
         )
-        && (
-          !('location' in request.resource.data)
-          || request.resource.data.location == resource.data.location
-        )
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly([
             'name',
@@ -458,6 +481,7 @@ service cloud.firestore {
             'priceCents',
             'photoUrl',
             'isOnline',
+            'availabilityUpdatedAt',
             'services',
             'servicePricesCents',
             'professionalIdStatus',
@@ -487,6 +511,10 @@ service cloud.firestore {
           /databases/$(database)/documents/professionals/$(request.resource.data.providerId)
         )
         && selectedProfessional(request.resource.data.providerId).data.isOnline == true
+        && selectedProfessional(request.resource.data.providerId)
+          .data.availabilityUpdatedAt is timestamp
+        && selectedProfessional(request.resource.data.providerId)
+          .data.availabilityUpdatedAt > request.time - duration.value(20, 'm')
         && request.resource.data.keys().hasOnly([
           'clientId',
           'providerId',

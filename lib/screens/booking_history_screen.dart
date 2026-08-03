@@ -137,6 +137,7 @@ class BookingHistoryScreen extends StatelessWidget {
           reviewed: state.bookingStatus == DemoBookingStatus.reviewed,
           pendingReview:
               state.bookingStatus == DemoBookingStatus.completed,
+          providerCode: state.selectedProviderCode,
         ),
       const _HistoryEntry(
         counterpart: 'Atendimento demonstrativo',
@@ -189,6 +190,7 @@ class BookingHistoryScreen extends StatelessWidget {
               ? booking.clientRating == 0
               : booking.providerRating == 0),
       bookingId: booking.id,
+      providerCode: booking.providerPublicCode,
     );
   }
 
@@ -211,6 +213,7 @@ class _HistoryEntry {
     required this.reviewed,
     required this.pendingReview,
     this.bookingId,
+    this.providerCode,
   });
   final String counterpart;
   final String service;
@@ -221,6 +224,7 @@ class _HistoryEntry {
   final bool reviewed;
   final bool pendingReview;
   final String? bookingId;
+  final String? providerCode;
 }
 
 class _HistoryCard extends StatelessWidget {
@@ -247,7 +251,15 @@ class _HistoryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 3),
-          Text(entry.service, style: const TextStyle(fontSize: 9, color: AppColors.textSecondary)),
+          Text(
+            entry.providerCode == null
+                ? entry.service
+                : '${entry.service} · ${entry.providerCode}',
+            style: const TextStyle(
+              fontSize: 9,
+              color: AppColors.textSecondary,
+            ),
+          ),
           const Divider(height: 18),
           Row(
             children: [

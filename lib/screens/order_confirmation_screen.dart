@@ -131,6 +131,11 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                     providerPhotoUrl: photoUrl,
                     etaMinutes: etaMinutes,
                     liveLocation: professional?.latitude != null,
+                    providerLatitude: professional?.latitude,
+                    providerLongitude: professional?.longitude,
+                    destinationLatitude: state.accountLatitude,
+                    destinationLongitude: state.accountLongitude,
+                    destinationLabel: state.accountAddress ?? 'Destino da cliente',
                   ),
                 ),
                 Positioned(
@@ -151,12 +156,14 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                     isDemo: state.isDemoSession,
                     paymentMethod: _paymentMethod,
                     providerName: state.providerName,
+                    providerCode: state.selectedProviderCode,
                     providerSpecialty: state.providerSpecialty,
                     serviceNames: state.selectedServices,
                     providerPriceCents: state.selectedPriceCents,
                     durationMinutes: state.selectedDurationMinutes,
                     pointsEarned: state.selectedPointsEarned,
                     providerPhotoUrl: photoUrl,
+                    address: state.locationSummary,
                     onConfirm: _handleConfirm,
                     onSelectPayment: _selectPayment,
                     onSafety: () => showEmergencyCenter(context),
@@ -177,12 +184,14 @@ class _OrderSheet extends StatelessWidget {
     required this.isDemo,
     required this.paymentMethod,
     required this.providerName,
+    required this.providerCode,
     required this.providerSpecialty,
     required this.serviceNames,
     required this.providerPriceCents,
     required this.durationMinutes,
     required this.pointsEarned,
     required this.providerPhotoUrl,
+    required this.address,
     required this.onConfirm,
     required this.onSelectPayment,
     required this.onSafety,
@@ -192,12 +201,14 @@ class _OrderSheet extends StatelessWidget {
   final bool isDemo;
   final String paymentMethod;
   final String providerName;
+  final String providerCode;
   final String providerSpecialty;
   final List<String> serviceNames;
   final int providerPriceCents;
   final int durationMinutes;
   final int pointsEarned;
   final String providerPhotoUrl;
+  final String address;
   final VoidCallback onConfirm;
   final VoidCallback onSelectPayment;
   final VoidCallback onSafety;
@@ -276,7 +287,7 @@ class _OrderSheet extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '$providerSpecialty · ${isDemo ? 'Perfil demonstrativo' : 'Perfil real do beta'}',
+                          '$providerSpecialty · $providerCode · ${isDemo ? 'perfil demonstrativo' : 'perfil real'}',
                           style: const TextStyle(
                             fontSize: 8,
                             color: AppColors.textSecondary,
@@ -307,6 +318,7 @@ class _OrderSheet extends StatelessWidget {
               priceCents: providerPriceCents,
               durationMinutes: durationMinutes,
               pointsEarned: pointsEarned,
+              address: address,
             ),
             const SizedBox(height: 9),
             _PaymentCard(
@@ -357,12 +369,14 @@ class _SummaryCard extends StatelessWidget {
     required this.priceCents,
     required this.durationMinutes,
     required this.pointsEarned,
+    required this.address,
   });
 
   final List<String> serviceNames;
   final int priceCents;
   final int durationMinutes;
   final int pointsEarned;
+  final String address;
 
   @override
   Widget build(BuildContext context) {
@@ -421,19 +435,19 @@ class _SummaryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 7),
-          const Row(
+          Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.location_on_outlined,
                 size: 13,
                 color: AppColors.textMuted,
               ),
-              SizedBox(width: 5),
+              const SizedBox(width: 5),
               Expanded(
                 child: Text(
-                  'R. Izabel A Redentora, 1000 — Centro, SJP · endereço beta',
+                  address,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 8,
                     color: AppColors.textMuted,
                   ),

@@ -1,11 +1,11 @@
 {
-    "name": "redglow",
-    "short_name": "redglow",
+    "name": "REDGLOW",
+    "short_name": "REDGLOW",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0B0811",
+    "theme_color": "#E8408C",
+    "description": "Beleza domiciliar com segurança, localização e atendimento especializado.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

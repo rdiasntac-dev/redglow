@@ -3,7 +3,22 @@
 Aplicativo Flutter para contratação segura de profissionais de beleza em
 domicílio. Esta base implementa a interface aprovada na versão 7 do Figma.
 
-### Atualização 7.0.4
+### Atualização 7.0.6
+
+- recebimento do pedido corrigido com presença online renovável e código
+  público da prestadora (`RG-XXXXXX`) nas duas pontas do atendimento;
+- cada sessão profissional começa pausada e somente fica disponível após a
+  própria prestadora ativar o modo online;
+- erros de sincronização do Firestore agora aparecem na interface em vez de
+  deixar a fila silenciosamente vazia;
+- localização real, endereço obtido por consentimento, mapa OpenStreetMap,
+  cálculo de rota/ETA e atualização controlada durante o deslocamento;
+- localização exata da prestadora preservada no perfil privado e compartilhada
+  com a cliente somente depois do aceite;
+- nova assinatura visual R+G em forma de rota, aplicada no login, no aplicativo
+  e no ícone instalado do Android, iOS e web.
+
+### Atualização 7.0.5
 
 - foto persistida e localização durante o uso;
 - múltiplos nichos e serviços por profissional;
@@ -11,6 +26,12 @@ domicílio. Esta base implementa a interface aprovada na versão 7 do Figma.
 - fila de atendimentos e avaliações pendentes;
 - ciclo bilateral sincronizado e avaliação independente;
 - painel da prestadora em abas, com dados reais do histórico.
+- preço individual por procedimento, com piso domiciliar e combinação de
+  mais de um serviço no mesmo pedido;
+- seleção de serviços antes de solicitar tanto na home quanto na busca;
+- REDGLOW Pontos com crédito por conclusão, recompensa piloto e código de
+  reserva;
+- nova marca vetorial com pin, pétala e brilho, aplicada nas duas áreas.
 
 Pagamentos, saques, assinaturas e taxas continuam apenas simulados no beta.
 
@@ -18,7 +39,8 @@ Pagamentos, saques, assinaturas e taxas continuam apenas simulados no beta.
 
 - Cadastro, login, recuperação de senha, sessão persistente e logout com Firebase.
 - Home do cliente com pontos, serviços, parceiros e profissionais.
-- Escolha do serviço preservada da busca até a criação do pedido.
+- Escolha de um ou mais serviços preservada da home ou busca até a criação
+  do pedido, com soma dos preços cadastrados pela prestadora.
 - Perfil da prestadora com serviços realmente selecionados e validados.
 - Confirmação do pedido com mapa urbano em modo escuro.
 - Trajeto da prestadora e mensagens rápidas sem chat livre.
@@ -37,14 +59,13 @@ Pagamentos, saques, assinaturas e taxas continuam apenas simulados no beta.
 - Solicitação autenticada de exclusão de conta para cliente e prestadora.
 - Avisos explícitos nas integrações ainda simuladas, sem cobrança ou autoaprovação de identidade.
 
-## Roteiro da demonstração completa
+## Roteiro da demonstração local
 
-1. Entre como **Cliente**, escolha Lari e confirme o pedido.
-2. Volte à entrada e acesse como **Prestadora**.
-3. Aceite o pedido, inicie o trajeto, confirme a chegada e conclua o serviço.
-4. Avalie a cliente e volte à entrada.
-5. Entre novamente como **Cliente**, abra **Meus atendimentos** e avalie Lari.
-6. Confira os 60 pontos creditados na home do cliente.
+1. Entre como **Cliente**, escolha Lari e selecione um ou mais serviços.
+2. Confira preço total, duração e pontos antes de confirmar.
+3. Use a demonstração para validar telas e botões localmente.
+4. Para testar a conversa bilateral entre dois aparelhos ou navegadores, siga o
+   roteiro com contas reais abaixo.
 
 As áreas são separadas por papel: pontos, busca e agendamentos pertencem à
 cliente; ganhos, assinatura, agenda profissional e emergência pertencem à
@@ -52,13 +73,21 @@ prestadora. Apenas o estado do atendimento é compartilhado entre as duas.
 
 ## Roteiro com contas reais
 
-1. Crie uma conta do tipo **Prestadora** usando um e-mail diferente da cliente.
-2. Deixe a prestadora online e saia da conta.
-3. Entre na conta **Cliente**, escolha a primeira profissional e confirme o pedido.
-4. Saia da cliente e entre novamente como **Prestadora**.
+1. Abra a conta **Prestadora** no APK ou em um navegador e mantenha essa sessão
+   aberta. Ative **Online** e anote o código público `RG-XXXXXX` exibido.
+2. Abra a conta **Cliente** em outro celular, outro navegador ou em uma janela
+   anônima. Duas abas normais do mesmo navegador compartilham a mesma sessão do
+   Firebase e não servem para este teste bilateral.
+3. Na cliente, confira se a profissional disponível possui o mesmo código,
+   selecione um ou mais serviços e confirme o pedido.
+4. Volte à sessão ainda aberta da prestadora: o pedido deve entrar em
+   **Atendimentos** sem sair e entrar novamente.
 5. Aceite o pedido, inicie o trajeto, confirme a chegada e conclua o serviço.
-6. Avalie a cliente, saia e volte à conta **Cliente**.
-7. Abra **Meus atendimentos**, acompanhe o status e avalie a prestadora.
+6. Avalie a cliente na sessão da prestadora.
+7. Volte à sessão da cliente, abra **Meus atendimentos** e avalie a prestadora.
+8. Confira os pontos creditados pela conclusão. Uma manicure tradicional rende
+   10 pontos; abra **Ver recompensas** e reserve o par de brincos piloto por 10
+   pontos.
 
 Perfil, disponibilidade, pedido, etapas, mensagens rápidas e avaliações ficam
 salvos no Firestore e são restaurados ao entrar novamente. A mesma conta não
@@ -114,7 +143,7 @@ firebase.cmd deploy --only storage
 ## APK de beta interno
 
 Cada atualização da branch gera, após análise e testes, um APK Android
-instalável chamado `redglow-v7.0.4-android` nos artefatos do GitHub Actions.
+instalável chamado `redglow-v7.0.6-android` nos artefatos do GitHub Actions.
 Ele usa assinatura de desenvolvimento e serve somente para testes em aparelhos
 autorizados. A assinatura definitiva para Play Store será criada separadamente
 antes da distribuição pública.
@@ -127,14 +156,14 @@ flutter build apk --debug
 
 ## Limites atuais do MVP
 
-- Pontos de contas reais são somente leitura. O crédito automático continuará
-  bloqueado até existir uma função confiável no servidor.
-- Na demonstração, o atendimento de R$ 60 concluído e avaliado credita 60
-  pontos; o resgate de R$ 25 exige 3.000 pontos. Contas reais não fazem resgate
-  local para evitar alteração de saldo pelo aplicativo.
+- No beta, os pontos são derivados dos atendimentos concluídos e as trocas ficam
+  registradas no Firestore. A recompensa piloto gera somente uma reserva de
+  teste; não existe entrega real.
+- Antes do lançamento comercial, preço final, pontos, saldo, estoque e troca
+  devem ser validados por uma função segura no servidor. As regras atuais
+  reduzem abuso acidental, mas não substituem esse backend transacional.
 - Pix, cartão e assinatura ainda são simulações de produto, não integrações
-  financeiras finais. O GPS usa a localização real durante o uso, mas o mapa
-  visual ainda é vetorial.
+  financeiras finais.
 - A prévia do ID Check não consulta CPF nem realiza biometria. O ID profissional
   aceita certificados, mas nenhuma conta é aprovada automaticamente.
 - Os preços do plano são hipóteses comerciais. Contas reais não ativam assinatura
@@ -143,8 +172,10 @@ flutter build apk --debug
   será executada por processo administrativo/backend após definir retenções legais.
 - Cliente e prestadora não possuem ligação direta ou chat livre; durante o
   atendimento são permitidas somente mensagens rápidas predefinidas.
-- O mapa é vetorial e não depende de API externa; deverá ser substituído por um
-  provedor real de mapas e localização antes da publicação comercial.
+- O beta usa OpenStreetMap para os blocos visuais, Nominatim para obter o
+  endereço e OSRM para a rota. Esses serviços públicos não oferecem SLA e
+  deverão ser substituídos por um provedor contratado antes da operação
+  comercial.
 - Agenda e ganhos usam o histórico real da conta; os valores de demonstração
   continuam claramente identificados no acesso de teste.
 - O painel financeiro é demonstrativo e não representa saldo para saque.

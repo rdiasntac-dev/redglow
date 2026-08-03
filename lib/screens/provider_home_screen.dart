@@ -72,9 +72,13 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     final screens = <Widget>[
       _list([
         header,
+        const SizedBox(height: 10),
+        _ProviderSyncCard(state: state),
         const SizedBox(height: 12),
         _OnlineCard(
           isOnline: isOnline,
+          enabled: state.isDemoSession ||
+              state.providerPresenceReady && !state.backendLoading,
           onChanged: (value) {
             if (state.isDemoSession) {
               setState(() => _demoOnline = value);
@@ -96,6 +100,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
       ]),
       _list([
         header,
+        const SizedBox(height: 10),
+        _ProviderSyncCard(state: state),
         const SizedBox(height: 14),
         Text(
           'Atendimentos',
@@ -128,6 +134,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
       const ProviderAnalyticsScreen(embedded: true),
       _list([
         header,
+        const SizedBox(height: 10),
+        _ProviderSyncCard(state: state),
         const SizedBox(height: 14),
         Text(
           'Perfil profissional',
@@ -386,10 +394,81 @@ class _Header extends StatelessWidget {
   }
 }
 
+class _ProviderSyncCard extends StatelessWidget {
+  const _ProviderSyncCard({required this.state});
+
+  final DemoAppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasError = state.backendError != null;
+    return GlowCard(
+      key: const Key('provider-sync-card'),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+      borderColor: hasError
+          ? Colors.redAccent.withValues(alpha: .55)
+          : AppColors.route.withValues(alpha: .4),
+      color: hasError
+          ? Colors.redAccent.withValues(alpha: .07)
+          : AppColors.route.withValues(alpha: .06),
+      child: Row(
+        children: [
+          Icon(
+            hasError ? Icons.sync_problem_rounded : Icons.verified_outlined,
+            color: hasError ? Colors.redAccent : AppColors.route,
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Seu código de recebimento: ${state.currentAccountCode}',
+                  style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  hasError
+                      ? state.backendError!
+                      : 'O pedido da cliente deve exibir exatamente este código.',
+                  style: TextStyle(
+                    fontSize: 8,
+                    color: hasError
+                        ? Colors.redAccent
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (hasError)
+            IconButton(
+              tooltip: 'Fechar aviso',
+              onPressed: state.clearBackendError,
+              icon: const Icon(Icons.close_rounded, size: 17),
+            )
+          else
+            const StatusPill(
+              label: 'SINCRONIZADO',
+              color: AppColors.route,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _OnlineCard extends StatelessWidget {
-  const _OnlineCard({required this.isOnline, required this.onChanged});
+  const _OnlineCard({
+    required this.isOnline,
+    required this.enabled,
+    required this.onChanged,
+  });
 
   final bool isOnline;
+  final bool enabled;
   final ValueChanged<bool> onChanged;
 
   @override
@@ -419,7 +498,11 @@ class _OnlineCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isOnline ? 'Online' : 'Offline',
+                  !enabled
+                      ? 'Preparando perfil...'
+                      : isOnline
+                          ? 'Online'
+                          : 'Offline',
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w900,
@@ -437,7 +520,7 @@ class _OnlineCard extends StatelessWidget {
               ],
             ),
           ),
-          Switch(value: isOnline, onChanged: onChanged),
+          Switch(value: isOnline, onChanged: enabled ? onChanged : null),
         ],
       ),
     );
@@ -678,11 +761,21 @@ class _ProviderLocationCard extends StatelessWidget {
             const SizedBox(height: 10),
             ClipRRect(
               borderRadius: BorderRadius.circular(14),
-              child: const SizedBox(
+              child: SizedBox(
                 height: 150,
                 child: UrbanGpsMap(
                   showEtaChip: false,
                   compactRoute: true,
+                  providerName: state.accountName ?? 'Prestadora REDGLOW',
+                  providerPhotoUrl: state.profilePhotoUrl,
+                  providerLatitude: state.accountLatitude,
+                  providerLongitude: state.accountLongitude,
+                  destinationLatitude:
+                      state.currentBooking?.clientLatitude ?? state.accountLatitude,
+                  destinationLongitude:
+                      state.currentBooking?.clientLongitude ?? state.accountLongitude,
+                  destinationLabel:
+                      state.currentBooking?.address ?? state.locationSummary,
                 ),
               ),
             ),
@@ -864,7 +957,8 @@ class _BookingStatusCard extends StatelessWidget {
             const Divider(height: 20),
             Text(
               '${state.clientName} · ${booking?.serviceName ?? state.providerSpecialty}\n'
-              '${booking == null ? RedGlowServiceCatalog.formatCurrency(state.providerPriceCents) : RedGlowServiceCatalog.formatCurrency(booking.priceCents)}',
+              '${booking == null ? RedGlowServiceCatalog.formatCurrency(state.providerPriceCents) : RedGlowServiceCatalog.formatCurrency(booking.priceCents)} · '
+              '${booking?.providerPublicCode ?? state.currentAccountCode}',
               style: const TextStyle(fontSize: 9, height: 1.5),
             ),
           ],

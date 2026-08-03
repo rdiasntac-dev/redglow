@@ -46,13 +46,15 @@ class DemoAppState extends ChangeNotifier {
   StreamSubscription<MarketplaceRating?>? _providerRatingSubscription;
   StreamSubscription<List<MarketplaceRewardRedemption>>?
       _rewardRedemptionsSubscription;
+  Timer? _providerAvailabilityHeartbeat;
+  Timer? _providerRouteTracking;
   int _sessionVersion = 0;
   bool _disposed = false;
 
   FirebaseMarketplaceService get _marketplace =>
       _marketplaceService ??= FirebaseMarketplaceService();
   DeviceLocationService get _location =>
-      _locationService ??= const DeviceLocationService();
+      _locationService ??= DeviceLocationService();
 
   UserRole activeRole = UserRole.client;
   bool isDemoSession = true;
@@ -64,6 +66,7 @@ class DemoAppState extends ChangeNotifier {
   double? accountLongitude;
   double? locationAccuracy;
   DateTime? locationUpdatedAt;
+  String? accountAddress;
   bool locationLoading = false;
   String? locationError;
   String demoProviderSpecialty = 'Manicure';
@@ -95,6 +98,7 @@ class DemoAppState extends ChangeNotifier {
   bool backendLoading = false;
   String? backendError;
   bool providerOnline = true;
+  bool providerPresenceReady = true;
   DemoBookingStatus bookingStatus = DemoBookingStatus.idle;
   int points = 0;
   int _legacyPoints = 0;
@@ -121,6 +125,19 @@ class DemoAppState extends ChangeNotifier {
       'Lari (Manicure)';
 
   String get clientName => currentBooking?.clientName ?? 'Cliente REDGLOW';
+
+  String get selectedProviderCode => redGlowPublicCode(
+        currentBooking?.providerId ??
+            selectedProfessional?.uid ??
+            (isDemoSession ? 'demo-lari' : ''),
+      );
+
+  String get currentAccountCode => redGlowPublicCode(
+        currentUserId ??
+            (activeRole == UserRole.provider
+                ? 'demo-lari'
+                : 'demo-cliente'),
+      );
 
   bool get hasRealProvider =>
       isDemoSession || selectedProfessional?.isOnline == true;
@@ -166,6 +183,7 @@ class DemoAppState extends ChangeNotifier {
 
   String get locationSummary {
     if (locationLoading) return 'Obtendo sua localização...';
+    if (accountAddress?.trim().isNotEmpty == true) return accountAddress!;
     if (hasCurrentLocation) {
       return 'Localização atual confirmada · precisão de ${locationAccuracy?.round() ?? 0} m';
     }
@@ -229,6 +247,11 @@ class DemoAppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void clearBackendError() {
+    backendError = null;
+    notifyListeners();
+  }
+
   void startSession({
     required UserRole role,
     required bool demo,
@@ -243,6 +266,7 @@ class DemoAppState extends ChangeNotifier {
     backendError = null;
     backendLoading = !demo;
     if (demo) {
+      providerPresenceReady = true;
       currentUserId = null;
       accountEmail = null;
       accountPhone = null;
@@ -251,6 +275,7 @@ class DemoAppState extends ChangeNotifier {
       accountLongitude = null;
       locationAccuracy = null;
       locationUpdatedAt = null;
+      accountAddress = null;
       locationError = null;
       selectedProfessional = null;
       selectedServiceName = null;
@@ -276,6 +301,8 @@ class DemoAppState extends ChangeNotifier {
         simulatedCancellationFeeCents = 0;
       }
     } else {
+      providerOnline = false;
+      providerPresenceReady = role != UserRole.provider;
       points = 0;
       bookingStatus = DemoBookingStatus.idle;
       clientToProviderRating = 0;
@@ -299,6 +326,7 @@ class DemoAppState extends ChangeNotifier {
       accountLongitude = null;
       locationAccuracy = null;
       locationUpdatedAt = null;
+      accountAddress = null;
       locationError = null;
       _connectRealSession(_sessionVersion);
     }
@@ -360,6 +388,7 @@ class DemoAppState extends ChangeNotifier {
         paymentMethod: paymentMethod,
         clientLatitude: accountLatitude,
         clientLongitude: accountLongitude,
+        address: accountAddress,
       );
     });
   }
@@ -536,8 +565,28 @@ class DemoAppState extends ChangeNotifier {
     if (!succeeded) {
       providerOnline = !value;
       notifyListeners();
+    } else {
+      _configureAvailabilityHeartbeat(value);
     }
     return succeeded;
+  }
+
+  void _configureAvailabilityHeartbeat(bool online) {
+    _providerAvailabilityHeartbeat?.cancel();
+    _providerAvailabilityHeartbeat = null;
+    if (!online || isDemoSession || currentUserId == null) return;
+    final version = _sessionVersion;
+    _providerAvailabilityHeartbeat = Timer.periodic(
+      const Duration(minutes: 5),
+      (_) async {
+        if (!_isCurrentSession(version) || !providerOnline) return;
+        try {
+          await _marketplace.refreshProviderAvailability(currentUserId!);
+        } catch (error) {
+          _handleRealtimeError(version, error);
+        }
+      },
+    );
   }
 
   Future<bool> refreshLocation({bool showPermissionError = true}) async {
@@ -551,6 +600,8 @@ class DemoAppState extends ChangeNotifier {
         accountLongitude = -49.2058;
         locationAccuracy = 12;
         locationUpdatedAt = DateTime.now();
+        accountAddress =
+            'R. Izabel A Redentora, 1000 — Centro, São José dos Pinhais';
         return true;
       }
       final userId = currentUserId;
@@ -563,11 +614,14 @@ class DemoAppState extends ChangeNotifier {
       accountLongitude = result.longitude;
       locationAccuracy = result.accuracy;
       locationUpdatedAt = result.capturedAt;
+      accountAddress = result.address ?? accountAddress;
       await _marketplace.updateCurrentLocation(
         uid: userId,
+        role: activeRole,
         latitude: result.latitude,
         longitude: result.longitude,
         accuracy: result.accuracy,
+        address: result.address,
       );
       return true;
     } on LocationPermissionException catch (error) {
@@ -855,6 +909,7 @@ class DemoAppState extends ChangeNotifier {
             (location?['accuracy'] as num?)?.toDouble() ?? locationAccuracy;
         final updatedAt = location?['updatedAt'];
         if (updatedAt is Timestamp) locationUpdatedAt = updatedAt.toDate();
+        accountAddress = location?['address'] as String? ?? accountAddress;
         isAdmin = data?['isAdmin'] == true;
         _legacyPoints = data?['points'] as int? ?? 0;
         _refreshPointsBalance();
@@ -941,6 +996,7 @@ class DemoAppState extends ChangeNotifier {
         } else if (booking == null) {
           _cancelBookingDetailSubscriptions();
         }
+        _configureProviderRouteTracking();
         notifyListeners();
       },
       onError: (Object error) => _handleRealtimeError(version, error),
@@ -969,7 +1025,17 @@ class DemoAppState extends ChangeNotifier {
   Future<void> _ensureProfessional(int version, String uid, String name) async {
     try {
       await _marketplace.ensureProfessionalProfile(uid: uid, name: name);
+      if (!_isCurrentSession(version)) return;
+      // Cada nova sessão começa offline para impedir que perfis antigos,
+      // deixados abertos em outra aba, recebam pedidos por engano.
+      await _marketplace.setProviderOnline(uid, false);
+      if (!_isCurrentSession(version)) return;
+      providerOnline = false;
+      providerPresenceReady = true;
+      _configureAvailabilityHeartbeat(false);
+      notifyListeners();
     } catch (error) {
+      providerPresenceReady = false;
       _handleRealtimeError(version, error);
     }
   }
@@ -1056,6 +1122,53 @@ class DemoAppState extends ChangeNotifier {
             activeRole == UserRole.provider ? accountLongitude : null,
       ),
     );
+  }
+
+  void _configureProviderRouteTracking() {
+    _providerRouteTracking?.cancel();
+    _providerRouteTracking = null;
+    if (isDemoSession ||
+        activeRole != UserRole.provider ||
+        bookingStatus != DemoBookingStatus.onTheWay ||
+        currentBooking == null) {
+      return;
+    }
+    final version = _sessionVersion;
+    _providerRouteTracking = Timer.periodic(
+      const Duration(seconds: 45),
+      (_) => _shareProviderRoutePosition(version),
+    );
+  }
+
+  Future<void> _shareProviderRoutePosition(int version) async {
+    final bookingId = currentBooking?.id;
+    if (!_isCurrentSession(version) ||
+        bookingId == null ||
+        bookingStatus != DemoBookingStatus.onTheWay) {
+      return;
+    }
+    try {
+      final result = await _location.current(resolveAddress: false);
+      if (!_isCurrentSession(version)) return;
+      accountLatitude = result.latitude;
+      accountLongitude = result.longitude;
+      locationAccuracy = result.accuracy;
+      locationUpdatedAt = result.capturedAt;
+      await _marketplace.updateBookingProviderLocation(
+        bookingId: bookingId,
+        latitude: result.latitude,
+        longitude: result.longitude,
+      );
+      if (!_disposed) notifyListeners();
+    } on LocationPermissionException catch (error) {
+      locationError = error.message;
+      _providerRouteTracking?.cancel();
+      _providerRouteTracking = null;
+      if (!_disposed) notifyListeners();
+    } catch (_) {
+      // Uma falha isolada de GPS não interrompe o atendimento. O próximo
+      // intervalo tenta atualizar novamente.
+    }
   }
 
   Future<bool> _runBackendAction(Future<void> Function() action) async {
@@ -1182,6 +1295,10 @@ class DemoAppState extends ChangeNotifier {
   }
 
   void _cancelRealtimeSubscriptions() {
+    _providerAvailabilityHeartbeat?.cancel();
+    _providerAvailabilityHeartbeat = null;
+    _providerRouteTracking?.cancel();
+    _providerRouteTracking = null;
     unawaited(_profileSubscription?.cancel());
     unawaited(_professionalsSubscription?.cancel());
     unawaited(_bookingsSubscription?.cancel());

@@ -2,7 +2,7 @@ name: redglow
 description: "REDGLOW — plataforma especializada em beleza domiciliar em São José dos Pinhais."
 publish_to: 'none'
 
-version: 7.0.5+13
+version: 7.0.6+14
 
 environment:
   sdk: ^3.12.2
@@ -17,7 +17,10 @@ dependencies:
   cloud_firestore: ^6.7.1
   firebase_storage: ^13.4.5
   geolocator: ^14.0.3
+  flutter_map: ^8.3.1
+  http: ^1.6.0
   image_picker: ^1.2.3
+  latlong2: ^0.9.1
   url_launcher: ^6.3.2
 
 dev_dependencies:
@@ -25,6 +28,21 @@ dev_dependencies:
     sdk: flutter
 
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/brand/redglow_brand_mark.png
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/brand/redglow_app_icon.png
+  remove_alpha_ios: true
+  background_color_ios: "#0B0811"
+  web:
+    generate: true
+    image_path: assets/brand/redglow_app_icon.png
+    background_color: "#0B0811"
+    theme_color: "#E8408C"

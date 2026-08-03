@@ -1,11 +1,15 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../services/road_route_service.dart';
 import '../theme/app_theme.dart';
 import 'common_widgets.dart';
 
-class UrbanGpsMap extends StatelessWidget {
+class UrbanGpsMap extends StatefulWidget {
   const UrbanGpsMap({
     super.key,
     this.showProviderChip = false,
@@ -15,6 +19,11 @@ class UrbanGpsMap extends StatelessWidget {
     this.providerPhotoUrl = '',
     this.etaMinutes,
     this.liveLocation = false,
+    this.providerLatitude,
+    this.providerLongitude,
+    this.destinationLatitude,
+    this.destinationLongitude,
+    this.destinationLabel = 'Destino confirmado',
   });
 
   final bool showProviderChip;
@@ -24,13 +33,78 @@ class UrbanGpsMap extends StatelessWidget {
   final String providerPhotoUrl;
   final int? etaMinutes;
   final bool liveLocation;
+  final double? providerLatitude;
+  final double? providerLongitude;
+  final double? destinationLatitude;
+  final double? destinationLongitude;
+  final String destinationLabel;
+
+  bool get hasRealCoordinates =>
+      providerLatitude != null &&
+      providerLongitude != null &&
+      destinationLatitude != null &&
+      destinationLongitude != null;
+
+  @override
+  State<UrbanGpsMap> createState() => _UrbanGpsMapState();
+}
+
+class _UrbanGpsMapState extends State<UrbanGpsMap> {
+  final RoadRouteService _routeService = RoadRouteService();
+  Future<RoadRoute?>? _routeFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshRoute();
+  }
+
+  @override
+  void didUpdateWidget(covariant UrbanGpsMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.providerLatitude != widget.providerLatitude ||
+        oldWidget.providerLongitude != widget.providerLongitude ||
+        oldWidget.destinationLatitude != widget.destinationLatitude ||
+        oldWidget.destinationLongitude != widget.destinationLongitude) {
+      _refreshRoute();
+    }
+  }
+
+  void _refreshRoute() {
+    if (!widget.hasRealCoordinates) {
+      _routeFuture = null;
+      return;
+    }
+    _routeFuture = _routeService.route(
+      fromLatitude: widget.providerLatitude!,
+      fromLongitude: widget.providerLongitude!,
+      toLatitude: widget.destinationLatitude!,
+      toLongitude: widget.destinationLongitude!,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.hasRealCoordinates) {
+      return _RealGpsMap(widget: widget, routeFuture: _routeFuture!);
+    }
+    return _SimulatedGpsMap(widget: widget);
+  }
+}
+
+class _SimulatedGpsMap extends StatelessWidget {
+  const _SimulatedGpsMap({required this.widget});
+
+  final UrbanGpsMap widget;
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       fit: StackFit.expand,
       children: [
-        CustomPaint(painter: _UrbanMapPainter(compactRoute: compactRoute)),
+        CustomPaint(
+          painter: _UrbanMapPainter(compactRoute: widget.compactRoute),
+        ),
         const Positioned(
           left: 12,
           top: 82,
@@ -52,11 +126,15 @@ class UrbanGpsMap extends StatelessWidget {
           child: _MapLabel(label: 'Av. Manoel Ribas'),
         ),
         Align(
-          alignment: compactRoute ? const Alignment(.08, -.35) : const Alignment(.04, -.18),
+          alignment: widget.compactRoute
+              ? const Alignment(.08, -.35)
+              : const Alignment(.04, -.18),
           child: const _DestinationMarker(),
         ),
         Align(
-          alignment: compactRoute ? const Alignment(.5, -.82) : const Alignment(-.35, -.43),
+          alignment: widget.compactRoute
+              ? const Alignment(.5, -.82)
+              : const Alignment(-.35, -.43),
           child: Container(
             width: 12,
             height: 12,
@@ -70,36 +148,234 @@ class UrbanGpsMap extends StatelessWidget {
             ),
           ),
         ),
-        if (showProviderChip)
+        if (widget.showProviderChip)
           Positioned(
             top: 18,
             right: 16,
             child: _ProviderMapChip(
-              providerName: providerName,
-              providerPhotoUrl: providerPhotoUrl,
-              liveLocation: liveLocation,
+              providerName: widget.providerName,
+              providerPhotoUrl: widget.providerPhotoUrl,
+              liveLocation: widget.liveLocation,
             ),
           ),
-        if (showEtaChip)
+        if (widget.showEtaChip)
           Positioned(
             bottom: 22,
             left: 0,
             right: 0,
             child: Center(
               child: StatusPill(
-                label: etaMinutes == null
+                label: widget.etaMinutes == null
                     ? 'Rota simulada · aguardando GPS'
-                    : 'Prestadora a ~$etaMinutes min de você',
-                color: etaMinutes == null
+                    : 'Prestadora a ~${widget.etaMinutes} min de você',
+                color: widget.etaMinutes == null
                     ? AppColors.textMuted
                     : AppColors.primary,
-                icon: etaMinutes == null
+                icon: widget.etaMinutes == null
                     ? Icons.location_searching_rounded
                     : Icons.directions_car_filled_rounded,
               ),
             ),
           ),
       ],
+    );
+  }
+}
+
+class _RealGpsMap extends StatelessWidget {
+  const _RealGpsMap({
+    required this.widget,
+    required this.routeFuture,
+  });
+
+  final UrbanGpsMap widget;
+  final Future<RoadRoute?> routeFuture;
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = LatLng(
+      widget.providerLatitude!,
+      widget.providerLongitude!,
+    );
+    final destination = LatLng(
+      widget.destinationLatitude!,
+      widget.destinationLongitude!,
+    );
+    final center = LatLng(
+      (provider.latitude + destination.latitude) / 2,
+      (provider.longitude + destination.longitude) / 2,
+    );
+    final span = math.max(
+      (provider.latitude - destination.latitude).abs(),
+      (provider.longitude - destination.longitude).abs(),
+    );
+    final zoom = span <= .003
+        ? 16.0
+        : span <= .008
+            ? 14.7
+            : span <= .02
+                ? 13.3
+                : span <= .06
+                    ? 11.8
+                    : 10.2;
+
+    return FutureBuilder<RoadRoute?>(
+      future: routeFuture,
+      builder: (context, snapshot) {
+        final route = snapshot.data;
+        final points = route?.points
+                .map((point) => LatLng(point.latitude, point.longitude))
+                .toList(growable: false) ??
+            <LatLng>[provider, destination];
+        final eta = route?.durationMinutes ?? widget.etaMinutes;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            FlutterMap(
+              options: MapOptions(
+                initialCenter: center,
+                initialZoom: zoom,
+                minZoom: 4,
+                maxZoom: 19,
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'br.com.redglow.app',
+                  tileBuilder: darkModeTileBuilder,
+                ),
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: points,
+                      strokeWidth: 9,
+                      color: AppColors.route.withValues(alpha: .2),
+                    ),
+                    Polyline(
+                      points: points,
+                      strokeWidth: 4.5,
+                      color: AppColors.route,
+                    ),
+                  ],
+                ),
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: provider,
+                      width: 48,
+                      height: 48,
+                      child: _ProviderMarker(
+                        photoUrl: widget.providerPhotoUrl,
+                        name: widget.providerName,
+                      ),
+                    ),
+                    Marker(
+                      point: destination,
+                      width: 74,
+                      height: 74,
+                      child: const _DestinationMarker(),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            if (widget.showProviderChip)
+              Positioned(
+                top: 18,
+                right: 16,
+                child: _ProviderMapChip(
+                  providerName: widget.providerName,
+                  providerPhotoUrl: widget.providerPhotoUrl,
+                  liveLocation: true,
+                ),
+              ),
+            Positioned(
+              left: 10,
+              top: 10,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 205),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppColors.background.withValues(alpha: .88),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
+                    child: Text(
+                      widget.destinationLabel,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 8,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 8,
+              bottom: 8,
+              child: TextButton(
+                onPressed: () => launchUrl(
+                  Uri.parse('https://www.openstreetmap.org/copyright'),
+                  mode: LaunchMode.externalApplication,
+                ),
+                style: TextButton.styleFrom(
+                  backgroundColor: AppColors.background.withValues(alpha: .82),
+                  foregroundColor: AppColors.textSecondary,
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('© OpenStreetMap', style: TextStyle(fontSize: 7)),
+              ),
+            ),
+            if (widget.showEtaChip)
+              Positioned(
+                bottom: 18,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: StatusPill(
+                    label: snapshot.connectionState == ConnectionState.waiting
+                        ? 'Calculando rota real...'
+                        : eta == null
+                            ? 'GPS confirmado · ETA indisponível'
+                            : 'Rota viária · aproximadamente $eta min',
+                    color: eta == null ? AppColors.textMuted : AppColors.primary,
+                    icon: eta == null
+                        ? Icons.location_on_outlined
+                        : Icons.directions_car_filled_rounded,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ProviderMarker extends StatelessWidget {
+  const _ProviderMarker({required this.photoUrl, required this.name});
+
+  final String photoUrl;
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return ProfileAvatar(
+      imageUrl: photoUrl,
+      fallbackText: name,
+      size: 42,
+      borderColor: AppColors.purple,
     );
   }
 }

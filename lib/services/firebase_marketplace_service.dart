@@ -4,6 +4,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/service_catalog.dart';
 import '../models/user_role.dart';
 
+String redGlowPublicCode(String uid) {
+  final clean = uid.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+  final suffix = clean.length <= 6 ? clean : clean.substring(clean.length - 6);
+  return suffix.isEmpty ? 'RG-BETA' : 'RG-$suffix';
+}
+
 class MarketplaceProfessional {
   const MarketplaceProfessional({
     required this.uid,
@@ -19,6 +25,8 @@ class MarketplaceProfessional {
     this.latitude,
     this.longitude,
     this.locationUpdatedAt,
+    this.locationAddress,
+    this.availabilityUpdatedAt,
     this.professionalIdStatus = 'pending',
   });
 
@@ -35,7 +43,11 @@ class MarketplaceProfessional {
   final double? latitude;
   final double? longitude;
   final DateTime? locationUpdatedAt;
+  final String? locationAddress;
+  final DateTime? availabilityUpdatedAt;
   final String professionalIdStatus;
+
+  String get publicCode => redGlowPublicCode(uid);
 
   int priceForService(String service) =>
       servicePricesCents[service] ??
@@ -77,6 +89,13 @@ class MarketplaceProfessional {
     final locationData =
         location is Map ? Map<String, dynamic>.from(location) : null;
     final locationTimestamp = locationData?['updatedAt'];
+    final availabilityTimestamp = data['availabilityUpdatedAt'];
+    final availabilityUpdatedAt = availabilityTimestamp is Timestamp
+        ? availabilityTimestamp.toDate()
+        : null;
+    final availableRecently = availabilityUpdatedAt != null &&
+        DateTime.now().difference(availabilityUpdatedAt).abs() <
+            const Duration(minutes: 20);
     return MarketplaceProfessional(
       uid: document.id,
       name: data['name'] as String? ?? 'Prestadora REDGLOW',
@@ -87,12 +106,14 @@ class MarketplaceProfessional {
       rating: (data['rating'] as num?)?.toDouble() ?? 0,
       services: services,
       servicePricesCents: servicePrices,
-      isOnline: data['isOnline'] as bool? ?? false,
+      isOnline: (data['isOnline'] as bool? ?? false) && availableRecently,
       photoUrl: data['photoUrl'] as String?,
       latitude: (locationData?['latitude'] as num?)?.toDouble(),
       longitude: (locationData?['longitude'] as num?)?.toDouble(),
       locationUpdatedAt:
           locationTimestamp is Timestamp ? locationTimestamp.toDate() : null,
+      locationAddress: locationData?['address'] as String?,
+      availabilityUpdatedAt: availabilityUpdatedAt,
       professionalIdStatus:
           data['professionalIdStatus'] as String? ?? 'pending',
     );
@@ -149,6 +170,8 @@ class MarketplaceBooking {
   final double? clientLongitude;
   final double? providerLatitude;
   final double? providerLongitude;
+
+  String get providerPublicCode => redGlowPublicCode(providerId);
 
   factory MarketplaceBooking.fromDocument(
     QueryDocumentSnapshot<Map<String, dynamic>> document,
@@ -352,8 +375,9 @@ class FirebaseMarketplaceService {
         'servicePricesCents': servicePrices,
         'professionalIdStatus':
             data['professionalIdStatus'] as String? ?? 'pending',
-        if (data.containsKey('location'))
-          'location': FieldValue.delete(),
+        // A posição exata não pertence ao perfil público. Durante um chamado
+        // aceito ela é compartilhada somente no documento do atendimento.
+        'location': FieldValue.delete(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
       return;
@@ -370,7 +394,8 @@ class FirebaseMarketplaceService {
       'servicePricesCents': RedGlowServiceCatalog.defaultPricesForServices(
         defaultCategory.services,
       ),
-      'isOnline': true,
+      'isOnline': false,
+      'availabilityUpdatedAt': FieldValue.serverTimestamp(),
       'photoUrl': null,
       'professionalIdStatus': 'pending',
       'createdAt': FieldValue.serverTimestamp(),
@@ -381,6 +406,14 @@ class FirebaseMarketplaceService {
   Future<void> setProviderOnline(String uid, bool isOnline) {
     return _firestore.collection('professionals').doc(uid).update({
       'isOnline': isOnline,
+      'availabilityUpdatedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> refreshProviderAvailability(String uid) {
+    return _firestore.collection('professionals').doc(uid).update({
+      'availabilityUpdatedAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
@@ -408,21 +441,27 @@ class FirebaseMarketplaceService {
 
   Future<void> updateCurrentLocation({
     required String uid,
+    required UserRole role,
     required double latitude,
     required double longitude,
     required double accuracy,
+    String? address,
   }) async {
     final location = <String, dynamic>{
       'latitude': latitude,
       'longitude': longitude,
       'accuracy': accuracy,
+      if (address != null && address.trim().isNotEmpty)
+        'address': address.trim(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
-    await _firestore.collection('users').doc(uid).update({
+    final batch = _firestore.batch();
+    batch.update(_firestore.collection('users').doc(uid), {
       'location': location,
       'locationPermission': 'granted',
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    await batch.commit();
   }
 
   Future<void> updateProviderServices({
@@ -572,6 +611,7 @@ class FirebaseMarketplaceService {
     required String providerName,
     required List<String> serviceNames,
     required String paymentMethod,
+    String? address,
     double? clientLatitude,
     double? clientLongitude,
   }) async {
@@ -591,6 +631,18 @@ class FirebaseMarketplaceService {
         plugin: 'cloud_firestore',
         code: 'failed-precondition',
         message: 'A profissional selecionada não está disponível.',
+      );
+    }
+    final availabilityTimestamp = professional['availabilityUpdatedAt'];
+    final availableRecently = availabilityTimestamp is Timestamp &&
+        DateTime.now().difference(availabilityTimestamp.toDate()).abs() <
+            const Duration(minutes: 20);
+    if (!availableRecently) {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'failed-precondition',
+        message:
+            'A disponibilidade desta profissional expirou. Aguarde ela ficar online novamente.',
       );
     }
 
@@ -648,7 +700,9 @@ class FirebaseMarketplaceService {
       'serviceNames': cleanServiceNames,
       'priceCents': currentPrice,
       'pointsEarned': pointsEarned,
-      'address': 'R. Izabel A Redentora, 1000 — Centro, SJP',
+      'address': address?.trim().isNotEmpty == true
+          ? address!.trim()
+          : 'Endereço atual confirmado por GPS',
       'clientLocation': clientLatitude != null && clientLongitude != null
           ? {
               'latitude': clientLatitude,
@@ -683,6 +737,21 @@ class FirebaseMarketplaceService {
           'longitude': providerLongitude,
           'updatedAt': FieldValue.serverTimestamp(),
         },
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> updateBookingProviderLocation({
+    required String bookingId,
+    required double latitude,
+    required double longitude,
+  }) {
+    return _firestore.collection('bookings').doc(bookingId).update({
+      'providerLocation': {
+        'latitude': latitude,
+        'longitude': longitude,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }

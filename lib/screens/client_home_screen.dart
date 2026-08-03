@@ -52,6 +52,10 @@ class HomeScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(14, 8, 14, 26),
           children: [
             _HomeHeader(state: state),
+            if (state.backendError != null) ...[
+              const SizedBox(height: 10),
+              _ClientSyncAlert(state: state),
+            ],
             const SizedBox(height: 14),
             _PointsCard(points: state.points),
             const SizedBox(height: 20),
@@ -203,9 +207,7 @@ class _HomeHeader extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  state.hasCurrentLocation
-                      ? '${state.accountLatitude!.toStringAsFixed(5)}, ${state.accountLongitude!.toStringAsFixed(5)} · toque para atualizar'
-                      : state.locationSummary,
+                  state.locationSummary,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: AppColors.textSecondary,
@@ -239,6 +241,39 @@ class _HomeHeader extends StatelessWidget {
           borderColor: AppColors.primary,
         ),
       ],
+    );
+  }
+}
+
+class _ClientSyncAlert extends StatelessWidget {
+  const _ClientSyncAlert({required this.state});
+
+  final DemoAppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlowCard(
+      key: const Key('client-sync-error'),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+      borderColor: Colors.redAccent.withValues(alpha: .55),
+      color: Colors.redAccent.withValues(alpha: .07),
+      child: Row(
+        children: [
+          const Icon(Icons.sync_problem_rounded, color: Colors.redAccent),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              state.backendError!,
+              style: const TextStyle(fontSize: 9, height: 1.35),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Fechar aviso',
+            onPressed: state.clearBackendError,
+            icon: const Icon(Icons.close_rounded, size: 17),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -813,7 +848,7 @@ class _AvailableProfessionalCard extends StatelessWidget {
                 Text(
                   state.isDemoSession
                       ? '★ 4.9 · Perfil demonstrativo'
-                      : 'Perfil beta · dados reais do cadastro',
+                      : '${realProfessional?.publicCode ?? state.selectedProviderCode} · perfil real do beta',
                   style: const TextStyle(
                     fontSize: 8,
                     color: AppColors.textMuted,

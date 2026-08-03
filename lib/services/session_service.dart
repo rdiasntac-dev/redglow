@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/user_role.dart';
 import '../state/demo_app_state.dart';
 import 'firebase_auth_service.dart';
 
@@ -8,6 +9,9 @@ Future<void> endCurrentSession(BuildContext context) async {
 
   if (!demoState.isDemoSession) {
     try {
+      if (demoState.activeRole == UserRole.provider) {
+        await demoState.setProviderOnline(false);
+      }
       await FirebaseAuthService().signOut();
     } catch (_) {
       if (!context.mounted) return;

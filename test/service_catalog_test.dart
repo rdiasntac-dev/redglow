@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:redglow/models/service_catalog.dart';
+import 'package:redglow/services/firebase_marketplace_service.dart';
 
 void main() {
   test('REDGLOW beta exposes only the six approved niches', () {
@@ -106,5 +107,12 @@ void main() {
       RedGlowServiceCatalog.parseCurrencyInputToCents('R\$ 1.200,50'),
       120050,
     );
+  });
+
+  test('public provider code is stable and never exposes the complete uid', () {
+    const uid = 'fQ9px73kLmN2vR8sT1uW4yZ6';
+
+    expect(redGlowPublicCode(uid), 'RG-UW4YZ6');
+    expect(redGlowPublicCode(uid), isNot(contains(uid)));
   });
 }
