@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -587,7 +588,7 @@ class _UrbanMapPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
-    final path = Path();
+    final path = ui.Path();
     if (compactRoute) {
       path
         ..moveTo(size.width * .24, size.height * .9)
@@ -604,7 +605,7 @@ class _UrbanMapPainter extends CustomPainter {
     canvas.drawPath(path, route);
 
     final water = Paint()..color = const Color(0xFF182531);
-    final waterPath = Path()
+    final waterPath = ui.Path()
       ..moveTo(size.width * .78, size.height)
       ..quadraticBezierTo(size.width * .91, size.height * .85, size.width, size.height * .8)
       ..lineTo(size.width, size.height)
