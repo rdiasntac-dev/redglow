@@ -217,6 +217,7 @@ void main() {
     await tester.tap(find.byKey(const Key('provider-logout')));
     await tester.pumpAndSettle();
 
+    await _scrollTo(tester, find.byKey(const Key('demo-access')));
     expect(find.text('Acessar demonstração como Prestadora'), findsOneWidget);
   });
 
