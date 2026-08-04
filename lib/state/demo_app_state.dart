@@ -49,7 +49,7 @@ class DemoAppState extends ChangeNotifier {
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _profileSubscription;
   StreamSubscription<List<MarketplaceProfessional>>? _professionalsSubscription;
   StreamSubscription<List<MarketplaceBooking>>? _bookingsSubscription;
-  StreamSubscription<String?>? _quickMessageSubscription;
+  StreamSubscription<MarketplaceQuickMessage?>? _quickMessageSubscription;
   StreamSubscription<MarketplaceRating?>? _clientRatingSubscription;
   StreamSubscription<MarketplaceRating?>? _providerRatingSubscription;
   StreamSubscription<List<MarketplaceRewardRedemption>>?
@@ -118,6 +118,8 @@ class DemoAppState extends ChangeNotifier {
   bool professionalPlanActive = false;
   bool isAdmin = false;
   String? lastQuickMessage;
+  String? lastQuickMessageSenderId;
+  DateTime? lastQuickMessageSentAt;
   int clientToProviderRating = 0;
   int providerToClientRating = 0;
   List<String> clientToProviderTags = [];
@@ -188,6 +190,14 @@ class DemoAppState extends ChangeNotifier {
 
   bool get hasCurrentLocation =>
       accountLatitude != null && accountLongitude != null;
+
+  bool get hasIncomingQuickMessage {
+    final ownId = currentUserId ??
+        (activeRole == UserRole.client ? 'demo-client' : 'demo-lari');
+    return lastQuickMessage?.isNotEmpty == true &&
+        lastQuickMessageSenderId?.isNotEmpty == true &&
+        lastQuickMessageSenderId != ownId;
+  }
 
   String get locationSummary {
     if (locationLoading) return 'Obtendo sua localização...';
@@ -319,7 +329,7 @@ class DemoAppState extends ChangeNotifier {
         clientToProviderRating = 0;
         providerToClientRating = 0;
         _clearRatingDetails();
-        lastQuickMessage = null;
+        _clearQuickMessage();
         lastCancellationReason = '';
         simulatedCancellationFeeCents = 0;
       }
@@ -331,7 +341,7 @@ class DemoAppState extends ChangeNotifier {
       clientToProviderRating = 0;
       providerToClientRating = 0;
       _clearRatingDetails();
-      lastQuickMessage = null;
+      _clearQuickMessage();
       lastCancellationReason = '';
       simulatedCancellationFeeCents = 0;
       selectedProfessional = null;
@@ -353,6 +363,24 @@ class DemoAppState extends ChangeNotifier {
       locationError = null;
       _connectRealSession(_sessionVersion);
     }
+    notifyListeners();
+  }
+
+  void finishSession() {
+    _sessionVersion++;
+    _cancelRealtimeSubscriptions();
+    currentUserId = null;
+    currentBooking = null;
+    bookingHistory = [];
+    selectedProfessional = null;
+    selectedServiceName = null;
+    selectedServiceNames = [];
+    bookingStatus = DemoBookingStatus.idle;
+    providerOnline = false;
+    providerPresenceReady = true;
+    backendLoading = false;
+    backendError = null;
+    _clearQuickMessage();
     notifyListeners();
   }
 
@@ -384,7 +412,7 @@ class DemoAppState extends ChangeNotifier {
       );
       bookingHistory = [currentBooking!];
       bookingStatus = DemoBookingStatus.requested;
-      lastQuickMessage = null;
+      _clearQuickMessage();
       lastCancellationReason = '';
       simulatedCancellationFeeCents = 0;
       clientToProviderRating = 0;
@@ -511,8 +539,26 @@ class DemoAppState extends ChangeNotifier {
   }
 
   Future<bool> sendQuickMessage(String message) async {
+    if (activeRole != UserRole.client) {
+      _setBackendError('As mensagens rápidas são enviadas pela cliente.');
+      return false;
+    }
+    if (!{
+      DemoBookingStatus.accepted,
+      DemoBookingStatus.onTheWay,
+      DemoBookingStatus.inProgress,
+    }.contains(bookingStatus)) {
+      _setBackendError(
+        'As mensagens são liberadas depois que a prestadora aceita o pedido.',
+      );
+      return false;
+    }
     if (isDemoSession) {
       lastQuickMessage = message;
+      lastQuickMessageSenderId = activeRole == UserRole.client
+          ? 'demo-client'
+          : 'demo-lari';
+      lastQuickMessageSentAt = DateTime.now();
       notifyListeners();
       return true;
     }
@@ -892,7 +938,7 @@ class DemoAppState extends ChangeNotifier {
 
   void resetBooking() {
     bookingStatus = DemoBookingStatus.idle;
-    lastQuickMessage = null;
+    _clearQuickMessage();
     lastCancellationReason = '';
     simulatedCancellationFeeCents = 0;
     clientToProviderRating = 0;
@@ -1064,11 +1110,13 @@ class DemoAppState extends ChangeNotifier {
 
   void _watchBookingDetails(int version, MarketplaceBooking booking) {
     _cancelBookingDetailSubscriptions();
-    lastQuickMessage = null;
+    _clearQuickMessage();
     _quickMessageSubscription = _marketplace.watchLastQuickMessage(booking.id).listen(
       (message) {
         if (!_isCurrentSession(version)) return;
-        lastQuickMessage = message;
+        lastQuickMessage = message?.body;
+        lastQuickMessageSenderId = message?.senderId;
+        lastQuickMessageSentAt = message?.createdAt;
         notifyListeners();
       },
       onError: (Object error) => _handleRealtimeError(version, error),
@@ -1113,6 +1161,12 @@ class DemoAppState extends ChangeNotifier {
     providerToClientTags = [];
     clientToProviderComment = '';
     providerToClientComment = '';
+  }
+
+  void _clearQuickMessage() {
+    lastQuickMessage = null;
+    lastQuickMessageSenderId = null;
+    lastQuickMessageSentAt = null;
   }
 
   void _refreshPointsBalance() {

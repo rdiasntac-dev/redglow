@@ -359,6 +359,41 @@ service cloud.firestore {
         );
     }
 
+    function validAdminArchiveUpdate() {
+      return isAdmin()
+        && resource.data.get('schemaVersion', 1) < 2
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.get('completedAt', null)
+          == resource.data.get('completedAt', null)
+        && request.resource.data.get('providerLocation', null)
+          == resource.data.get('providerLocation', null)
+        && (
+          !('archivedAt' in resource.data)
+            && request.resource.data.archivedAt == request.time
+            && request.resource.data.archivedBy == request.auth.uid
+            && request.resource.data.archiveReason
+              == 'Ciclo beta anterior à REDGLOW 7.0.8'
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly([
+                'archivedAt',
+                'archivedBy',
+                'archiveReason',
+                'updatedAt'
+              ])
+          || resource.data.archivedAt is timestamp
+            && !('archivedAt' in request.resource.data)
+            && !('archivedBy' in request.resource.data)
+            && !('archiveReason' in request.resource.data)
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly([
+                'archivedAt',
+                'archivedBy',
+                'archiveReason',
+                'updatedAt'
+              ])
+        );
+    }
+
     match /users/{uid} {
       allow create: if isSelf(uid)
         && request.resource.data.keys().hasOnly([
@@ -600,10 +635,13 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
       allow read: if isBookingParticipant(resource.data) || isAdmin();
-      allow update: if isBookingParticipant(resource.data)
-        && bookingCoreUnchanged()
+      allow update: if bookingCoreUnchanged()
         && request.resource.data.updatedAt == request.time
-        && (validClientBookingUpdate() || validProviderBookingUpdate());
+        && (
+          isBookingParticipant(resource.data)
+            && (validClientBookingUpdate() || validProviderBookingUpdate())
+          || validAdminArchiveUpdate()
+        );
       allow delete: if false;
 
       match /quickMessages/{messageId} {
@@ -613,6 +651,8 @@ service cloud.firestore {
 
         allow read: if isBookingParticipant(booking().data);
         allow create: if isBookingParticipant(booking().data)
+          && booking().data.clientId == request.auth.uid
+          && booking().data.status in ['accepted', 'onTheWay', 'inProgress']
           && request.resource.data.senderId == request.auth.uid
           && request.resource.data.keys().hasOnly(['senderId', 'body', 'createdAt'])
           && request.resource.data.body in [

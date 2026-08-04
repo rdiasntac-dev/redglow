@@ -962,6 +962,81 @@ class _BookingStatusCard extends StatelessWidget {
               style: const TextStyle(fontSize: 9, height: 1.5),
             ),
           ],
+          if (hasRealBooking && state.hasIncomingQuickMessage) ...[
+            const SizedBox(height: 10),
+            GlowCard(
+              key: const Key('provider-quick-message'),
+              padding: const EdgeInsets.all(11),
+              color: AppColors.route.withValues(alpha: .08),
+              borderColor: AppColors.route.withValues(alpha: .55),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: AppColors.route.withValues(alpha: .14),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.mark_chat_unread_outlined,
+                      color: AppColors.route,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'MENSAGEM RÁPIDA DA CLIENTE',
+                                style: TextStyle(
+                                  fontSize: 7,
+                                  color: AppColors.route,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                            if (state.lastQuickMessageSentAt != null)
+                              Text(
+                                TimeOfDay.fromDateTime(
+                                  state.lastQuickMessageSentAt!,
+                                ).format(context),
+                                style: const TextStyle(
+                                  fontSize: 7,
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '“${state.lastQuickMessage}”',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        const Text(
+                          'Comunicação protegida, sem chat livre.',
+                          style: TextStyle(
+                            fontSize: 7,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (status == DemoBookingStatus.cancelled &&
               state.lastCancellationReason.isNotEmpty) ...[
             const SizedBox(height: 8),

@@ -7,6 +7,7 @@ import 'package:redglow/screens/booking_history_screen.dart';
 import 'package:redglow/screens/focused_explore_screen.dart';
 import 'package:redglow/screens/identity_verification_screen.dart';
 import 'package:redglow/screens/provider_analytics_screen.dart';
+import 'package:redglow/screens/provider_home_screen.dart';
 import 'package:redglow/screens/provider_services_screen.dart';
 import 'package:redglow/screens/rating_screen.dart';
 import 'package:redglow/services/firebase_marketplace_service.dart';
@@ -217,6 +218,55 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Acessar demonstração como Prestadora'), findsOneWidget);
+  });
+
+  testWidgets('provider can leave and reenter without navigation errors',
+      (tester) async {
+    await _openProviderDemo(tester);
+
+    for (var cycle = 0; cycle < 2; cycle++) {
+      await tester.tap(find.byIcon(Icons.person_rounded).last);
+      await tester.pumpAndSettle();
+      await _scrollTo(tester, find.byKey(const Key('provider-logout')));
+      await tester.tap(find.byKey(const Key('provider-logout')));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      if (cycle == 0) {
+        await _scrollTo(tester, find.byKey(const Key('demo-access')));
+        await tester.tap(find.byKey(const Key('demo-access')));
+        await tester.pumpAndSettle();
+      }
+    }
+  });
+
+  testWidgets('provider receives the client predefined quick message',
+      (tester) async {
+    final state = DemoAppState();
+    addTearDown(state.dispose);
+    state.selectRole(UserRole.client);
+    await state.requestBooking();
+    state.selectRole(UserRole.provider);
+    await state.acceptBooking();
+    await state.startTrip();
+    state.selectRole(UserRole.client);
+    await state.sendQuickMessage('Pode subir/entrar');
+    state.selectRole(UserRole.provider);
+
+    await tester.pumpWidget(
+      DemoAppScope(
+        controller: state,
+        child: MaterialApp(
+          theme: AppTheme.dark,
+          home: const ProviderHomeScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final message = find.byKey(const Key('provider-quick-message'));
+    await _scrollTo(tester, message);
+    expect(message, findsOneWidget);
+    expect(find.text('“Pode subir/entrar”'), findsOneWidget);
   });
 
   testWidgets('identity verification can be started', (tester) async {

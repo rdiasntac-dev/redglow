@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/user_role.dart';
+import '../screens/auth_screen.dart';
 import '../state/demo_app_state.dart';
 import 'firebase_auth_service.dart';
 
@@ -24,6 +25,14 @@ Future<void> endCurrentSession(BuildContext context) async {
     }
   }
 
+  demoState.finishSession();
   if (!context.mounted) return;
-  Navigator.of(context).popUntil((route) => route.isFirst);
+  await WidgetsBinding.instance.endOfFrame;
+  if (!context.mounted) return;
+  Navigator.of(context).pushAndRemoveUntil(
+    MaterialPageRoute(
+      builder: (_) => AuthScreen(initialRole: demoState.activeRole),
+    ),
+    (_) => false,
+  );
 }

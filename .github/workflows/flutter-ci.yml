@@ -95,12 +95,12 @@ jobs:
         run: dart run flutter_launcher_icons
 
       - name: Build installable beta APK
-        run: flutter build apk --debug
+        run: flutter build apk --release
 
       - name: Upload beta APK
         uses: actions/upload-artifact@v4
         with:
-          name: redglow-v7.0.8-android
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: redglow-v7.0.9-android
+          path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 14

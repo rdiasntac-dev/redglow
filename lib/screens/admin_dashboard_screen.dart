@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../services/firebase_marketplace_service.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
@@ -16,6 +17,63 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _section = 0;
+  bool _maintenanceBusy = false;
+
+  Future<void> _archiveLegacyBookings(
+    List<_AdminBooking> bookings,
+  ) async {
+    final state = DemoAppScope.of(context, listen: false);
+    final adminUid = state.currentUserId;
+    final legacyIds = bookings
+        .where((booking) => booking.isLegacy && !booking.archived)
+        .map((booking) => booking.id)
+        .where((id) => id.isNotEmpty)
+        .toList(growable: false);
+    if (adminUid == null || legacyIds.isEmpty) return;
+    setState(() => _maintenanceBusy = true);
+    try {
+      await FirebaseMarketplaceService().archiveLegacyBookings(
+        bookingIds: legacyIds,
+        adminUid: adminUid,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${legacyIds.length} registro(s) beta arquivado(s) com segurança.',
+          ),
+        ),
+      );
+    } on FirebaseException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('O Firebase não autorizou a manutenção administrativa.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _maintenanceBusy = false);
+    }
+  }
+
+  Future<void> _restoreBooking(String bookingId) async {
+    if (bookingId.isEmpty) return;
+    setState(() => _maintenanceBusy = true);
+    try {
+      await FirebaseMarketplaceService().restoreArchivedBooking(bookingId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Registro restaurado no histórico beta.')),
+      );
+    } on FirebaseException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível restaurar o registro.')),
+      );
+    } finally {
+      if (mounted) setState(() => _maintenanceBusy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,11 +120,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           _AdminUser('Lari (Manicure)', 'prestadora', 'lari@beta.redglow'),
         ],
         bookings: const [
-          _AdminBooking('Cliente Beta', 'Lari (Manicure)', 'concluído'),
+          _AdminBooking(
+            'preview-booking',
+            'Cliente Beta',
+            'Lari (Manicure)',
+            'concluído',
+            1,
+            false,
+            '',
+          ),
         ],
         reports: const [
           _AdminReport('Segurança', 'Relato demonstrativo para validar a fila operacional.', 'aberto', ''),
         ],
+        maintenanceBusy: false,
+        onArchiveLegacy: null,
+        onRestoreBooking: null,
       );
     }
 
@@ -96,9 +165,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 final bookings = bookingsSnapshot.data!.docs.map((document) {
                   final data = document.data();
                   return _AdminBooking(
+                    document.id,
                     data['clientName'] as String? ?? 'Cliente',
                     data['providerName'] as String? ?? 'Prestadora',
                     _statusLabel(data['status'] as String? ?? ''),
+                    data['schemaVersion'] as int? ?? 1,
+                    data['archivedAt'] is Timestamp,
+                    data['archiveReason'] as String? ?? '',
                   );
                 }).toList(growable: false);
                 final reports = reportsSnapshot.data!.docs.map((document) {
@@ -116,6 +189,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   users: users,
                   bookings: bookings,
                   reports: reports,
+                  maintenanceBusy: _maintenanceBusy,
+                  onArchiveLegacy: () => _archiveLegacyBookings(bookings),
+                  onRestoreBooking: _restoreBooking,
                 );
               },
             );
@@ -133,6 +209,9 @@ class _AdminLayout extends StatelessWidget {
     required this.users,
     required this.bookings,
     required this.reports,
+    required this.maintenanceBusy,
+    required this.onArchiveLegacy,
+    required this.onRestoreBooking,
   });
 
   final int section;
@@ -140,10 +219,17 @@ class _AdminLayout extends StatelessWidget {
   final List<_AdminUser> users;
   final List<_AdminBooking> bookings;
   final List<_AdminReport> reports;
+  final bool maintenanceBusy;
+  final VoidCallback? onArchiveLegacy;
+  final ValueChanged<String>? onRestoreBooking;
 
   @override
   Widget build(BuildContext context) {
     final openReports = reports.where((item) => item.status != 'resolvido').length;
+    final activeBookings = bookings.where((item) => !item.archived).length;
+    final legacyBookings = bookings
+        .where((item) => item.isLegacy && !item.archived)
+        .length;
     return Scaffold(
       body: ConstrainedMobileBody(
         child: SafeArea(
@@ -174,7 +260,7 @@ class _AdminLayout extends StatelessWidget {
                 children: [
                   Expanded(child: _AdminMetric(label: 'Usuários', value: '${users.length}', color: AppColors.purple)),
                   const SizedBox(width: 7),
-                  Expanded(child: _AdminMetric(label: 'Atendimentos', value: '${bookings.length}', color: AppColors.green)),
+                  Expanded(child: _AdminMetric(label: 'Atendimentos', value: '$activeBookings', color: AppColors.green)),
                   const SizedBox(width: 7),
                   Expanded(child: _AdminMetric(label: 'Relatos abertos', value: '$openReports', color: Colors.redAccent)),
                 ],
@@ -221,27 +307,114 @@ class _AdminLayout extends StatelessWidget {
                     )
               else if (bookings.isEmpty)
                 const _EmptyAdminState(message: 'Nenhum atendimento encontrado.')
-              else
-                for (final booking in bookings)
+              else ...[
+                if (legacyBookings > 0)
                   GlowCard(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: Row(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    borderColor: AppColors.yellow.withValues(alpha: .55),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.event_note_outlined, color: AppColors.green),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('${booking.client} → ${booking.provider}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900)),
-                              const Text('Manicure e Pedicure · R\$ 60,00', style: TextStyle(fontSize: 8, color: AppColors.textMuted)),
-                            ],
+                        const Text(
+                          'MANUTENÇÃO DO BETA',
+                          style: TextStyle(
+                            color: AppColors.yellow,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
-                        StatusPill(label: booking.status.toUpperCase(), color: AppColors.green),
+                        const SizedBox(height: 5),
+                        Text(
+                          '$legacyBookings registro(s) anterior(es) ao ciclo auditável. '
+                          'O arquivamento remove esses dados das telas sem apagá-los.',
+                          style: const TextStyle(
+                            fontSize: 8,
+                            color: AppColors.textSecondary,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 9),
+                        FilledButton.icon(
+                          onPressed: maintenanceBusy ? null : onArchiveLegacy,
+                          icon: const Icon(Icons.inventory_2_outlined, size: 17),
+                          label: Text(
+                            maintenanceBusy
+                                ? 'Processando…'
+                                : 'Arquivar registros antigos',
+                          ),
+                        ),
                       ],
                     ),
                   ),
+                for (final booking in bookings)
+                  GlowCard(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    color: booking.archived
+                        ? AppColors.surfaceRaised.withValues(alpha: .55)
+                        : AppColors.surface,
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              booking.archived
+                                  ? Icons.inventory_2_outlined
+                                  : Icons.event_note_outlined,
+                              color: booking.archived
+                                  ? AppColors.textMuted
+                                  : AppColors.green,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${booking.client} → ${booking.provider}',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  Text(
+                                    booking.archived
+                                        ? booking.archiveReason
+                                        : 'Ciclo ${booking.schemaVersion >= 2 ? 'auditável' : 'beta legado'}',
+                                    style: const TextStyle(
+                                      fontSize: 8,
+                                      color: AppColors.textMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            StatusPill(
+                              label: booking.archived
+                                  ? 'ARQUIVADO'
+                                  : booking.status.toUpperCase(),
+                              color: booking.archived
+                                  ? AppColors.textMuted
+                                  : AppColors.green,
+                            ),
+                          ],
+                        ),
+                        if (booking.archived && onRestoreBooking != null) ...[
+                          const SizedBox(height: 7),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: maintenanceBusy
+                                  ? null
+                                  : () => onRestoreBooking!(booking.id),
+                              icon: const Icon(Icons.restore_rounded, size: 16),
+                              label: const Text('Restaurar'),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+              ],
             ],
           ),
         ),
@@ -370,10 +543,24 @@ class _AdminUser {
 }
 
 class _AdminBooking {
-  const _AdminBooking(this.client, this.provider, this.status);
+  const _AdminBooking(
+    this.id,
+    this.client,
+    this.provider,
+    this.status,
+    this.schemaVersion,
+    this.archived,
+    this.archiveReason,
+  );
+  final String id;
   final String client;
   final String provider;
   final String status;
+  final int schemaVersion;
+  final bool archived;
+  final String archiveReason;
+
+  bool get isLegacy => schemaVersion < 2;
 }
 
 class _AdminReport {

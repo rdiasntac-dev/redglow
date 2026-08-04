@@ -54,7 +54,7 @@ class ReverseGeocodingService {
             'Accept': 'application/json',
             if (!kIsWeb)
               'User-Agent':
-                  'REDGLOW-Beta/7.0.8 (+https://github.com/rdiasntac-dev/redglow)',
+                  'REDGLOW-Beta/7.0.9 (+https://github.com/rdiasntac-dev/redglow)',
           },
         ).timeout(const Duration(seconds: 8));
         if (response.statusCode != 200) {

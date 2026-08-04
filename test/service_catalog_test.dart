@@ -8,6 +8,7 @@ MarketplaceBooking _booking({
   required String status,
   int schemaVersion = 2,
   DateTime? completedAt,
+  DateTime? archivedAt,
   int clientRating = 0,
 }) {
   final now = DateTime(2026, 8, 3, 12);
@@ -33,6 +34,7 @@ MarketplaceBooking _booking({
     simulatedFeeCents: 0,
     schemaVersion: schemaVersion,
     completedAt: completedAt,
+    archivedAt: archivedAt,
   );
 }
 
@@ -212,5 +214,20 @@ void main() {
 
     expect(state.pendingRatings, isEmpty);
     expect(state.ignoredLegacyPoints, 10);
+  });
+
+  test('legacy administrative records can be archived without deletion', () {
+    final legacy = _booking(id: 'legacy', status: 'completed', schemaVersion: 1);
+    final archived = _booking(
+      id: 'legacy-archived',
+      status: 'completed',
+      schemaVersion: 1,
+      archivedAt: DateTime(2026, 8, 4),
+    );
+
+    expect(legacy.isLegacyAdministrativeRecord, isTrue);
+    expect(legacy.isArchived, isFalse);
+    expect(archived.isLegacyAdministrativeRecord, isFalse);
+    expect(archived.isArchived, isTrue);
   });
 }

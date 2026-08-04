@@ -12,7 +12,12 @@ import 'main_shell.dart';
 import 'provider_home_screen.dart';
 
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key});
+  const AuthScreen({
+    super.key,
+    this.initialRole = UserRole.client,
+  });
+
+  final UserRole initialRole;
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -24,7 +29,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  UserRole _role = UserRole.client;
+  late UserRole _role;
   bool _registerMode = false;
   bool _hidePassword = true;
   bool _acceptedTerms = false;
@@ -37,6 +42,7 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   void initState() {
     super.initState();
+    _role = widget.initialRole;
     WidgetsBinding.instance.addPostFrameCallback((_) => _restoreSession());
   }
 

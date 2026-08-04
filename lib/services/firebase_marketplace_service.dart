@@ -152,6 +152,9 @@ class MarketplaceBooking {
     required this.simulatedFeeCents,
     this.schemaVersion = 1,
     this.completedAt,
+    this.archivedAt,
+    this.archivedBy = '',
+    this.archiveReason = '',
     this.clientLatitude,
     this.clientLongitude,
     this.providerLatitude,
@@ -179,6 +182,9 @@ class MarketplaceBooking {
   final int simulatedFeeCents;
   final int schemaVersion;
   final DateTime? completedAt;
+  final DateTime? archivedAt;
+  final String archivedBy;
+  final String archiveReason;
   final double? clientLatitude;
   final double? clientLongitude;
   final double? providerLatitude;
@@ -187,6 +193,10 @@ class MarketplaceBooking {
   String get providerPublicCode => redGlowPublicCode(providerId);
 
   bool get isCurrentCycle => schemaVersion >= 2;
+
+  bool get isArchived => archivedAt != null;
+
+  bool get isLegacyAdministrativeRecord => !isCurrentCycle && !isArchived;
 
   bool get isCancellable => const {
         'requested',
@@ -208,6 +218,7 @@ class MarketplaceBooking {
     final createdTimestamp = data['createdAt'];
     final updatedTimestamp = data['updatedAt'];
     final completedTimestamp = data['completedAt'];
+    final archivedTimestamp = data['archivedAt'];
     final clientLocation = data['clientLocation'];
     final providerLocation = data['providerLocation'];
     final clientLocationData = clientLocation is Map
@@ -252,6 +263,11 @@ class MarketplaceBooking {
       completedAt: completedTimestamp is Timestamp
           ? completedTimestamp.toDate()
           : null,
+      archivedAt: archivedTimestamp is Timestamp
+          ? archivedTimestamp.toDate()
+          : null,
+      archivedBy: data['archivedBy'] as String? ?? '',
+      archiveReason: data['archiveReason'] as String? ?? '',
       clientLatitude:
           (clientLocationData?['latitude'] as num?)?.toDouble(),
       clientLongitude:
@@ -260,6 +276,33 @@ class MarketplaceBooking {
           (providerLocationData?['latitude'] as num?)?.toDouble(),
       providerLongitude:
           (providerLocationData?['longitude'] as num?)?.toDouble(),
+    );
+  }
+}
+
+class MarketplaceQuickMessage {
+  const MarketplaceQuickMessage({
+    required this.id,
+    required this.senderId,
+    required this.body,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String senderId;
+  final String body;
+  final DateTime? createdAt;
+
+  factory MarketplaceQuickMessage.fromDocument(
+    QueryDocumentSnapshot<Map<String, dynamic>> document,
+  ) {
+    final data = document.data();
+    final timestamp = data['createdAt'];
+    return MarketplaceQuickMessage(
+      id: document.id,
+      senderId: data['senderId'] as String? ?? '',
+      body: data['body'] as String? ?? '',
+      createdAt: timestamp is Timestamp ? timestamp.toDate() : null,
     );
   }
 }
@@ -566,12 +609,13 @@ class FirebaseMarketplaceService {
         .snapshots()
         .map((snapshot) {
       final bookings = snapshot.docs.map(MarketplaceBooking.fromDocument).toList()
+        ..removeWhere((booking) => booking.isArchived)
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return bookings;
     });
   }
 
-  Stream<String?> watchLastQuickMessage(String bookingId) {
+  Stream<MarketplaceQuickMessage?> watchLastQuickMessage(String bookingId) {
     return _firestore
         .collection('bookings')
         .doc(bookingId)
@@ -581,7 +625,34 @@ class FirebaseMarketplaceService {
         .snapshots()
         .map((snapshot) => snapshot.docs.isEmpty
             ? null
-            : snapshot.docs.first.data()['body'] as String?);
+            : MarketplaceQuickMessage.fromDocument(snapshot.docs.first));
+  }
+
+  Future<void> archiveLegacyBookings({
+    required Iterable<String> bookingIds,
+    required String adminUid,
+  }) async {
+    final ids = bookingIds.toSet().take(400).toList(growable: false);
+    if (ids.isEmpty) return;
+    final batch = _firestore.batch();
+    for (final bookingId in ids) {
+      batch.update(_firestore.collection('bookings').doc(bookingId), {
+        'archivedAt': FieldValue.serverTimestamp(),
+        'archivedBy': adminUid,
+        'archiveReason': 'Ciclo beta anterior à REDGLOW 7.0.8',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
+
+  Future<void> restoreArchivedBooking(String bookingId) {
+    return _firestore.collection('bookings').doc(bookingId).update({
+      'archivedAt': FieldValue.delete(),
+      'archivedBy': FieldValue.delete(),
+      'archiveReason': FieldValue.delete(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Stream<MarketplaceRating?> watchRating({

@@ -3,6 +3,19 @@
 Aplicativo Flutter para contratação segura de profissionais de beleza em
 domicílio. Esta base implementa a interface aprovada na versão 7 do Figma.
 
+### Atualização 7.0.9
+
+- a saída encerra primeiro as assinaturas em tempo real e substitui a pilha de
+  navegação, evitando notificações durante a desmontagem das telas;
+- a mensagem rápida enviada pela cliente aparece em destaque no atendimento da
+  prestadora, com horário e identificação de comunicação protegida;
+- o painel administrativo arquiva registros anteriores ao ciclo 7.0.8 sem
+  apagá-los e permite restauração individual;
+- atendimentos arquivados deixam de alimentar agenda, avaliações e pontos das
+  contas participantes;
+- o Android passa a gerar ícone adaptativo, permitindo que o launcher aplique o
+  formato circular ou arredondado adotado pelo aparelho.
+
 ### Atualização 7.0.8
 
 - todos os seis nichos ficam visíveis no filtro, sem depender de rolagem
