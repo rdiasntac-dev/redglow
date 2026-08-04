@@ -8,6 +8,9 @@ on:
       - codex/redglow-v7
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 concurrency:
   group: flutter-ci-${{ github.ref }}
   cancel-in-progress: true
@@ -104,3 +107,19 @@ jobs:
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish shareable GitHub beta
+        if: github.event_name == 'push' && github.ref == 'refs/heads/codex/redglow-v7'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk REDGLOW-v7.0.9-beta.apk
+          if gh release view v7.0.9-beta >/dev/null 2>&1; then
+            gh release upload v7.0.9-beta REDGLOW-v7.0.9-beta.apk --clobber
+          else
+            gh release create v7.0.9-beta REDGLOW-v7.0.9-beta.apk \
+              --target "$GITHUB_SHA" \
+              --title "REDGLOW 7.0.9 Beta" \
+              --prerelease \
+              --notes "Beta fechado para testes funcionais do ciclo cliente-prestadora. Pagamentos, saques e cobranças permanecem apenas simulados. Não use documentos reais nos testes."
+          fi
