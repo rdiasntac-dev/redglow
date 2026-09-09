@@ -66,7 +66,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
-          crossAxisAlignment: CrossAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Resumo do Serviço
             Container(
@@ -77,7 +77,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 border: Border.all(color: primaryColor.withOpacity(0.3)),
               ),
               child: Column(
-                crossAxisAlignment: CrossAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
                     'Resumo do Atendimento',
