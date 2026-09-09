@@ -1,0 +1,831 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function currentUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function hasRole(role) {
+      return signedIn()
+        && currentUser().data.role == role;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && currentUser().data.get('isAdmin', false) == true;
+    }
+
+    function isBookingParticipant(data) {
+      return signedIn()
+        && (
+          request.auth.uid == data.clientId
+          || request.auth.uid == data.providerId
+        );
+    }
+
+    function selectedProfessional(providerId) {
+      return get(
+        /databases/$(database)/documents/professionals/$(providerId)
+      );
+    }
+
+    function allowedProfessionalSpecialty(specialty) {
+      return specialty in [
+        'Manicure',
+        'Pedicure',
+        'Nail Designer',
+        'Maquiadora',
+        'Designer de Sobrancelhas',
+        'Lash Designer'
+      ];
+    }
+
+    function validProfessionalSpecialties(data) {
+      return data.specialties is list
+        && data.specialties.size() > 0
+        && data.specialties.size() <= 6
+        && data.specialties.hasOnly([
+          'Manicure',
+          'Pedicure',
+          'Nail Designer',
+          'Maquiadora',
+          'Designer de Sobrancelhas',
+          'Lash Designer'
+        ])
+        && data.specialty in data.specialties;
+    }
+
+    function validProfessionalServices(data) {
+      return data.services is list
+        && data.services.size() > 0
+        && data.services.size() <= 32
+        && data.services.hasOnly([
+          'Manicure tradicional',
+          'Esmaltação em gel',
+          'Spa das mãos',
+          'Remoção de esmaltação em gel',
+          'Pedicure tradicional',
+          'Esmaltação em gel nos pés',
+          'Spa dos pés',
+          'Manicure e pedicure',
+          'Alongamento em gel',
+          'Alongamento em fibra',
+          'Molde F1',
+          'Banho de gel',
+          'Blindagem',
+          'Manutenção',
+          'Remoção',
+          'Maquiagem social',
+          'Maquiagem com cílios postiços',
+          'Maquiagem para eventos',
+          'Maquiagem de noiva',
+          'Design simples',
+          'Design com henna',
+          'Brow lamination',
+          'Manutenção de design',
+          'Fio a fio',
+          'Volume brasileiro',
+          'Volume fox eye',
+          'Volume glamour',
+          'Lash lifting'
+        ])
+        && (
+          !data.services.hasAny([
+            'Manicure tradicional',
+            'Esmaltação em gel',
+            'Spa das mãos',
+            'Remoção de esmaltação em gel'
+          ])
+          || 'Manicure' in data.specialties
+        )
+        && (
+          !data.services.hasAny([
+            'Pedicure tradicional',
+            'Esmaltação em gel nos pés',
+            'Spa dos pés',
+            'Manicure e pedicure'
+          ])
+          || 'Pedicure' in data.specialties
+        )
+        && (
+          !data.services.hasAny([
+            'Alongamento em gel',
+            'Alongamento em fibra',
+            'Molde F1',
+            'Banho de gel',
+            'Blindagem'
+          ])
+          || 'Nail Designer' in data.specialties
+        )
+        && (
+          !data.services.hasAny([
+            'Maquiagem social',
+            'Maquiagem com cílios postiços',
+            'Maquiagem para eventos',
+            'Maquiagem de noiva'
+          ])
+          || 'Maquiadora' in data.specialties
+        )
+        && (
+          !data.services.hasAny([
+            'Design simples',
+            'Design com henna',
+            'Brow lamination',
+            'Manutenção de design'
+          ])
+          || 'Designer de Sobrancelhas' in data.specialties
+        )
+        && (
+          !data.services.hasAny([
+            'Fio a fio',
+            'Volume brasileiro',
+            'Volume fox eye',
+            'Volume glamour',
+            'Lash lifting'
+          ])
+          || 'Lash Designer' in data.specialties
+        )
+        && (
+          !data.services.hasAny(['Manutenção', 'Remoção'])
+          || 'Nail Designer' in data.specialties
+          || 'Lash Designer' in data.specialties
+        );
+    }
+
+    function validLocation(location) {
+      return location == null
+        || location is map
+          && location.keys().hasOnly([
+            'latitude',
+            'longitude',
+            'accuracy',
+            'address',
+            'updatedAt'
+          ])
+          && location.latitude is number
+          && location.latitude >= -90
+          && location.latitude <= 90
+          && location.longitude is number
+          && location.longitude >= -180
+          && location.longitude <= 180
+          && (
+            !('accuracy' in location)
+            || location.accuracy is number && location.accuracy >= 0
+          )
+          && (
+            !('address' in location)
+            || location.address is string
+              && location.address.size() > 0
+              && location.address.size() <= 160
+          );
+    }
+
+    function validBookingLocation(location) {
+      return location == null
+        || location is map
+          && location.keys().hasOnly([
+            'latitude',
+            'longitude',
+            'accuracy',
+            'address',
+            'updatedAt'
+          ])
+          && location.latitude is number
+          && location.latitude >= -90
+          && location.latitude <= 90
+          && location.longitude is number
+          && location.longitude >= -180
+          && location.longitude <= 180
+          && (
+            !('address' in location)
+            || location.address is string
+              && location.address.size() > 0
+              && location.address.size() <= 160
+          );
+    }
+
+    function validProfessionalProfile(data) {
+      return data.uid is string
+        && data.name is string
+        && data.name.size() >= 2
+        && data.name.size() <= 80
+        && allowedProfessionalSpecialty(data.specialty)
+        && data.priceCents is int
+        && data.priceCents >= 1000
+        && data.priceCents <= 500000
+        && data.rating is number
+        && data.rating >= 0
+        && data.rating <= 5
+        && validProfessionalSpecialties(data)
+        && validProfessionalServices(data)
+        && data.servicePricesCents is map
+        && data.servicePricesCents.keys().hasOnly(data.services)
+        && data.servicePricesCents.keys().hasAll(data.services)
+        && data.isOnline is bool
+        && (
+          !('availabilityUpdatedAt' in data)
+          || data.availabilityUpdatedAt is timestamp
+        )
+        && (
+          data.photoUrl == null
+          || data.photoUrl is string && data.photoUrl.size() <= 2048
+        )
+        && validLocation(data.get('location', null))
+        && data.get('professionalIdStatus', 'pending')
+          in ['pending', 'reviewing', 'verified', 'rejected'];
+    }
+
+    function bookingCoreUnchanged() {
+      return request.resource.data.clientId == resource.data.clientId
+        && request.resource.data.providerId == resource.data.providerId
+        && request.resource.data.clientName == resource.data.clientName
+        && request.resource.data.providerName == resource.data.providerName
+        && request.resource.data.serviceName == resource.data.serviceName
+        && request.resource.data.get(
+          'serviceNames',
+          [request.resource.data.serviceName]
+        ) == resource.data.get('serviceNames', [resource.data.serviceName])
+        && request.resource.data.priceCents == resource.data.priceCents
+        && request.resource.data.get('pointsEarned', 0)
+          == resource.data.get('pointsEarned', 0)
+        && request.resource.data.get('schemaVersion', 1)
+          == resource.data.get('schemaVersion', 1)
+        && request.resource.data.address == resource.data.address
+        && request.resource.data.paymentMethod == resource.data.paymentMethod
+        && request.resource.data.get('clientLocation', null)
+          == resource.data.get('clientLocation', null)
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    function validCancellationUpdate() {
+      return resource.data.status in ['requested', 'accepted', 'onTheWay']
+        && request.resource.data.status == 'cancelled'
+        && request.resource.data.cancelledBy == request.auth.uid
+        && request.resource.data.cancellationReason is string
+        && request.resource.data.cancellationReason.size() > 0
+        && request.resource.data.cancellationReason.size() <= 120
+        && request.resource.data.simulatedFeeCents == 0
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly([
+            'status',
+            'cancellationReason',
+            'cancelledBy',
+            'simulatedFeeCents',
+            'updatedAt'
+          ]);
+    }
+
+    function validClientBookingUpdate() {
+      return request.auth.uid == resource.data.clientId
+        && (
+          validCancellationUpdate()
+          || resource.data.status in ['completed', 'reviewed']
+            && resource.data.get('schemaVersion', 1) >= 2
+            && resource.data.completedAt is timestamp
+            && request.resource.data.status
+              == (resource.data.providerRating > 0 ? 'reviewed' : 'completed')
+            && resource.data.clientRating == 0
+            && request.resource.data.clientRating is int
+            && request.resource.data.clientRating >= 1
+            && request.resource.data.clientRating <= 5
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'clientRating', 'updatedAt'])
+        );
+    }
+
+    function validProviderBookingUpdate() {
+      return request.auth.uid == resource.data.providerId
+        && (
+          validCancellationUpdate()
+          || resource.data.status in ['accepted', 'onTheWay', 'inProgress']
+            && request.resource.data.status == resource.data.status
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['providerLocation', 'updatedAt'])
+            && validBookingLocation(request.resource.data.providerLocation)
+          || resource.data.status == 'requested'
+            && request.resource.data.status == 'accepted'
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'providerLocation', 'updatedAt'])
+            && validBookingLocation(
+              request.resource.data.get('providerLocation', null)
+            )
+          || resource.data.status == 'accepted'
+            && request.resource.data.status == 'onTheWay'
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'providerLocation', 'updatedAt'])
+            && validBookingLocation(
+              request.resource.data.get('providerLocation', null)
+            )
+          || resource.data.status == 'onTheWay'
+            && request.resource.data.status == 'inProgress'
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'providerLocation', 'updatedAt'])
+            && validBookingLocation(
+              request.resource.data.get('providerLocation', null)
+            )
+          || resource.data.status == 'inProgress'
+            && request.resource.data.status == 'completed'
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly([
+                'status',
+                'providerLocation',
+                'completedAt',
+                'updatedAt'
+              ])
+            && request.resource.data.completedAt == request.time
+            && validBookingLocation(
+              request.resource.data.get('providerLocation', null)
+            )
+          || resource.data.status in ['completed', 'reviewed']
+            && resource.data.get('schemaVersion', 1) >= 2
+            && resource.data.completedAt is timestamp
+            && request.resource.data.status
+              == (resource.data.clientRating > 0 ? 'reviewed' : 'completed')
+            && resource.data.providerRating == 0
+            && request.resource.data.providerRating is int
+            && request.resource.data.providerRating >= 1
+            && request.resource.data.providerRating <= 5
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'providerRating', 'updatedAt'])
+        );
+    }
+
+    function validAdminArchiveUpdate() {
+      return isAdmin()
+        && resource.data.get('schemaVersion', 1) < 2
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.get('completedAt', null)
+          == resource.data.get('completedAt', null)
+        && request.resource.data.get('providerLocation', null)
+          == resource.data.get('providerLocation', null)
+        && (
+          !('archivedAt' in resource.data)
+            && request.resource.data.archivedAt == request.time
+            && request.resource.data.archivedBy == request.auth.uid
+            && request.resource.data.archiveReason
+              == 'Ciclo beta anterior à REDGLOW 7.0.8'
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly([
+                'archivedAt',
+                'archivedBy',
+                'archiveReason',
+                'updatedAt'
+              ])
+          || resource.data.archivedAt is timestamp
+            && !('archivedAt' in request.resource.data)
+            && !('archivedBy' in request.resource.data)
+            && !('archiveReason' in request.resource.data)
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly([
+                'archivedAt',
+                'archivedBy',
+                'archiveReason',
+                'updatedAt'
+              ])
+        );
+    }
+
+    match /users/{uid} {
+      allow create: if isSelf(uid)
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'name',
+          'email',
+          'phone',
+          'role',
+          'identityStatus',
+          'points',
+          'photoUrl',
+          'location',
+          'locationPermission',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'uid',
+          'name',
+          'email',
+          'phone',
+          'role',
+          'identityStatus',
+          'points',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.uid == uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 2
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.email is string
+        && request.resource.data.email.size() >= 5
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() >= 10
+        && request.resource.data.phone.size() <= 24
+        && request.resource.data.role in ['client', 'provider']
+        && request.resource.data.identityStatus == 'pending'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && (
+          request.resource.data.role == 'client'
+            && request.resource.data.points is int
+            && request.resource.data.points == 0
+          || request.resource.data.role == 'provider'
+            && request.resource.data.points == null
+        );
+      allow read: if isSelf(uid) || isAdmin();
+      allow update: if isSelf(uid)
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly([
+            'name',
+            'phone',
+            'photoUrl',
+            'location',
+            'locationPermission',
+            'updatedAt'
+          ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 2
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() >= 10
+        && request.resource.data.phone.size() <= 24
+        && (
+          request.resource.data.get('photoUrl', null) == null
+          || request.resource.data.get('photoUrl', null) is string
+            && request.resource.data.get('photoUrl', '').size() <= 2048
+        )
+        && validLocation(request.resource.data.get('location', null))
+        && request.resource.data.get('locationPermission', 'unknown')
+          in ['unknown', 'granted', 'denied']
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /professionals/{uid} {
+      allow read: if signedIn();
+      allow create: if isSelf(uid)
+        && hasRole('provider')
+        && request.resource.data.uid == uid
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'name',
+          'specialty',
+          'specialties',
+          'priceCents',
+          'rating',
+          'services',
+          'servicePricesCents',
+          'isOnline',
+          'availabilityUpdatedAt',
+          'photoUrl',
+          'professionalIdStatus',
+          'location',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'uid',
+          'name',
+          'specialty',
+          'specialties',
+          'priceCents',
+          'rating',
+          'services',
+          'servicePricesCents',
+          'isOnline',
+          'photoUrl',
+          'professionalIdStatus',
+          'createdAt',
+          'updatedAt'
+        ])
+        && validProfessionalProfile(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isSelf(uid)
+        && hasRole('provider')
+        && request.resource.data.uid == resource.data.uid
+        && (
+          request.resource.data.get('professionalIdStatus', 'pending')
+            == resource.data.get('professionalIdStatus', 'pending')
+          || !('professionalIdStatus' in resource.data)
+            && request.resource.data.professionalIdStatus == 'pending'
+        )
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly([
+            'name',
+            'specialty',
+            'specialties',
+            'priceCents',
+            'photoUrl',
+            'isOnline',
+            'availabilityUpdatedAt',
+            'services',
+            'servicePricesCents',
+            'professionalIdStatus',
+            'location',
+            'updatedAt'
+          ])
+        && validProfessionalProfile(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isAdmin()
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['professionalIdStatus', 'rating', 'updatedAt'])
+        && request.resource.data.professionalIdStatus
+          in ['pending', 'reviewing', 'verified', 'rejected']
+        && request.resource.data.rating is number
+        && request.resource.data.rating >= 0
+        && request.resource.data.rating <= 5
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /bookings/{bookingId} {
+      allow create: if hasRole('client')
+        && request.resource.data.clientId == request.auth.uid
+        && request.resource.data.providerId is string
+        && exists(
+          /databases/$(database)/documents/professionals/$(request.resource.data.providerId)
+        )
+        && selectedProfessional(request.resource.data.providerId).data.isOnline == true
+        && selectedProfessional(request.resource.data.providerId)
+          .data.availabilityUpdatedAt is timestamp
+        && selectedProfessional(request.resource.data.providerId)
+          .data.availabilityUpdatedAt > request.time - duration.value(20, 'm')
+        && request.resource.data.keys().hasOnly([
+          'clientId',
+          'providerId',
+          'clientName',
+          'providerName',
+          'serviceName',
+          'serviceNames',
+          'priceCents',
+          'pointsEarned',
+          'address',
+          'clientLocation',
+          'providerLocation',
+          'paymentMethod',
+          'status',
+          'clientRating',
+          'providerRating',
+          'cancellationReason',
+          'cancelledBy',
+          'simulatedFeeCents',
+          'schemaVersion',
+          'completedAt',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.providerName
+          == selectedProfessional(request.resource.data.providerId).data.name
+        && request.resource.data.priceCents is int
+        && request.resource.data.priceCents >= 4000
+        && request.resource.data.priceCents <= 1000000
+        && request.resource.data.serviceName is string
+        && request.resource.data.serviceName.size() > 0
+        && selectedProfessional(request.resource.data.providerId).data.services
+          is list
+        && request.resource.data.serviceName
+          in selectedProfessional(request.resource.data.providerId).data.services
+        && (
+          !('servicePricesCents' in
+            selectedProfessional(request.resource.data.providerId).data)
+          || request.resource.data.priceCents >=
+            selectedProfessional(request.resource.data.providerId)
+              .data.servicePricesCents[request.resource.data.serviceName]
+        )
+        && request.resource.data.serviceNames is list
+        && request.resource.data.serviceNames.size() > 0
+        && request.resource.data.serviceNames.size() <= 8
+        && request.resource.data.serviceNames[0]
+          == request.resource.data.serviceName
+        && request.resource.data.serviceNames.hasOnly(
+          selectedProfessional(request.resource.data.providerId).data.services
+        )
+        && request.resource.data.pointsEarned is int
+        && request.resource.data.pointsEarned >= 5
+        && request.resource.data.pointsEarned <= 480
+        && request.resource.data.clientName is string
+        && request.resource.data.clientName.size() >= 2
+        && request.resource.data.clientName.size() <= 80
+        && request.resource.data.address is string
+        && request.resource.data.address.size() > 0
+        && validBookingLocation(request.resource.data.clientLocation)
+        && validBookingLocation(request.resource.data.providerLocation)
+        && request.resource.data.paymentMethod in ['Pix', 'Cartão', 'Dinheiro']
+        && request.resource.data.status == 'requested'
+        && request.resource.data.clientRating == 0
+        && request.resource.data.providerRating == 0
+        && request.resource.data.cancellationReason == ''
+        && request.resource.data.cancelledBy == ''
+        && request.resource.data.simulatedFeeCents == 0
+        && request.resource.data.schemaVersion == 2
+        && request.resource.data.completedAt == null
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow read: if isBookingParticipant(resource.data) || isAdmin();
+      allow update: if bookingCoreUnchanged()
+        && request.resource.data.updatedAt == request.time
+        && (
+          isBookingParticipant(resource.data)
+            && (validClientBookingUpdate() || validProviderBookingUpdate())
+          || validAdminArchiveUpdate()
+        );
+      allow delete: if false;
+
+      match /quickMessages/{messageId} {
+        function booking() {
+          return get(/databases/$(database)/documents/bookings/$(bookingId));
+        }
+
+        allow read: if isBookingParticipant(booking().data);
+        allow create: if isBookingParticipant(booking().data)
+          && booking().data.clientId == request.auth.uid
+          && booking().data.status in ['accepted', 'onTheWay', 'inProgress']
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.keys().hasOnly(['senderId', 'body', 'createdAt'])
+          && request.resource.data.body in [
+            'Pode subir/entrar',
+            'Estou descendo',
+            'Campainha quebrada'
+          ]
+          && request.resource.data.createdAt == request.time;
+        allow update, delete: if false;
+      }
+    }
+
+    match /ratings/{ratingId} {
+      function relatedBooking() {
+        return get(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        );
+      }
+
+      allow create: if signedIn()
+        && ratingId == request.resource.data.bookingId + '_' + request.auth.uid
+        && request.resource.data.fromUid == request.auth.uid
+        && isBookingParticipant(relatedBooking().data)
+        && relatedBooking().data.status in ['completed', 'reviewed']
+        && relatedBooking().data.get('schemaVersion', 1) >= 2
+        && relatedBooking().data.completedAt is timestamp
+        && request.resource.data.toUid
+          in [relatedBooking().data.clientId, relatedBooking().data.providerId]
+        && request.resource.data.toUid != request.resource.data.fromUid
+        && request.resource.data.keys().hasOnly([
+          'bookingId',
+          'fromUid',
+          'toUid',
+          'score',
+          'tags',
+          'comment',
+          'createdAt'
+        ])
+        && request.resource.data.score is int
+        && request.resource.data.score >= 1
+        && request.resource.data.score <= 5
+        && request.resource.data.tags is list
+        && request.resource.data.tags.size() <= 6
+        && request.resource.data.comment is string
+        && request.resource.data.comment.size() <= 200
+        && request.resource.data.createdAt == request.time;
+      allow read: if signedIn()
+        && (
+          request.auth.uid in [resource.data.fromUid, resource.data.toUid]
+          || isAdmin()
+        );
+      allow update, delete: if false;
+    }
+
+    match /subscriptions/{uid} {
+      allow read: if isSelf(uid);
+      allow write: if false;
+    }
+
+    match /rewardRedemptions/{redemptionId} {
+      allow create: if hasRole('client')
+        && request.resource.data.clientId == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'clientId',
+          'rewardId',
+          'rewardName',
+          'partnerName',
+          'pointsCost',
+          'status',
+          'voucherCode',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.rewardId == 'earrings-demo'
+        && request.resource.data.rewardName == 'Par de brincos Glow'
+        && request.resource.data.partnerName == 'Parceira Bella Acessórios'
+        && request.resource.data.pointsCost == 10
+        && request.resource.data.status == 'reserved'
+        && request.resource.data.voucherCode is string
+        && request.resource.data.voucherCode.size() >= 8
+        && request.resource.data.voucherCode.size() <= 24
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow read: if signedIn()
+        && (resource.data.clientId == request.auth.uid || isAdmin());
+      allow update, delete: if false;
+    }
+
+    match /professionalCredentials/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+      allow create: if isSelf(uid)
+        && hasRole('provider')
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'documents',
+          'status',
+          'updatedAt'
+        ])
+        && request.resource.data.uid == uid
+        && request.resource.data.documents is map
+        && request.resource.data.status == 'pending'
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isAdmin()
+        || isSelf(uid)
+          && hasRole('provider')
+          && request.resource.data.keys().hasOnly([
+            'uid',
+            'documents',
+            'status',
+            'updatedAt'
+          ])
+          && request.resource.data.uid == uid
+          && request.resource.data.documents is map
+          && request.resource.data.status == 'pending'
+          && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /accountDeletionRequests/{uid} {
+      function validDeletionRequest() {
+        return isSelf(uid)
+          && request.resource.data.keys().hasOnly([
+            'uid',
+            'status',
+            'requestedAt'
+          ])
+          && request.resource.data.uid == uid
+          && request.resource.data.status == 'requested'
+          && request.resource.data.requestedAt == request.time;
+      }
+
+      allow read: if isSelf(uid) || isAdmin();
+      allow create, update: if validDeletionRequest();
+      allow delete: if false;
+    }
+
+    match /reports/{reportId} {
+      allow create: if signedIn()
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'reporterId',
+          'bookingId',
+          'category',
+          'description',
+          'status',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.category in [
+          'Segurança',
+          'Conduta',
+          'Pagamento',
+          'Problema técnico',
+          'Outro'
+        ]
+        && request.resource.data.description is string
+        && request.resource.data.description.size() >= 10
+        && request.resource.data.description.size() <= 500
+        && request.resource.data.status == 'open'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow read: if isAdmin()
+        || signedIn() && resource.data.reporterId == request.auth.uid;
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'updatedAt'])
+        && request.resource.data.status in ['open', 'reviewing', 'resolved']
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
