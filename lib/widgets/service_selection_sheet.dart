@@ -190,15 +190,4 @@ class _ServiceSelectionSheetState extends State<_ServiceSelectionSheet> {
                 label: 'Continuar com o pedido',
                 icon: Icons.arrow_forward_rounded,
                 enabled: ordered.isNotEmpty,
-                onPressed: () {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => const PaymentScreen(
-        serviceName: 'Atendimento de Beleza',
-        servicePrice: 150.00,
-        providerName: 'Profissional RedGlow',
-      ),
-    ),
-  );
-},
+ onPressed: () => Navigator.of(context).pop(ordered),

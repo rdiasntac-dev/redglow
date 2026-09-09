@@ -1,5 +1,5 @@
 import 'dart:async';
-
+import 'payment_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../models/service_catalog.dart';
@@ -805,14 +805,29 @@ class _AvailableProfessionalCard extends StatelessWidget {
               photoUrl: photoUrl,
             );
         final selected = await showServiceSelectionSheet(
-          context,
-          professional: professional,
-        );
-        if (!context.mounted || selected == null) return;
-        state.selectProfessional(professional, serviceNames: selected);
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const OrderConfirmationScreen()),
-        );
+  context,
+  professional: professional,
+);
+
+if (!context.mounted || selected == null || selected.isEmpty) return;
+
+// Mantém a seleção salva no estado global do app
+state.selectProfessional(professional, serviceNames: selected);
+
+// Calcula o valor total e junta os nomes dos serviços selecionados
+final total = selected.fold<double>(0, (sum, item) => sum + item.price);
+final serviceNames = selected.map((e) => e.title).join(', ');
+
+// Navega para a tela de pagamento com os dados reais
+Navigator.of(context).push(
+  MaterialPageRoute(
+    builder: (context) => PaymentScreen(
+      serviceName: serviceNames,
+      servicePrice: total,
+      providerName: professional.name,
+    ),
+  ),
+);
       },
       padding: const EdgeInsets.all(10),
       child: Row(
