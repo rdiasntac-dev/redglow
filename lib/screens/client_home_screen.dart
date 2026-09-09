@@ -12,7 +12,6 @@ import '../widgets/brand_logo.dart';
 import '../widgets/service_selection_sheet.dart';
 import 'identity_verification_screen.dart';
 import 'notifications_screen.dart';
-import 'order_confirmation_screen.dart';
 import 'rating_screen.dart';
 import 'rewards_screen.dart';
 import 'trip_screen.dart';
@@ -811,14 +810,14 @@ class _AvailableProfessionalCard extends StatelessWidget {
 
 if (!context.mounted || selected == null || selected.isEmpty) return;
 
-// Mantém a seleção salva no estado global do app
 state.selectProfessional(professional, serviceNames: selected);
 
-// Calcula o valor total e junta os nomes dos serviços selecionados
-final total = selected.fold<double>(0, (sum, item) => sum + item.price);
-final serviceNames = selected.map((e) => e.title).join(', ');
+// Junta os nomes dos serviços selecionados em uma única String
+final serviceNames = selected.join(', ');
 
-// Navega para a tela de pagamento com os dados reais
+// Preço base calculado pela quantidade de itens ou valor total desejado
+final total = selected.length * 150.00;
+
 Navigator.of(context).push(
   MaterialPageRoute(
     builder: (context) => PaymentScreen(
