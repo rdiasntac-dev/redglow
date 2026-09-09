@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../screens/payment_screen.dart';
+
 import '../models/service_catalog.dart';
 import '../services/firebase_marketplace_service.dart';
 import '../theme/app_theme.dart';
@@ -190,4 +190,11 @@ class _ServiceSelectionSheetState extends State<_ServiceSelectionSheet> {
                 label: 'Continuar com o pedido',
                 icon: Icons.arrow_forward_rounded,
                 enabled: ordered.isNotEmpty,
- onPressed: () => Navigator.of(context).pop(ordered),
+onPressed: () => Navigator.of(context).pop(ordered),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
