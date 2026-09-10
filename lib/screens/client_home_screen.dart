@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'payment_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../models/service_catalog.dart';
@@ -58,8 +57,7 @@ class HomeScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(14, 8, 14, 26),
           children: [
             _HomeHeader(state: state),
-            if (state.backendError != null) ...[
-              const SizedBox(height: 10),
+            if (state.backendError != null) ...[\n              const SizedBox(height: 10),
               _ClientSyncAlert(state: state),
             ],
             const SizedBox(height: 14),
@@ -77,8 +75,7 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 9),
             const _PartnerCarousel(),
             const SizedBox(height: 20),
-            if (showContinueSection) ...[
-              const SectionTitle(title: 'Continuar agora'),
+            if (showContinueSection) ...[\n              const SectionTitle(title: 'Continuar agora'),
               const SizedBox(height: 9),
               if (canTrack)
                 _ActionCard(
@@ -100,8 +97,7 @@ class HomeScreen extends StatelessWidget {
                   status: 'ATIVO',
                   onTap: onBookings ?? () {},
                 ),
-              if (canReview) ...[
-                if (hasActiveBooking || canTrack) const SizedBox(height: 10),
+              if (canReview) ...[\n                if (hasActiveBooking || canTrack) const SizedBox(height: 10),
                 _ActionCard(
                   icon: Icons.star_outline_rounded,
                   color: AppColors.yellow,
@@ -122,8 +118,7 @@ class HomeScreen extends StatelessWidget {
                   },
                 ),
               ],
-              if (!state.identityVerified) ...[
-                if (hasActiveBooking || canReview) const SizedBox(height: 10),
+              if (!state.identityVerified) ...[\n                if (hasActiveBooking || canReview) const SizedBox(height: 10),
                 _ActionCard(
                   key: const Key('identity-check-entry'),
                   icon: Icons.verified_user_outlined,
@@ -804,30 +799,24 @@ class _AvailableProfessionalCard extends StatelessWidget {
               isOnline: true,
               photoUrl: photoUrl,
             );
+        
+        // Show service selection sheet
         final selected = await showServiceSelectionSheet(
-  context,
-  professional: professional,
-);
+          context,
+          professional: professional,
+        );
 
-if (!context.mounted || selected == null || selected.isEmpty) return;
+        if (!context.mounted || selected == null || selected.isEmpty) return;
 
-// Mantém a seleção salva no estado global do app
-state.selectProfessional(professional, serviceNames: selected);
+        // Save professional and selected services to state
+        state.selectProfessional(professional, serviceNames: selected);
 
-// Calcula o valor total e junta os nomes dos serviços selecionados
-final total = selected.fold<double>(0, (sum, item) => sum + item.price);
-final serviceNames = selected.map((e) => e.title).join(', ');
-
-// Navega para a tela de pagamento com os dados reais
-Navigator.of(context).push(
-  MaterialPageRoute(
-    builder: (context) => PaymentScreen(
-      serviceName: serviceNames,
-      servicePrice: total,
-      providerName: professional.name,
-    ),
-  ),
-);
+        // Navigate directly to OrderConfirmationScreen (no PaymentScreen in between)
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => const OrderConfirmationScreen(),
+          ),
+        );
       },
       padding: const EdgeInsets.all(10),
       child: Row(
