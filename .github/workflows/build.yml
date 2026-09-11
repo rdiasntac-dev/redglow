@@ -1,0 +1,35 @@
+﻿name: Build & Test REDGLOW
+
+on:
+  push:
+    branches:
+      - 'fix/payment-flow-architecture'
+      - 'main'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+      - run: flutter pub get
+      - run: flutter analyze --no-pub
+
+  build-apk:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/fix/payment-flow-architecture'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+      - run: flutter pub get
+      - run: flutter build apk --release --split-per-abi
+      - uses: actions/upload-artifact@v3
+        with:
+          name: redglow-release-apk
+          path: build/app/outputs/flutter-apk/
+          retention-days: 30
