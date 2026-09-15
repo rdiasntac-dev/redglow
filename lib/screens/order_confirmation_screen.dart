@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/service_catalog.dart';
 import '../services/device_location_service.dart';
+import '../services/payment_service.dart';
 import '../state/demo_app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
@@ -17,8 +18,10 @@ class OrderConfirmationScreen extends StatefulWidget {
 }
 
 class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
+  static const _paymentProvider = MockPaymentProvider();
+
   bool _confirmed = false;
-  String _paymentMethod = 'Pix';
+  PaymentMethod _paymentMethod = PaymentMethod.pix;
 
   Future<void> _handleConfirm() async {
     if (_confirmed) {
@@ -27,8 +30,23 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
     }
 
     final state = DemoAppScope.of(context, listen: false);
+    final payment = await _paymentProvider.authorize(
+      PaymentRequest(
+        method: _paymentMethod,
+        amountCents: state.selectedPriceCents,
+        providerName: state.providerName,
+        serviceNames: state.selectedServices,
+      ),
+    );
+    if (!mounted) return;
+    if (!payment.approved) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(payment.summary)),
+      );
+      return;
+    }
     final requested = await state.requestBooking(
-      paymentMethod: _paymentMethod,
+      paymentMethod: _paymentMethod.label,
     );
     if (!mounted) return;
     if (!requested) {
@@ -45,9 +63,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          state.isDemoSession
-              ? 'Solicitação demonstrativa enviada. Aguarde o aceite de ${state.providerName}.'
-              : 'Solicitação enviada sem cobrança. Aguarde o aceite de ${state.providerName}.',
+          payment.summary,
         ),
       ),
     );
@@ -71,14 +87,14 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
               ),
               const SizedBox(height: 6),
               const Text(
-                'O beta registra apenas a preferência. Nenhum pagamento é processado.',
+                'Escolha o método. O checkout roda em DEMO e não processa dinheiro real.',
                 style: TextStyle(
                   fontSize: 9,
                   color: AppColors.textSecondary,
                 ),
               ),
               const SizedBox(height: 10),
-              RadioGroup<String>(
+              RadioGroup<PaymentMethod>(
                 groupValue: _paymentMethod,
                 onChanged: (value) {
                   if (value == null) return;
@@ -88,11 +104,15 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    for (final payment in const ['Pix', 'Cartão', 'Dinheiro'])
-                      RadioListTile<String>(
+                    for (final payment in PaymentMethod.values)
+                      RadioListTile<PaymentMethod>(
                         value: payment,
                         activeColor: AppColors.primary,
-                        title: Text(payment),
+                        title: Text(payment.label),
+                        subtitle: Text(
+                          payment.demoHint,
+                          style: const TextStyle(fontSize: 8),
+                        ),
                       ),
                   ],
                 ),
@@ -154,7 +174,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen> {
                   child: _OrderSheet(
                     confirmed: _confirmed,
                     isDemo: state.isDemoSession,
-                    paymentMethod: _paymentMethod,
+                    paymentMethod: _paymentMethod.label,
                     providerName: state.providerName,
                     providerCode: state.selectedProviderCode,
                     providerSpecialty: state.providerSpecialty,
