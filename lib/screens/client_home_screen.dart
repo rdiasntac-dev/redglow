@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'payment_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../models/service_catalog.dart';
@@ -18,11 +17,7 @@ import 'rewards_screen.dart';
 import 'trip_screen.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({
-    super.key,
-    this.onExplore,
-    this.onBookings,
-  });
+  const HomeScreen({super.key, this.onExplore, this.onBookings});
 
   final VoidCallback? onExplore;
   final VoidCallback? onBookings;
@@ -37,13 +32,12 @@ class HomeScreen extends StatelessWidget {
     final ratingBooking = state.pendingRatings.isNotEmpty
         ? state.pendingRatings.first
         : state.isDemoSession &&
-                state.bookingStatus == DemoBookingStatus.completed
-            ? state.currentBooking
-            : null;
-    final canReview =
-        state.isDemoSession
-            ? state.bookingStatus == DemoBookingStatus.completed
-            : ratingBooking != null;
+              state.bookingStatus == DemoBookingStatus.completed
+        ? state.currentBooking
+        : null;
+    final canReview = state.isDemoSession
+        ? state.bookingStatus == DemoBookingStatus.completed
+        : ratingBooking != null;
     final hasActiveBooking = state.isDemoSession
         ? state.hasActiveBooking
         : state.visibleActiveBookings.isNotEmpty;
@@ -87,9 +81,9 @@ class HomeScreen extends StatelessWidget {
                   title: 'Acompanhar atendimento',
                   subtitle: state.bookingStatus.label,
                   status: 'EM ANDAMENTO',
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const TripScreen()),
-                  ),
+                  onTap: () => Navigator.of(
+                    context,
+                  ).push(MaterialPageRoute(builder: (_) => const TripScreen())),
                 )
               else if (hasActiveBooking)
                 _ActionCard(
@@ -114,9 +108,8 @@ class HomeScreen extends StatelessWidget {
                     }
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => RatingScreen(
-                          bookingId: ratingBooking?.id,
-                        ),
+                        builder: (_) =>
+                            RatingScreen(bookingId: ratingBooking?.id),
                       ),
                     );
                   },
@@ -282,9 +275,9 @@ class _PointsCard extends StatelessWidget {
   final int points;
 
   String get formattedPoints => points.toString().replaceAllMapped(
-        RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-        (match) => '${match[1]}.',
-      );
+    RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+    (match) => '${match[1]}.',
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -359,7 +352,10 @@ class _PointsCard extends StatelessWidget {
                     ),
                     Text(
                       '10 pts',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ],
                 ),
@@ -513,21 +509,24 @@ class _PartnerCarouselState extends State<_PartnerCarousel> {
     _PartnerCampaign(
       eyebrow: 'PROGRAMA DE PARCEIROS',
       title: 'Sua marca dentro do REDGLOW',
-      description: 'Espaço rotativo para marcas ligadas a unhas, maquiagem, cílios e sobrancelhas.',
+      description:
+          'Espaço rotativo para marcas ligadas a unhas, maquiagem, cílios e sobrancelhas.',
       icon: Icons.campaign_outlined,
       colors: [Color(0xFFC22A9F), Color(0xFF6428A3)],
     ),
     _PartnerCampaign(
       eyebrow: 'REDGLOW PONTOS',
       title: 'Produtos que viram recompensas',
-      description: 'Parceiros poderão oferecer itens para troca usando os pontos conquistados pelas clientes.',
+      description:
+          'Parceiros poderão oferecer itens para troca usando os pontos conquistados pelas clientes.',
       icon: Icons.redeem_rounded,
       colors: [Color(0xFF7B35C8), Color(0xFF3A2B85)],
     ),
     _PartnerCampaign(
       eyebrow: 'BETA SÃO JOSÉ DOS PINHAIS',
       title: 'Vitrine local e segmentada',
-      description: 'Campanhas voltadas somente ao público e às profissionais do nicho REDGLOW.',
+      description:
+          'Campanhas voltadas somente ao público e às profissionais do nicho REDGLOW.',
       icon: Icons.storefront_outlined,
       colors: [Color(0xFFB62E70), Color(0xFF65284F)],
     ),
@@ -649,9 +648,7 @@ class _PartnerCarouselState extends State<_PartnerCarousel> {
               height: 6,
               margin: const EdgeInsets.symmetric(horizontal: 3),
               decoration: BoxDecoration(
-                color: index == _page
-                    ? AppColors.primary
-                    : AppColors.textMuted,
+                color: index == _page ? AppColors.primary : AppColors.textMuted,
                 borderRadius: BorderRadius.circular(99),
               ),
             ),
@@ -721,10 +718,7 @@ class _ActionCard extends StatelessWidget {
           ),
           StatusPill(label: status, color: color),
           const SizedBox(width: 5),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: AppColors.textMuted,
-          ),
+          const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
         ],
       ),
     );
@@ -791,7 +785,8 @@ class _AvailableProfessionalCard extends StatelessWidget {
 
     return GlowCard(
       onTap: () async {
-        final professional = realProfessional ??
+        final professional =
+            realProfessional ??
             MarketplaceProfessional(
               uid: 'demo-lari',
               name: name,
@@ -804,30 +799,24 @@ class _AvailableProfessionalCard extends StatelessWidget {
               isOnline: true,
               photoUrl: photoUrl,
             );
+
+        // Show service selection sheet
         final selected = await showServiceSelectionSheet(
-  context,
-  professional: professional,
-);
+          context,
+          professional: professional,
+        );
 
-if (!context.mounted || selected == null || selected.isEmpty) return;
+        if (!context.mounted || selected == null || selected.isEmpty) return;
 
-// Mantém a seleção salva no estado global do app
-state.selectProfessional(professional, serviceNames: selected);
+        // Save professional and selected services to state
+        state.selectProfessional(professional, serviceNames: selected);
 
-// Calcula o valor total e junta os nomes dos serviços selecionados
-final total = selected.fold<double>(0, (sum, item) => sum + item.price);
-final serviceNames = selected.map((e) => e.title).join(', ');
-
-// Navega para a tela de pagamento com os dados reais
-Navigator.of(context).push(
-  MaterialPageRoute(
-    builder: (context) => PaymentScreen(
-      serviceName: serviceNames,
-      servicePrice: total,
-      providerName: professional.name,
-    ),
-  ),
-);
+        // Navigate directly to OrderConfirmationScreen (no PaymentScreen in between)
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => const OrderConfirmationScreen(),
+          ),
+        );
       },
       padding: const EdgeInsets.all(10),
       child: Row(
@@ -886,10 +875,7 @@ Navigator.of(context).push(
                 ),
               ),
               const SizedBox(height: 7),
-              const StatusPill(
-                label: 'DISPONÍVEL',
-                color: AppColors.green,
-              ),
+              const StatusPill(label: 'DISPONÍVEL', color: AppColors.green),
             ],
           ),
         ],
